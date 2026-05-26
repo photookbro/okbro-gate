@@ -1,13 +1,11 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
-  const router = useRouter()
 
   async function handleLogin() {
     if (!email.trim()) return
@@ -23,6 +21,13 @@ export default function LoginPage() {
       setSent(true)
       setLoading(false)
     }
+  }
+
+  async function handleGoogleLogin() {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` }
+    })
   }
 
   return (
@@ -64,9 +69,20 @@ export default function LoginPage() {
                 background: 'var(--accent)', color: 'white', border: 'none',
                 fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer',
                 opacity: loading ? 0.7 : 1,
+                marginBottom: '0.75rem',
               }}
             >
               {loading ? '전송 중...' : '📧 이메일로 로그인'}
+            </button>
+            <button
+              onClick={handleGoogleLogin}
+              style={{
+                width: '100%', padding: '12px', borderRadius: '8px',
+                background: 'white', color: '#333', border: '1px solid var(--border)',
+                fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer',
+              }}
+            >
+              🔵 구글 로그인
             </button>
           </>
         )}
