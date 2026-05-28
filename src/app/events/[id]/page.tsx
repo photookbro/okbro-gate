@@ -19,11 +19,33 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   async function handleSearch() {
     if (!query.trim()) return
     const field = searchType === 'bib' ? 'bib_number' : 'participant_name'
-    const { data } = await supabase
-      .from('photos')
-      .select('*')
-      .eq('event_id', id)
-      .ilike(field, `%${query.trim()}%`)
+    let data: any[] = []
+if (searchType === 'bib') {
+  const bibNum = parseInt(query.trim())
+  const tolerance = 100
+  const { data: exact } = await supabase
+    .from('photos')
+    .select('*')
+    .eq('event_id', id)
+    .eq('bib_number', query.trim())
+  
+  const { data: similar } = await supabase
+    .from('photos')
+    .select('*')
+    .eq('event_id', id)
+    .neq('bib_number', query.trim())
+    .gte('bib_number', String(bibNum - tolerance))
+    .lte('bib_number', String(bibNum + tolerance))
+
+  data = [...(exact ?? []), ...(similar ?? [])]
+} else {
+  const { data: nameData } = await supabase
+    .from('photos')
+    .select('*')
+    .eq('event_id', id)
+    .ilike('participant_name', `%${query.trim()}%`)
+  data = nameData ?? []
+}
     setResults(data ?? [])
     setSearched(true)
   }

@@ -44,7 +44,7 @@ async function ocrImage(fileId: string): Promise<string> {
       },
       body: JSON.stringify({
         image: uint8Array,
-        prompt: '이 이미지에서 마라톤 또는 사이클 대회 배번호 숫자만 답해줘. 숫자만.',
+        prompt: 'Look at the race bib number in this image. Read only the digits on the bib number tag worn by the athlete. Reply with only the number, nothing else.',
         max_tokens: 50,
       }),
     }
