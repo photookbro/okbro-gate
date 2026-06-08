@@ -1,35 +1,36 @@
-# 오켱사진링크게이트
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-마라톤·그란폰도 대회 사진 — 과일 구매 인증 후 원본 다운로드
+## Getting Started
 
-## 현재 상태: 1단계 뼈대 완성 (목업 데이터)
+First, run the development server:
 
-### 완성된 페이지
-| 경로 | 설명 |
-|------|------|
-| `/` | 홈 랜딩 |
-| `/events` | 대회 목록 |
-| `/events/[id]` | 대회 상세 + 배번호/이름 검색 |
-| `/photos/[id]` | 사진 상세 + 주문번호 인증 + 다운로드 |
-
-### 다음 단계 (순서대로)
-- [ ] **2단계**: Supabase 연결 (실제 DB)
-- [ ] **3단계**: 구글 OAuth 로그인
-- [ ] **4단계**: 구글 드라이브 연동 (원본 다운로드)
-- [ ] **5단계**: 주문번호 인증 API
-- [ ] **6단계**: 얼굴인식 (Phase 2)
-- [ ] **7단계**: GPS/Strava 매칭 (Phase 2)
-
-## 로컬 실행
 ```bash
-cp .env.local.example .env.local
-# .env.local 값 채우기
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-## 기술 스택
-- Next.js 15 (App Router)
-- Tailwind CSS
-- Supabase (DB + Auth)
-- Google OAuth (NextAuth)
-- Google Drive API
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

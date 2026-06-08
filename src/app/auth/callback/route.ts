@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const error = requestUrl.searchParams.get('error')
 
   if (error) {
-    return NextResponse.redirect(new URL(`/login?error=${error}`, request.url))
+    return NextResponse.redirect(new URL(`/?error=${error}`, request.url))
   }
 
   if (code) {
@@ -30,13 +30,15 @@ export async function GET(request: NextRequest) {
       }
     )
 
-    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-    
+    const { error: exchangeError } =
+      await supabase.auth.exchangeCodeForSession(code)
+
     if (exchangeError) {
-      console.error('Exchange error:', exchangeError)
-      return NextResponse.redirect(new URL('/login?error=exchange_failed', request.url))
+      return NextResponse.redirect(
+        new URL('/?error=exchange_failed', request.url)
+      )
     }
   }
 
-  return NextResponse.redirect(new URL('/events', request.url))
+  return NextResponse.redirect(new URL('/', request.url))
 }
