@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { formatVerificationDate, type VerificationInfo } from '@/lib/order-verification'
-import { dismissAppInstallBanner, isAppInstallBannerDismissed } from '@/components/app-install-banner'
+import {
+  APP_INSTALL_URL,
+  dismissAppInstallBanner,
+  isAppInstallBannerDismissed,
+} from '@/components/app-install-banner'
 
 type AlbumAccessModalProps = {
   visible: boolean
@@ -37,6 +41,9 @@ export function AlbumAccessModal({
     onClose()
   }
 
+  const isValid = verification.status === 'valid'
+  const isExpired = verification.status === 'expired'
+
   return (
     <div
       style={{
@@ -63,7 +70,7 @@ export function AlbumAccessModal({
         }}
         onClick={e => e.stopPropagation()}
       >
-        {verification?.verified_at && verification?.expires_at && (
+        {isValid && verification?.verified_at && verification?.expires_at && (
           <div
             style={{
               marginBottom: '1rem',
@@ -81,6 +88,57 @@ export function AlbumAccessModal({
             {formatVerificationDate(verification.expires_at)}
           </div>
         )}
+
+        {isExpired && (
+          <div
+            style={{
+              marginBottom: '1rem',
+              padding: '0.75rem 1rem',
+              borderRadius: '8px',
+              backgroundColor: '#fffbeb',
+              border: '1px solid #fde68a',
+              color: '#92400e',
+              fontSize: '0.85rem',
+              lineHeight: 1.5,
+            }}
+          >
+            ⚠️ 인증이 만료됐어요. 새 주문번호로 다시 인증해주세요.
+          </div>
+        )}
+
+        <div
+          style={{
+            marginBottom: '1rem',
+            padding: '1rem',
+            borderRadius: '8px',
+            backgroundColor: '#faf5ff',
+            border: '1px solid #e9d5ff',
+          }}
+        >
+          <p
+            style={{
+              color: '#6b21a8',
+              fontSize: '0.9rem',
+              fontWeight: 700,
+              lineHeight: 1.5,
+              margin: '0 0 0.5rem',
+            }}
+          >
+            🎨 인증 완료 기념으로 사진 1장을 무료로 보정해드려요!
+          </p>
+          <p style={{ color: '#7e22ce', fontSize: '0.85rem', lineHeight: 1.5, margin: 0 }}>
+            원하는 사진 1장을 고르신 후 인스타그램{' '}
+            <a
+              href="https://instagram.com/photo_ok_bro"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#6b21a8', fontWeight: 600 }}
+            >
+              @photo_ok_bro
+            </a>
+            로 DM 보내주세요.
+          </p>
+        </div>
 
         {showAppSection && (
           <div
@@ -101,8 +159,9 @@ export function AlbumAccessModal({
             </p>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <a
-                href="#"
-                onClick={e => e.preventDefault()}
+                href={APP_INSTALL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{
                   flex: 1,
                   padding: '10px 14px',
