@@ -1,7 +1,23 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+function shouldSkipMiddleware(pathname: string): boolean {
+  return (
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/_next') ||
+    pathname === '/favicon.ico' ||
+    /\.[^/]+$/.test(pathname)
+  )
+}
+
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  if (shouldSkipMiddleware(pathname)) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -32,6 +48,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|admin(?:/|$)|api/admin|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

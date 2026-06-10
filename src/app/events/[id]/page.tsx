@@ -4,6 +4,8 @@ import { useState, useEffect, use } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import type { VerificationInfo } from '@/lib/order-verification'
+import { AlbumAccessModal } from '@/components/album-access-modal'
 
 type Event = {
   id: string
@@ -19,8 +21,9 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const supabase = createClient()
   const [event, setEvent] = useState<Event | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
-  const [isVerified, setIsVerified] = useState(false)
+  const [verification, setVerification] = useState<VerificationInfo>({ status: 'none' })
   const [verificationChecked, setVerificationChecked] = useState(false)
+  const [showAlbumModal, setShowAlbumModal] = useState(false)
 
   useEffect(() => {
     supabase
@@ -43,25 +46,30 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => {
     if (!userId) {
-      setIsVerified(false)
+      setVerification({ status: 'none' })
       setVerificationChecked(true)
       return
     }
 
     setVerificationChecked(false)
-    supabase
-      .from('orders')
-      .select('id')
-      .eq('user_id', userId)
-      .limit(1)
-      .then(({ data }) => {
-        setIsVerified(!!data?.length)
+    fetch('/api/verify-order/status')
+      .then(async res => {
+        const data = await res.json()
+        if (!res.ok || !data?.status) {
+          setVerification({ status: 'none' })
+          return
+        }
+        setVerification(data as VerificationInfo)
+      })
+      .catch(() => {
+        setVerification({ status: 'none' })
+      })
+      .finally(() => {
         setVerificationChecked(true)
       })
   }, [userId])
 
   function handleAlbumA() {
-    console.log('event.album_a_url:', event?.album_a_url)
     if (!event?.album_a_url) return
     window.open(event.album_a_url, '_blank', 'noopener,noreferrer')
   }
@@ -69,12 +77,14 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   function handleAlbumB() {
     if (!event?.album_b_url || !verificationChecked) return
 
-    if (!userId || !isVerified) {
-      router.push(`/verify-order?eventId=${id}`)
+    if (!userId || verification.status !== 'valid') {
+      if (id) {
+        router.push(`/verify-order?eventId=${id}`)
+      }
       return
     }
 
-    window.open(event.album_b_url, '_blank', 'noopener,noreferrer')
+    setShowAlbumModal(true)
   }
 
   if (!event) {
@@ -84,6 +94,9 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       </div>
     )
   }
+
+  const isValid = verification.status === 'valid'
+  const isExpired = verification.status === 'expired'
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '2rem' }}>
@@ -132,14 +145,26 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             >
               ⭐ 고화질 다운로드
             </button>
-            {event.album_b_url && verificationChecked && !isVerified && (
+
+            {event.album_b_url && verificationChecked && !isValid && (
               <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.5rem', textAlign: 'center' }}>
-                ⭐ 고화질은 과일 구매 인증 후 이용 가능해요
+                {isExpired
+                  ? '⚠️ 인증이 만료됐어요. 새 주문번호로 다시 인증해주세요.'
+                  : '⭐ 고화질은 과일 구매 인증 후 이용 가능해요'}
               </p>
             )}
           </div>
         </div>
       </div>
+
+      {event.album_b_url && (
+        <AlbumAccessModal
+          visible={showAlbumModal}
+          onClose={() => setShowAlbumModal(false)}
+          verification={verification}
+          albumBUrl={event.album_b_url}
+        />
+      )}
     </div>
   )
 }

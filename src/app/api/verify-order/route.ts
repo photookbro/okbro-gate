@@ -5,7 +5,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 const NAVER_ORDER_PATTERN = /^\d{4}-\d{8}-\d{8}$/
 
-function parseOrderDate(orderNumber: string): Date | null {
+function parseOrderDate(orderNumber: string | null | undefined): Date | null {
+  if (!orderNumber) return null
+
   const match = orderNumber.match(/^(\d{4})-(\d{8})-(\d{8})$/)
   if (!match) return null
 
