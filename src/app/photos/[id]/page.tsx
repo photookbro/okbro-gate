@@ -2,10 +2,15 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { use } from 'react'
+import type { Photo } from '@/types'
+
+type PhotoWithEvent = Photo & {
+  events: { name: string } | null
+}
 
 export default function PhotoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const [photo, setPhoto] = useState<any>(null)
+  const [photo, setPhoto] = useState<PhotoWithEvent | null>(null)
   const [platform, setPlatform] = useState<'naver' | 'coupang'>('naver')
   const [orderNumber, setOrderNumber] = useState('')
   const [status, setStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle')
