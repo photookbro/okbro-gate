@@ -19,6 +19,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const supabase = createClient()
   const [event, setEvent] = useState<Event | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
+  const [isVerified, setIsVerified] = useState(false)
+  const [verificationChecked, setVerificationChecked] = useState(false)
 
   useEffect(() => {
     supabase
@@ -39,6 +41,25 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     return () => subscription.unsubscribe()
   }, [id])
 
+  useEffect(() => {
+    if (!userId) {
+      setIsVerified(false)
+      setVerificationChecked(true)
+      return
+    }
+
+    setVerificationChecked(false)
+    supabase
+      .from('orders')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1)
+      .then(({ data }) => {
+        setIsVerified(!!data?.length)
+        setVerificationChecked(true)
+      })
+  }, [userId])
+
   function handleAlbumA() {
     console.log('event.album_a_url:', event?.album_a_url)
     if (!event?.album_a_url) return
@@ -46,12 +67,13 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   function handleAlbumB() {
-    console.log('event.album_b_url:', event?.album_b_url)
-    if (!userId) {
+    if (!event?.album_b_url || !verificationChecked) return
+
+    if (!userId || !isVerified) {
       router.push(`/verify-order?eventId=${id}`)
       return
     }
-    if (!event?.album_b_url) return
+
     window.open(event.album_b_url, '_blank', 'noopener,noreferrer')
   }
 
@@ -94,21 +116,28 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             📸 사진 보기 (무료)
           </button>
 
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={handleAlbumB}
-            disabled={!event.album_b_url}
-            style={{
-              width: '100%',
-              padding: '14px',
-              fontSize: '1rem',
-              cursor: event.album_b_url ? 'pointer' : 'not-allowed',
-              opacity: event.album_b_url ? 1 : 0.5,
-            }}
-          >
-            ⭐ 고화질 다운로드
-          </button>
+          <div>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={handleAlbumB}
+              disabled={!event.album_b_url || (!!userId && !verificationChecked)}
+              style={{
+                width: '100%',
+                padding: '14px',
+                fontSize: '1rem',
+                cursor: event.album_b_url ? 'pointer' : 'not-allowed',
+                opacity: event.album_b_url ? 1 : 0.5,
+              }}
+            >
+              ⭐ 고화질 다운로드
+            </button>
+            {event.album_b_url && verificationChecked && !isVerified && (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.5rem', textAlign: 'center' }}>
+                ⭐ 고화질은 과일 구매 인증 후 이용 가능해요
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>

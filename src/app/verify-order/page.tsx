@@ -86,72 +86,125 @@ function VerifyOrderContent() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '2rem' }}>
-      <div style={{ maxWidth: '480px', margin: '0 auto' }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        backgroundColor: '#f3f4f6',
+        padding: '2rem 1rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: '420px' }}>
         <Link
           href={`/events/${eventId}`}
-          style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textDecoration: 'none' }}
+          style={{
+            display: 'inline-block',
+            color: '#6b7280',
+            fontSize: '0.85rem',
+            textDecoration: 'none',
+            marginBottom: '1rem',
+          }}
         >
           ← 대회로 돌아가기
         </Link>
 
-        <h1 style={{ fontSize: '1.4rem', fontWeight: 700, margin: '1rem 0 0.5rem' }}>
-          주문 인증
-        </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-          네이버 주문번호 또는 공동 인증번호를 입력해주세요
-        </p>
-
-        <form onSubmit={handleSubmit} className="card" style={{ padding: '1.25rem' }}>
-          <label
-            htmlFor="order-input"
-            style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}
-          >
-            네이버 주문번호 / 공동 인증번호
-          </label>
-          <input
-            id="order-input"
-            value={orderInput}
-            onChange={e => setOrderInput(e.target.value)}
-            placeholder="2024-XXXXXXXX-XXXXXXXX"
-            autoComplete="off"
-            style={{
-              width: '100%',
-              padding: '10px 14px',
-              borderRadius: '8px',
-              border: `1px solid ${errorMsg ? 'var(--accent)' : 'var(--border)'}`,
-              background: 'var(--bg)',
-              color: 'var(--text)',
-              fontSize: '0.95rem',
-              outline: 'none',
-              marginBottom: '0.75rem',
-            }}
-          />
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '1rem' }}>
-            네이버 주문번호 형식: 2024-XXXXXXXX-XXXXXXXX
-          </p>
-
-          {errorMsg && (
-            <p style={{ color: 'var(--accent)', fontSize: '0.8rem', marginBottom: '0.75rem' }}>
-              {errorMsg}
+        <div
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '12px',
+            border: '1px solid #e5e7eb',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.06)',
+            padding: '1.75rem',
+          }}
+        >
+          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🛒</div>
+            <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: '#111827', margin: '0 0 0.5rem' }}>
+              주문 인증
+            </h1>
+            <p style={{ color: '#6b7280', fontSize: '0.85rem', margin: 0, lineHeight: 1.5 }}>
+              네이버 주문번호 또는 공동 인증번호를 입력해주세요
             </p>
-          )}
+          </div>
 
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '12px',
-              fontSize: '0.95rem',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
-            {loading ? '인증 중...' : '인증하기'}
-          </button>
-        </form>
+          <form onSubmit={handleSubmit}>
+            <label
+              htmlFor="order-input"
+              style={{
+                display: 'block',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#374151',
+                marginBottom: '0.5rem',
+              }}
+            >
+              네이버 주문번호 / 공동 인증번호
+            </label>
+            <input
+              id="order-input"
+              type="text"
+              value={orderInput}
+              onChange={e => setOrderInput(e.target.value)}
+              placeholder="2024-XXXXXXXX-XXXXXXXX"
+              autoComplete="off"
+              style={{
+                display: 'block',
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '12px 14px',
+                borderRadius: '8px',
+                border: `1px solid ${errorMsg ? '#ef4444' : '#d1d5db'}`,
+                backgroundColor: '#ffffff',
+                color: '#111827',
+                fontSize: '0.95rem',
+                lineHeight: '1.5',
+                outline: 'none',
+                marginBottom: '0.5rem',
+              }}
+            />
+            <p style={{ color: '#9ca3af', fontSize: '0.75rem', margin: '0 0 1rem', lineHeight: 1.4 }}>
+              네이버 주문번호 형식: 2024-XXXXXXXX-XXXXXXXX
+            </p>
+
+            {errorMsg && (
+              <p
+                style={{
+                  color: '#ef4444',
+                  fontSize: '0.8rem',
+                  margin: '0 0 1rem',
+                  padding: '0.5rem 0.75rem',
+                  backgroundColor: '#fef2f2',
+                  borderRadius: '6px',
+                  border: '1px solid #fecaca',
+                }}
+              >
+                {errorMsg}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                display: 'block',
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '12px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: loading ? '#9ca3af' : '#2563eb',
+                color: '#ffffff',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {loading ? '인증 중...' : '인증하기'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   )

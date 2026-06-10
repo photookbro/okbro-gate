@@ -81,7 +81,14 @@ export async function POST(req: NextRequest) {
   const verifiedPeriodMonths = Number(settingsMap.verified_period_months)
 
   const isSharedOrder =
-    !!sharedOrderNumber && trimmedOrderNumber === sharedOrderNumber
+    !!sharedOrderNumber &&
+    trimmedOrderNumber.toLowerCase() === sharedOrderNumber.toLowerCase()
+
+  console.log('[verify-order]', {
+    order_number: trimmedOrderNumber,
+    sharedOrderNumber,
+    isSharedOrder,
+  })
 
   if (!isSharedOrder) {
     if (!NAVER_ORDER_PATTERN.test(trimmedOrderNumber)) {
