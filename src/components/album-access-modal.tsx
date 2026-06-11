@@ -106,40 +106,6 @@ export function AlbumAccessModal({
           </div>
         )}
 
-        <div
-          style={{
-            marginBottom: '1rem',
-            padding: '1rem',
-            borderRadius: '8px',
-            backgroundColor: '#faf5ff',
-            border: '1px solid #e9d5ff',
-          }}
-        >
-          <p
-            style={{
-              color: '#6b21a8',
-              fontSize: '0.9rem',
-              fontWeight: 700,
-              lineHeight: 1.5,
-              margin: '0 0 0.5rem',
-            }}
-          >
-            🎨 인증 완료 기념으로 사진 1장을 무료로 보정해드려요!
-          </p>
-          <p style={{ color: '#7e22ce', fontSize: '0.85rem', lineHeight: 1.5, margin: 0 }}>
-            원하는 사진 1장을 고르신 후 인스타그램{' '}
-            <a
-              href="https://instagram.com/photo_ok_bro"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#6b21a8', fontWeight: 600 }}
-            >
-              @photo_ok_bro
-            </a>
-            로 DM 보내주세요.
-          </p>
-        </div>
-
         {showAppSection && (
           <div
             style={{

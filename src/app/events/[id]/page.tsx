@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { VerificationInfo } from '@/lib/order-verification'
 import { AlbumAccessModal } from '@/components/album-access-modal'
+import { TermsAgreement } from '@/components/terms-agreement'
+import { hasTermsAgreed } from '@/lib/terms-agreement'
 
 type Event = {
   id: string
@@ -24,6 +26,13 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [verification, setVerification] = useState<VerificationInfo>({ status: 'none' })
   const [verificationChecked, setVerificationChecked] = useState(false)
   const [showAlbumModal, setShowAlbumModal] = useState(false)
+  const [termsReady, setTermsReady] = useState(false)
+  const [termsAgreed, setTermsAgreed] = useState(false)
+
+  useEffect(() => {
+    setTermsAgreed(hasTermsAgreed())
+    setTermsReady(true)
+  }, [])
 
   useEffect(() => {
     supabase
@@ -77,21 +86,30 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   function handleAlbumB() {
     if (!event?.album_b_url || !verificationChecked) return
 
-    if (!userId || verification.status !== 'valid') {
-      if (id) {
-        router.push(`/verify-order?eventId=${id}`)
-      }
+    if (verification.status === 'valid') {
+      setShowAlbumModal(true)
       return
     }
 
-    setShowAlbumModal(true)
+    router.push(`/verify-order?eventId=${id}`)
   }
 
-  if (!event) {
+  if (!termsReady || !event) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={{ color: 'var(--text-muted)' }}>로딩 중...</p>
       </div>
+    )
+  }
+
+  if (!termsAgreed) {
+    return (
+      <TermsAgreement
+        visible
+        mode="page"
+        onComplete={() => setTermsAgreed(true)}
+        onClose={() => router.push('/events')}
+      />
     )
   }
 
@@ -126,7 +144,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               opacity: event.album_a_url ? 1 : 0.5,
             }}
           >
-            📸 사진 보기 (무료)
+            📸 사진 보기 (저화소 + 워터마크)
           </button>
 
           <div>
@@ -143,7 +161,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                 opacity: event.album_b_url ? 1 : 0.5,
               }}
             >
-              ⭐ 고화질 다운로드
+              ⬇️ 고화질 다운로드
             </button>
 
             {event.album_b_url && verificationChecked && !isValid && (
@@ -157,7 +175,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
-      {event.album_b_url && (
+      {event.album_b_url && isValid && (
         <AlbumAccessModal
           visible={showAlbumModal}
           onClose={() => setShowAlbumModal(false)}

@@ -78,13 +78,25 @@ function VerifyOrderContent() {
         body: JSON.stringify({
           order_number: orderInput.trim(),
           platform: 'naver',
+          event_id: eventId,
         }),
       })
 
       const data = await res.json()
 
       if (data.success) {
-        router.push(`/events/${eventId}`)
+        const statusRes = await fetch('/api/verify-order/status')
+        const statusData = await statusRes.json()
+        if (statusRes.ok && statusData?.status) {
+          setVerification(statusData as VerificationInfo)
+        }
+        setLoading(false)
+        setOrderInput('')
+        if (albumBUrl) {
+          setShowAlbumModal(true)
+        } else {
+          router.push(`/events/${eventId}`)
+        }
       } else {
         setErrorMsg(data.error ?? '인증 실패')
         setLoading(false)

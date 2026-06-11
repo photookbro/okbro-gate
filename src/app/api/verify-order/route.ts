@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getAuthenticatedUser } from '@/lib/auth-server'
+import {
+  addMonths,
+  calculateNewExpiresAt,
+} from '@/lib/order-verification'
 
 const NAVER_ORDER_PATTERN = /^\d{4}-\d{8}-\d{8}$/
 
@@ -35,35 +38,22 @@ function isWithinVerifiedPeriod(orderDate: Date, months: number): boolean {
   return orderDate >= cutoff
 }
 
+function formatDbError(error: { message?: string; code?: string; details?: string | null }) {
+  return {
+    message: error.message ?? 'Unknown error',
+    code: error.code ?? null,
+    details: error.details ?? null,
+  }
+}
+
 export async function POST(req: NextRequest) {
-  const { order_number, platform } = await req.json()
+  const { order_number, platform, event_id } = await req.json()
 
   if (!order_number?.trim() || !platform) {
     return NextResponse.json({ error: '필수 값이 없어요' }, { status: 400 })
   }
 
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options)
-          })
-        },
-      },
-    }
-  )
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const user = await getAuthenticatedUser()
   if (!user) {
     return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
   }
@@ -85,12 +75,6 @@ export async function POST(req: NextRequest) {
   const isSharedOrder =
     !!sharedOrderNumber &&
     trimmedOrderNumber.toLowerCase() === sharedOrderNumber.toLowerCase()
-
-  console.log('[verify-order]', {
-    order_number: trimmedOrderNumber,
-    sharedOrderNumber,
-    isSharedOrder,
-  })
 
   if (!isSharedOrder) {
     if (!NAVER_ORDER_PATTERN.test(trimmedOrderNumber)) {
@@ -138,16 +122,89 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, already_verified: true })
   }
 
+  if (!Number.isFinite(verifiedPeriodMonths) || verifiedPeriodMonths <= 0) {
+    return NextResponse.json({ error: '인증 기간 설정을 확인할 수 없어요' }, { status: 500 })
+  }
+
+  const { data: userLatestOrder, error: latestOrderError } = await admin
+    .from('orders')
+    .select('expires_at, used_at')
+    .eq('user_id', user.id)
+    .order('expires_at', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (latestOrderError && latestOrderError.code === 'PGRST204') {
+    const dbError = formatDbError(latestOrderError)
+    console.error('[verify-order] orders schema missing columns:', dbError)
+    return NextResponse.json(
+      {
+        error:
+          'orders 테이블에 expires_at 컬럼이 없어요. Supabase SQL Editor에서 마이그레이션 SQL을 실행해주세요.',
+        db_error: dbError,
+      },
+      { status: 500 }
+    )
+  }
+
+  const now = new Date()
+  let previousExpires: Date | null = null
+
+  if (userLatestOrder?.expires_at) {
+    previousExpires = new Date(userLatestOrder.expires_at)
+  } else if (userLatestOrder?.used_at) {
+    previousExpires = addMonths(new Date(userLatestOrder.used_at), verifiedPeriodMonths)
+  }
+
+  const expiresAt = calculateNewExpiresAt(
+    previousExpires && !Number.isNaN(previousExpires.getTime()) ? previousExpires : null,
+    verifiedPeriodMonths,
+    now
+  )
+
   const { error } = await admin.from('orders').insert({
     user_id: user.id,
     order_number: trimmedOrderNumber,
     platform,
-    used_at: new Date().toISOString(),
+    used_at: now.toISOString(),
+    expires_at: expiresAt.toISOString(),
+    event_id: event_id || null,
   })
 
   if (error) {
-    return NextResponse.json({ error: '저장 실패' }, { status: 500 })
+    const dbError = formatDbError(error)
+    console.error('[verify-order] insert failed:', dbError)
+
+    if (error.code === 'PGRST204') {
+      return NextResponse.json(
+        {
+          error:
+            'orders 테이블 스키마가 맞지 않아요. expires_at / event_id 컬럼 마이그레이션이 필요합니다.',
+          db_error: dbError,
+        },
+        { status: 500 }
+      )
+    }
+
+    if (error.code === '23503') {
+      return NextResponse.json(
+        {
+          error: '유저 정보가 DB에 없어요. users 테이블과 auth.users 연동을 확인해주세요.',
+          db_error: dbError,
+        },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json(
+      { error: '저장 실패', db_error: dbError },
+      { status: 500 }
+    )
   }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({
+    success: true,
+    extended: !!previousExpires,
+    expires_at: expiresAt.toISOString(),
+  })
 }

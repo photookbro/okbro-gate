@@ -11,7 +11,11 @@ create table orders (
   user_id uuid references users(id),
   order_number text unique,
   platform text,
-  used_at timestamptz default now()
+  used_at timestamptz default now(),
+  created_at timestamptz default now(),
+  expires_at timestamptz,
+  event_id uuid references events(id),
+  expiry_notified_at timestamptz
 );
 
 create table events (
@@ -30,3 +34,49 @@ create table downloads (
   photo_id text,
   downloaded_at timestamptz default now()
 );
+
+create table terms_agreements (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  agreed_at timestamptz default now(),
+  ip_address text,
+  user_agent text,
+  version text not null default 'v1'
+);
+
+-- 기존 DB 마이그레이션
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS expires_at timestamptz;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS event_id uuid references events(id);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS expiry_notified_at timestamptz;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_at timestamptz default now();
+
+UPDATE orders
+SET expires_at = used_at + interval '6 months'
+WHERE expires_at IS NULL AND used_at IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS terms_agreements (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  agreed_at timestamptz DEFAULT now(),
+  ip_address text,
+  user_agent text,
+  version text DEFAULT 'v1'
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS terms_agreements_user_version_idx
+  ON terms_agreements (user_id, version);
+
+ALTER TABLE terms_agreements ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can insert own terms agreement" ON terms_agreements;
+CREATE POLICY "Users can insert own terms agreement"
+  ON terms_agreements FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can read own terms agreement" ON terms_agreements;
+CREATE POLICY "Users can read own terms agreement"
+  ON terms_agreements FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+GRANT SELECT, INSERT ON terms_agreements TO authenticated;
+GRANT ALL ON terms_agreements TO service_role;

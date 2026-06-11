@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useAdminToken } from './admin-auth-context'
+import { formatVerificationDate } from '@/lib/order-verification'
 
 type Event = {
   id: string
@@ -23,6 +24,61 @@ const emptyForm: EventForm = {
   date: '',
   album_a_url: '',
   album_b_url: '',
+}
+
+type MonitorStatus = 'active' | 'expired' | 'expiring_soon'
+
+type MonitorUser = {
+  id: string
+  email: string
+  order_number: string
+  platform: string
+  event_name?: string
+  verified_at: string | null
+  expires_at: string | null
+  days_remaining?: number
+  status: MonitorStatus
+  notification_sent?: boolean
+}
+
+type MonitorSummary = {
+  total_verified_users: number
+  active_users: number
+  expiring_soon_users: number
+  total_terms_agreed_users: number
+}
+
+type TermsAgreementRow = {
+  id: string
+  email: string
+  agreed_at: string | null
+  version: string
+  ip_address: string
+}
+
+const TAB_LABELS = {
+  events: '대회 관리',
+  settings: '설정 관리',
+  monitoring: '모니터링',
+} as const
+
+const STATUS_LABELS: Record<MonitorStatus, string> = {
+  active: '활성',
+  expiring_soon: '임박',
+  expired: '만료',
+}
+
+function formatDateTime(date: string | null | undefined): string {
+  if (!date) return '-'
+  const d = new Date(date)
+  if (Number.isNaN(d.getTime())) return '-'
+  return d.toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 const inputStyle: React.CSSProperties = {
@@ -51,7 +107,7 @@ const btnStyle = (variant: 'primary' | 'secondary' | 'danger' = 'primary'): Reac
 
 export default function AdminPage() {
   const token = useAdminToken()
-  const [tab, setTab] = useState<'events' | 'settings'>('events')
+  const [tab, setTab] = useState<'events' | 'settings' | 'monitoring'>('events')
   const [events, setEvents] = useState<Event[]>([])
   const [loadingEvents, setLoadingEvents] = useState(true)
   const [eventError, setEventError] = useState('')
@@ -67,6 +123,14 @@ export default function AdminPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<EventForm>(emptyForm)
   const [savingEvent, setSavingEvent] = useState(false)
+
+  const [monitorSummary, setMonitorSummary] = useState<MonitorSummary | null>(null)
+  const [monitorUsers, setMonitorUsers] = useState<MonitorUser[]>([])
+  const [monitorExpiringSoon, setMonitorExpiringSoon] = useState<MonitorUser[]>([])
+  const [termsAgreements, setTermsAgreements] = useState<TermsAgreementRow[]>([])
+  const [loadingMonitoring, setLoadingMonitoring] = useState(false)
+  const [monitoringError, setMonitoringError] = useState('')
+  const [notifyingOrderId, setNotifyingOrderId] = useState<string | null>(null)
 
   const adminFetch = useCallback(
     (url: string, options: RequestInit = {}) =>
@@ -110,10 +174,62 @@ export default function AdminPage() {
     setLoadingSettings(false)
   }, [adminFetch])
 
+  const loadMonitoring = useCallback(async () => {
+    setLoadingMonitoring(true)
+    setMonitoringError('')
+    const res = await adminFetch('/api/admin/monitoring')
+    const data = await res.json()
+    if (!res.ok) {
+      setMonitoringError(data.error ?? '모니터링 데이터를 불러오지 못했어요')
+      setLoadingMonitoring(false)
+      return
+    }
+    setMonitorSummary(data.summary ?? null)
+    setMonitorUsers(data.users ?? [])
+    setMonitorExpiringSoon(data.expiring_soon ?? [])
+    setTermsAgreements(data.terms_agreements ?? [])
+    setLoadingMonitoring(false)
+  }, [adminFetch])
+
+  async function handleNotifyExpiry(orderId: string) {
+    setNotifyingOrderId(orderId)
+    setMonitoringError('')
+
+    const res = await adminFetch('/api/admin/monitoring/notify', {
+      method: 'POST',
+      body: JSON.stringify({ order_id: orderId }),
+    })
+    const data = await res.json()
+
+    setNotifyingOrderId(null)
+
+    if (!res.ok) {
+      setMonitoringError(data.error ?? '알림 발송 실패')
+      return
+    }
+
+    setMonitorExpiringSoon(prev =>
+      prev.map(row =>
+        row.id === orderId ? { ...row, notification_sent: true } : row
+      )
+    )
+    setMonitorUsers(prev =>
+      prev.map(row =>
+        row.id === orderId ? { ...row, notification_sent: true } : row
+      )
+    )
+  }
+
   useEffect(() => {
     loadEvents()
     loadSettings()
   }, [loadEvents, loadSettings])
+
+  useEffect(() => {
+    if (tab === 'monitoring') {
+      loadMonitoring()
+    }
+  }, [tab, loadMonitoring])
 
   function openAddModal() {
     setEditingId(null)
@@ -206,7 +322,7 @@ export default function AdminPage() {
       </h1>
 
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-        {(['events', 'settings'] as const).map(key => (
+        {(Object.keys(TAB_LABELS) as Array<keyof typeof TAB_LABELS>).map(key => (
           <button
             key={key}
             type="button"
@@ -216,7 +332,7 @@ export default function AdminPage() {
               padding: '10px 18px',
             }}
           >
-            {key === 'events' ? '대회 관리' : '설정 관리'}
+            {TAB_LABELS[key]}
           </button>
         ))}
       </div>
@@ -347,6 +463,238 @@ export default function AdminPage() {
                   {savingSettings ? '저장 중...' : '저장'}
                 </button>
               </form>
+            )}
+          </>
+        )}
+
+        {tab === 'monitoring' && (
+          <>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', margin: '0 0 1rem' }}>모니터링</h2>
+
+            {monitoringError && (
+              <p style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: '1rem' }}>{monitoringError}</p>
+            )}
+
+            {loadingMonitoring ? (
+              <p style={{ color: '#6b7280' }}>로딩 중...</p>
+            ) : (
+              <>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                    gap: '1rem',
+                    marginBottom: '1.5rem',
+                  }}
+                >
+                  {[
+                    { label: '총 인증 유저 수', value: monitorSummary?.total_verified_users ?? 0 },
+                    { label: '현재 활성 유저 수', value: monitorSummary?.active_users ?? 0 },
+                    { label: '만료 임박 유저 수 (30일 이내)', value: monitorSummary?.expiring_soon_users ?? 0 },
+                    { label: '총 약관 동의 유저 수', value: monitorSummary?.total_terms_agreed_users ?? 0 },
+                  ].map(card => (
+                    <div
+                      key={card.label}
+                      style={{
+                        padding: '1rem',
+                        borderRadius: '10px',
+                        border: '1px solid #e5e7eb',
+                        backgroundColor: '#f9fafb',
+                      }}
+                    >
+                      <p style={{ margin: '0 0 0.35rem', fontSize: '0.8rem', color: '#6b7280' }}>{card.label}</p>
+                      <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#111827' }}>{card.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div
+                  style={{
+                    marginBottom: '1.5rem',
+                    padding: '1rem',
+                    borderRadius: '10px',
+                    border: '1px solid #e5e7eb',
+                    backgroundColor: '#ffffff',
+                  }}
+                >
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#111827', margin: '0 0 0.75rem' }}>
+                    약관 동의 현황 ({termsAgreements.length}건)
+                  </h3>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                          {['이메일', '동의일시', '버전', 'IP'].map(col => (
+                            <th
+                              key={col}
+                              style={{
+                                padding: '8px 10px',
+                                textAlign: 'left',
+                                fontWeight: 600,
+                                color: '#374151',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {col}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {termsAgreements.map(row => (
+                          <tr key={row.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                            <td style={{ padding: '8px 10px', color: '#111827' }}>{row.email}</td>
+                            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#6b7280' }}>
+                              {formatDateTime(row.agreed_at)}
+                            </td>
+                            <td style={{ padding: '8px 10px', color: '#6b7280' }}>{row.version}</td>
+                            <td style={{ padding: '8px 10px', color: '#6b7280', fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                              {row.ip_address}
+                            </td>
+                          </tr>
+                        ))}
+                        {termsAgreements.length === 0 && (
+                          <tr>
+                            <td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
+                              약관 동의 기록이 없어요
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {monitorExpiringSoon.length > 0 && (
+                  <div
+                    style={{
+                      marginBottom: '1.5rem',
+                      padding: '1rem',
+                      borderRadius: '10px',
+                      border: '1px solid #fde68a',
+                      backgroundColor: '#fffbeb',
+                    }}
+                  >
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#92400e', margin: '0 0 0.75rem' }}>
+                      만료 30일 이내 ({monitorExpiringSoon.length}명)
+                    </h3>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid #fde68a' }}>
+                            {['이메일', '대회', '만료일', '남은 기간', '알림'].map(col => (
+                              <th
+                                key={col}
+                                style={{
+                                  padding: '8px 10px',
+                                  textAlign: 'left',
+                                  fontWeight: 600,
+                                  color: '#92400e',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {col}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {monitorExpiringSoon.map(user => (
+                            <tr key={user.id} style={{ borderBottom: '1px solid #fef3c7' }}>
+                              <td style={{ padding: '8px 10px', color: '#78350f' }}>{user.email}</td>
+                              <td style={{ padding: '8px 10px', color: '#78350f' }}>{user.event_name ?? '-'}</td>
+                              <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#78350f' }}>
+                                {formatVerificationDate(user.expires_at)}
+                              </td>
+                              <td style={{ padding: '8px 10px', color: '#78350f' }}>
+                                {user.days_remaining ?? 0}일
+                              </td>
+                              <td style={{ padding: '8px 10px' }}>
+                                {user.notification_sent ? (
+                                  <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '0.8rem' }}>
+                                    발송 완료
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={notifyingOrderId === user.id}
+                                    onClick={() => handleNotifyExpiry(user.id)}
+                                    style={{
+                                      ...btnStyle('primary'),
+                                      padding: '6px 10px',
+                                      fontSize: '0.8rem',
+                                      opacity: notifyingOrderId === user.id ? 0.6 : 1,
+                                    }}
+                                  >
+                                    {notifyingOrderId === user.id ? '발송 중...' : '알림 발송'}
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                        {['이메일', '주문번호', '플랫폼', '인증일', '만료일', '상태'].map(col => (
+                          <th
+                            key={col}
+                            style={{
+                              padding: '10px 12px',
+                              textAlign: 'left',
+                              fontWeight: 600,
+                              color: '#374151',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {col}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monitorUsers.map(user => {
+                        const rowStyle: React.CSSProperties =
+                          user.status === 'expiring_soon'
+                            ? { backgroundColor: '#fffbeb' }
+                            : user.status === 'expired'
+                              ? { backgroundColor: '#f9fafb', color: '#9ca3af' }
+                              : {}
+
+                        return (
+                          <tr key={user.id} style={{ borderBottom: '1px solid #f3f4f6', ...rowStyle }}>
+                            <td style={{ padding: '10px 12px' }}>{user.email}</td>
+                            <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{user.order_number}</td>
+                            <td style={{ padding: '10px 12px' }}>{user.platform}</td>
+                            <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                              {formatVerificationDate(user.verified_at)}
+                            </td>
+                            <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                              {formatVerificationDate(user.expires_at)}
+                            </td>
+                            <td style={{ padding: '10px 12px', fontWeight: 600 }}>
+                              {STATUS_LABELS[user.status]}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                      {monitorUsers.length === 0 && (
+                        <tr>
+                          <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
+                            인증 기록이 없어요
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </>
         )}
