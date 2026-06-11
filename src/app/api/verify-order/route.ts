@@ -64,17 +64,20 @@ export async function POST(req: NextRequest) {
   const { data: settings } = await admin
     .from('settings')
     .select('key, value')
-    .in('key', ['shared_order_number', 'verified_period_months'])
+    .in('key', ['shared_order_number', 'verified_period_months', 'shared_order_period_months'])
 
   const settingsMap = Object.fromEntries(
     (settings ?? []).map(({ key, value }) => [key, value])
   )
   const sharedOrderNumber = settingsMap.shared_order_number?.trim()
   const verifiedPeriodMonths = Number(settingsMap.verified_period_months)
+  const sharedOrderPeriodMonths = Number(settingsMap.shared_order_period_months ?? 1)
 
   const isSharedOrder =
     !!sharedOrderNumber &&
     trimmedOrderNumber.toLowerCase() === sharedOrderNumber.toLowerCase()
+
+  const periodMonths = isSharedOrder ? sharedOrderPeriodMonths : verifiedPeriodMonths
 
   if (!isSharedOrder) {
     if (!NAVER_ORDER_PATTERN.test(trimmedOrderNumber)) {
@@ -122,8 +125,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, already_verified: true })
   }
 
-  if (!Number.isFinite(verifiedPeriodMonths) || verifiedPeriodMonths <= 0) {
-    return NextResponse.json({ error: '인증 기간 설정을 확인할 수 없어요' }, { status: 500 })
+  if (!Number.isFinite(periodMonths) || periodMonths <= 0) {
+    return NextResponse.json(
+      {
+        error: isSharedOrder
+          ? '공동 인증번호 유효기간 설정을 확인할 수 없어요'
+          : '구매 인증 유효기간 설정을 확인할 수 없어요',
+      },
+      { status: 500 }
+    )
   }
 
   const { data: userLatestOrder, error: latestOrderError } = await admin
@@ -153,12 +163,12 @@ export async function POST(req: NextRequest) {
   if (userLatestOrder?.expires_at) {
     previousExpires = new Date(userLatestOrder.expires_at)
   } else if (userLatestOrder?.used_at) {
-    previousExpires = addMonths(new Date(userLatestOrder.used_at), verifiedPeriodMonths)
+    previousExpires = addMonths(new Date(userLatestOrder.used_at), periodMonths)
   }
 
   const expiresAt = calculateNewExpiresAt(
     previousExpires && !Number.isNaN(previousExpires.getTime()) ? previousExpires : null,
-    verifiedPeriodMonths,
+    periodMonths,
     now
   )
 

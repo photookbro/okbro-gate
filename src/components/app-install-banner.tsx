@@ -1,23 +1,12 @@
 'use client'
 
-export const APP_BANNER_DISMISS_KEY = 'app_banner_dismissed'
 export const APP_INSTALL_URL = 'https://okbro-gate.vercel.app'
 
-export function isAppInstallBannerDismissed(): boolean {
-  if (typeof window === 'undefined') return false
-  return sessionStorage.getItem(APP_BANNER_DISMISS_KEY) === '1'
-}
-
-export function dismissAppInstallBanner(): void {
-  sessionStorage.setItem(APP_BANNER_DISMISS_KEY, '1')
-}
-
 type AppInstallBannerProps = {
-  visible: boolean
-  onDismiss: () => void
+  visible?: boolean
 }
 
-export function AppInstallBanner({ visible, onDismiss }: AppInstallBannerProps) {
+export function AppInstallBanner({ visible = true }: AppInstallBannerProps) {
   if (!visible) return null
 
   return (
@@ -50,45 +39,28 @@ export function AppInstallBanner({ visible, onDismiss }: AppInstallBannerProps) 
           <br />
           지금 인증으로 6개월간 무료로 사용할 수 있어요!
         </p>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <a
-            href={APP_INSTALL_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              flex: 1,
-              padding: '10px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: '#2563eb',
-              color: '#ffffff',
-              fontSize: '0.9rem',
-              fontWeight: 600,
-              textAlign: 'center',
-              textDecoration: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            앱 설치하기
-          </a>
-          <button
-            type="button"
-            onClick={onDismiss}
-            style={{
-              flex: 1,
-              padding: '10px 14px',
-              borderRadius: '8px',
-              border: '1px solid #d1d5db',
-              backgroundColor: '#ffffff',
-              color: '#374151',
-              fontSize: '0.9rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            나중에
-          </button>
-        </div>
+        <a
+          href={APP_INSTALL_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'block',
+            width: '100%',
+            boxSizing: 'border-box',
+            padding: '10px 14px',
+            borderRadius: '8px',
+            border: 'none',
+            backgroundColor: '#2563eb',
+            color: '#ffffff',
+            fontSize: '0.9rem',
+            fontWeight: 600,
+            textAlign: 'center',
+            textDecoration: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          앱 설치하기
+        </a>
       </div>
     </div>
   )

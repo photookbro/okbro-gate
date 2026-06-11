@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
 
-const SETTING_KEYS = ['shared_order_number', 'verified_period_months'] as const
+const SETTING_KEYS = [
+  'shared_order_number',
+  'verified_period_months',
+  'shared_order_period_months',
+] as const
 
 export async function GET(req: NextRequest) {
   if (!verifyAdminToken(req)) return unauthorizedResponse()
@@ -20,6 +24,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     shared_order_number: settingsMap.shared_order_number ?? '',
+    shared_order_period_months: settingsMap.shared_order_period_months ?? '1',
     verified_period_months: settingsMap.verified_period_months ?? '',
   })
 }
@@ -27,21 +32,31 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   if (!verifyAdminToken(req)) return unauthorizedResponse()
 
-  const { shared_order_number, verified_period_months } = await req.json()
+  const { shared_order_number, verified_period_months, shared_order_period_months } =
+    await req.json()
 
   if (!shared_order_number?.trim()) {
     return NextResponse.json({ error: '공동 인증번호는 필수예요' }, { status: 400 })
   }
 
-  const months = Number(verified_period_months)
-  if (!Number.isFinite(months) || months <= 0) {
-    return NextResponse.json({ error: '인증 기간(개월)이 올바르지 않아요' }, { status: 400 })
+  const purchaseMonths = Number(verified_period_months)
+  if (!Number.isFinite(purchaseMonths) || purchaseMonths <= 0) {
+    return NextResponse.json({ error: '구매 인증 유효기간(개월)이 올바르지 않아요' }, { status: 400 })
+  }
+
+  const sharedMonths = Number(shared_order_period_months)
+  if (!Number.isFinite(sharedMonths) || sharedMonths <= 0) {
+    return NextResponse.json(
+      { error: '공동 인증번호 유효기간(개월)이 올바르지 않아요' },
+      { status: 400 }
+    )
   }
 
   const admin = supabaseAdmin()
   const rows = [
     { key: 'shared_order_number', value: shared_order_number.trim() },
-    { key: 'verified_period_months', value: String(months) },
+    { key: 'verified_period_months', value: String(purchaseMonths) },
+    { key: 'shared_order_period_months', value: String(sharedMonths) },
   ]
 
   const { error } = await admin.from('settings').upsert(rows, { onConflict: 'key' })
@@ -52,6 +67,7 @@ export async function PUT(req: NextRequest) {
 
   return NextResponse.json({
     shared_order_number: shared_order_number.trim(),
-    verified_period_months: String(months),
+    shared_order_period_months: String(sharedMonths),
+    verified_period_months: String(purchaseMonths),
   })
 }

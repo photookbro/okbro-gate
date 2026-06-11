@@ -113,6 +113,7 @@ export default function AdminPage() {
   const [eventError, setEventError] = useState('')
 
   const [sharedOrderNumber, setSharedOrderNumber] = useState('')
+  const [sharedOrderPeriodMonths, setSharedOrderPeriodMonths] = useState('')
   const [verifiedPeriodMonths, setVerifiedPeriodMonths] = useState('')
   const [loadingSettings, setLoadingSettings] = useState(true)
   const [settingsError, setSettingsError] = useState('')
@@ -170,6 +171,7 @@ export default function AdminPage() {
       return
     }
     setSharedOrderNumber(data.shared_order_number ?? '')
+    setSharedOrderPeriodMonths(data.shared_order_period_months ?? '1')
     setVerifiedPeriodMonths(data.verified_period_months ?? '')
     setLoadingSettings(false)
   }, [adminFetch])
@@ -298,6 +300,7 @@ export default function AdminPage() {
       method: 'PUT',
       body: JSON.stringify({
         shared_order_number: sharedOrderNumber,
+        shared_order_period_months: sharedOrderPeriodMonths,
         verified_period_months: verifiedPeriodMonths,
       }),
     })
@@ -310,6 +313,7 @@ export default function AdminPage() {
     }
 
     setSharedOrderNumber(data.shared_order_number ?? '')
+    setSharedOrderPeriodMonths(data.shared_order_period_months ?? '1')
     setVerifiedPeriodMonths(data.verified_period_months ?? '')
     setSettingsMsg('저장되었어요')
     setSavingSettings(false)
@@ -441,7 +445,19 @@ export default function AdminPage() {
                 </label>
                 <label style={{ display: 'block', marginBottom: '1rem' }}>
                   <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' }}>
-                    인증 기간 (verified_period_months, 개월)
+                    공동 인증번호 유효기간 (shared_order_period_months, 개월)
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={sharedOrderPeriodMonths}
+                    onChange={e => setSharedOrderPeriodMonths(e.target.value)}
+                    style={inputStyle}
+                  />
+                </label>
+                <label style={{ display: 'block', marginBottom: '1rem' }}>
+                  <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' }}>
+                    구매 인증 유효기간 (verified_period_months, 개월)
                   </span>
                   <input
                     type="number"

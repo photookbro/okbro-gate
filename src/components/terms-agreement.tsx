@@ -16,6 +16,7 @@ type SectionConfig = {
   checkboxLabel: string
   checked: boolean
   onChange: (checked: boolean) => void
+  warningBox?: string
 }
 
 const sectionBoxStyle: React.CSSProperties = {
@@ -85,8 +86,9 @@ export function TermsAgreement({
   const sections: SectionConfig[] = [
     {
       title: '📌 꼭 지켜주세요',
+      warningBox:
+        '🚨 앨범 링크 공유는 엄격히 금지됩니다! 링크를 타인에게 전달하다 적발될 경우 모든 책임은 전달자에게 있으며, 서비스 이용이 즉시 차단됩니다.',
       items: [
-        '원칙적으로 촬영되신 분들의 사생활을 지키기 위해, 또 저작권 관련해서, 링크 자체를 복사해서 전달하는 것은 금지하고 있습니다.',
         '다른 분 사진을 다운로드하는 것도 안됩니다.',
         '모두가 안전하게 사진을 이용할 수 있도록 하기 위한 조치입니다.',
         '앨범 링크 무한 전달은 누구나 접근 가능하지만, 사진이 무단으로 사용될 위험이 있습니다.',
@@ -149,6 +151,29 @@ export function TermsAgreement({
           <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#111827', margin: '0 0 0.5rem' }}>
             {section.title}
           </h3>
+          {section.warningBox && (
+            <div
+              style={{
+                marginBottom: '0.75rem',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '2px solid #dc2626',
+                backgroundColor: '#fef2f2',
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  color: '#991b1b',
+                  fontSize: '1.125rem',
+                  fontWeight: 700,
+                  lineHeight: 1.5,
+                }}
+              >
+                {section.warningBox}
+              </p>
+            </div>
+          )}
           <ul
             style={{
               margin: 0,

@@ -80,3 +80,6 @@ CREATE POLICY "Users can read own terms agreement"
 
 GRANT SELECT, INSERT ON terms_agreements TO authenticated;
 GRANT ALL ON terms_agreements TO service_role;
+
+INSERT INTO settings (key, value) VALUES ('shared_order_period_months', '1')
+ON CONFLICT (key) DO NOTHING;
