@@ -161,7 +161,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                 opacity: event.album_b_url ? 1 : 0.5,
               }}
             >
-              ⬇️ 고화질 다운로드
+              고화질 사진 다운로드 (아래에 촬영시각을 앱 푸시로 받으셨다면)
             </button>
 
             {event.album_b_url && verificationChecked && !isValid && (

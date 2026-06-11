@@ -276,9 +276,6 @@ function VerifyOrderContent() {
                   marginBottom: '0.5rem',
                 }}
               />
-              <p style={{ color: '#9ca3af', fontSize: '0.75rem', margin: '0 0 1rem', lineHeight: 1.4 }}>
-                네이버 주문번호 형식: 2024-XXXXXXXX-XXXXXXXX
-              </p>
 
               {errorMsg && (
                 <p
