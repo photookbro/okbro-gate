@@ -250,6 +250,15 @@ body {
   @apply w-full shrink-0 sm:w-auto sm:min-w-[140px];
 }
 
+/* GPS hint infographic */
+.gps-hint-copy {
+  @apply mb-4 text-base font-semibold leading-relaxed text-[var(--text)];
+}
+
+.gps-hint-infographic-wrap {
+  @apply mb-6 rounded-xl border border-primary/20 bg-[var(--accent-dim)] px-3 py-4 sm:px-4;
+}
+
 /* Toggle switch */
 .toggle-row {
   @apply flex items-center justify-between gap-4;
@@ -269,6 +278,10 @@ body {
 
 .toggle-switch-on .toggle-switch-thumb {
   @apply translate-x-5;
+}
+
+.toggle-switch:disabled {
+  @apply cursor-not-allowed opacity-50;
 }
 
 /* Typography helpers */

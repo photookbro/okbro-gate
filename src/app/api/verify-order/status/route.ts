@@ -12,26 +12,6 @@ export async function GET(req: NextRequest) {
   const eventId = new URL(req.url).searchParams.get('event_id')
   const admin = supabaseAdmin()
 
-  if (eventId) {
-    const { data: gpsLog } = await admin
-      .from('gps_logs')
-      .select('passed_at')
-      .eq('user_id', user.id)
-      .eq('event_id', eventId)
-      .order('passed_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (gpsLog?.passed_at) {
-      const gpsAccess: VerificationInfo = {
-        status: 'valid',
-        access_source: 'gps',
-        gps_passed_at: gpsLog.passed_at,
-      }
-      return NextResponse.json(gpsAccess)
-    }
-  }
-
   const [{ data: order }, { data: settings }] = await Promise.all([
     admin
       .from('orders')
@@ -50,10 +30,40 @@ export async function GET(req: NextRequest) {
     settings?.find(s => s?.key === 'verified_period_months')?.value ?? NaN
   )
 
-  const info = getVerificationInfo(order ?? null, verifiedPeriodMonths)
-  if (info.status === 'valid') {
-    return NextResponse.json({ ...info, access_source: 'purchase' as const })
+  const purchaseInfo = getVerificationInfo(order ?? null, verifiedPeriodMonths)
+  const purchaseVerified = purchaseInfo.status === 'valid'
+
+  if (eventId) {
+    const { data: gpsLog } = await admin
+      .from('gps_logs')
+      .select('passed_at')
+      .eq('user_id', user.id)
+      .eq('event_id', eventId)
+      .order('passed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (gpsLog?.passed_at) {
+      const gpsAccess: VerificationInfo = {
+        status: 'valid',
+        access_source: 'gps',
+        gps_passed_at: gpsLog.passed_at,
+        purchase_verified: purchaseVerified,
+      }
+      return NextResponse.json(gpsAccess)
+    }
   }
 
-  return NextResponse.json(info)
+  if (purchaseInfo.status === 'valid') {
+    return NextResponse.json({
+      ...purchaseInfo,
+      access_source: 'purchase' as const,
+      purchase_verified: true,
+    })
+  }
+
+  return NextResponse.json({
+    ...purchaseInfo,
+    purchase_verified: false,
+  })
 }

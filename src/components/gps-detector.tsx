@@ -10,6 +10,8 @@ type GpsDetectorProps = {
   gpsLng: number
   gpsRadiusMeters: number
   userId: string | null
+  purchaseVerified: boolean
+  verificationChecked: boolean
 }
 
 function formatCoord(value: number): string {
@@ -23,6 +25,8 @@ export function GpsDetector({
   gpsLng,
   gpsRadiusMeters,
   userId,
+  purchaseVerified,
+  verificationChecked,
 }: GpsDetectorProps) {
   const watchIdRef = useRef<number | null>(null)
   const loggedTodayRef = useRef(false)
@@ -47,6 +51,14 @@ export function GpsDetector({
   useEffect(() => {
     return () => stopTracking()
   }, [stopTracking])
+
+  useEffect(() => {
+    if (!purchaseVerified && tracking) {
+      stopTracking()
+    }
+  }, [purchaseVerified, tracking, stopTracking])
+
+  const canUseGps = verificationChecked && !!userId && purchaseVerified
 
   useEffect(() => {
     if (!toast) return
@@ -99,10 +111,7 @@ export function GpsDetector({
   )
 
   const startTracking = useCallback(() => {
-    if (!userId) {
-      setErrorMsg('로그인 후 이용할 수 있어요')
-      return
-    }
+    if (!canUseGps) return
 
     if (!navigator.geolocation) {
       setErrorMsg('이 브라우저는 위치 서비스를 지원하지 않아요')
@@ -129,9 +138,10 @@ export function GpsDetector({
     )
 
     setTracking(true)
-  }, [userId, handlePosition, stopTracking])
+  }, [canUseGps, handlePosition, stopTracking])
 
   function handleToggle() {
+    if (!canUseGps) return
     if (tracking) {
       stopTracking()
       return
@@ -153,13 +163,23 @@ export function GpsDetector({
             type="button"
             role="switch"
             aria-checked={tracking}
+            aria-disabled={!canUseGps}
             aria-label="촬영 감지 ON/OFF"
+            disabled={!canUseGps}
             onClick={handleToggle}
             className={`toggle-switch ${tracking ? 'toggle-switch-on' : ''}`}
           >
             <span className="toggle-switch-thumb" />
           </button>
         </div>
+
+        {verificationChecked && !purchaseVerified && (
+          <p className="text-xs text-muted">과일 구매 인증 후 사용 가능합니다</p>
+        )}
+
+        {!userId && verificationChecked && (
+          <p className="text-xs text-muted">로그인 후 이용할 수 있어요</p>
+        )}
 
         {tracking && currentLat != null && currentLng != null && (
           <div className="space-y-1 text-xs leading-relaxed">

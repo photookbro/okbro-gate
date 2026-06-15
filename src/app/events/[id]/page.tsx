@@ -135,6 +135,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               gpsLng={event.gps_lng}
               gpsRadiusMeters={event.gps_radius_meters ?? 50}
               userId={userId}
+              purchaseVerified={verification.purchase_verified === true}
+              verificationChecked={verificationChecked}
             />
           )}
 
@@ -201,6 +203,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           verification={verification}
           albumBUrl={event.album_b_url}
           albumAUrl={event.album_a_url}
+          eventId={id}
         />
       )}
     </div>
