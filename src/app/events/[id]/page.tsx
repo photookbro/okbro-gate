@@ -10,6 +10,8 @@ import { TermsAgreement } from '@/components/terms-agreement'
 import { hasTermsAgreed } from '@/lib/terms-agreement'
 
 import { GpsDetector } from '@/components/gps-detector'
+import { BluetoothDetector } from '@/components/bluetooth-detector'
+import { PlatformNotice } from '@/components/platform-notice'
 
 type Event = {
   id: string
@@ -125,6 +127,22 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '2rem' }}>
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        {event.gps_enabled &&
+          event.gps_lat != null &&
+          event.gps_lng != null && (
+            <GpsDetector
+              eventId={event.id}
+              eventName={event.name}
+              gpsLat={event.gps_lat}
+              gpsLng={event.gps_lng}
+              gpsRadiusMeters={event.gps_radius_meters ?? 200}
+              userId={userId}
+            />
+          )}
+
+        <PlatformNotice />
+        <BluetoothDetector eventId={event.id} eventName={event.name} userId={userId} />
+
         <Link href="/events" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textDecoration: 'none' }}>
           ← 대회 목록
         </Link>
@@ -178,19 +196,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               </p>
             )}
           </div>
-
-          {event.gps_enabled &&
-            event.gps_lat != null &&
-            event.gps_lng != null && (
-              <GpsDetector
-                eventId={event.id}
-                eventName={event.name}
-                gpsLat={event.gps_lat}
-                gpsLng={event.gps_lng}
-                gpsRadiusMeters={event.gps_radius_meters ?? 200}
-                userId={userId}
-              />
-            )}
         </div>
       </div>
 
@@ -200,6 +205,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           onClose={() => setShowAlbumModal(false)}
           verification={verification}
           albumBUrl={event.album_b_url}
+          albumAUrl={event.album_a_url}
         />
       )}
     </div>

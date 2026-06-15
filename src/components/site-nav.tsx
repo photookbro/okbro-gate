@@ -1,12 +1,17 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
+function navLinkClass(active: boolean) {
+  return active ? 'nav-link nav-link-active' : 'nav-link'
+}
+
 export function SiteNav() {
   const router = useRouter()
+  const pathname = usePathname()
   const supabase = createClient()
   const [userId, setUserId] = useState<string | null>(null)
   const [checked, setChecked] = useState(false)
@@ -35,58 +40,31 @@ export function SiteNav() {
   if (!checked) return null
 
   return (
-    <nav
-      style={{
-        borderBottom: '1px solid #e5e7eb',
-        backgroundColor: '#ffffff',
-        padding: '0.75rem 1rem',
-      }}
-    >
-      <div
-        style={{
-          maxWidth: '1100px',
-          margin: '0 auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '1rem',
-        }}
-      >
-        <Link
-          href="/events"
-          style={{ color: '#111827', fontWeight: 700, textDecoration: 'none', fontSize: '0.95rem' }}
-        >
+    <nav className="site-nav">
+      <div className="site-nav-inner">
+        <Link href="/events" className="nav-brand">
           🏅 오켱GATE
         </Link>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <Link href="/events" style={{ color: '#6b7280', fontSize: '0.85rem', textDecoration: 'none' }}>
+        <div className="nav-links">
+          <Link href="/events" className={navLinkClass(pathname === '/events' || pathname.startsWith('/events/'))}>
             대회 목록
           </Link>
-          {userId && (
+          {userId ? (
             <>
-              <Link href="/mypage" style={{ color: '#2563eb', fontSize: '0.85rem', textDecoration: 'none', fontWeight: 600 }}>
+              <Link href="/mypage" className={navLinkClass(pathname === '/mypage')}>
                 마이페이지
               </Link>
               <button
                 type="button"
                 onClick={handleLogout}
                 disabled={loggingOut}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
-                  color: '#6b7280',
-                  fontSize: '0.85rem',
-                  cursor: loggingOut ? 'not-allowed' : 'pointer',
-                  opacity: loggingOut ? 0.6 : 1,
-                }}
+                className="nav-btn-logout"
               >
                 {loggingOut ? '로그아웃 중...' : '로그아웃'}
               </button>
             </>
-          )}
-          {!userId && (
-            <Link href="/login" style={{ color: '#6b7280', fontSize: '0.85rem', textDecoration: 'none' }}>
+          ) : (
+            <Link href="/login" className={navLinkClass(pathname === '/login')}>
               로그인
             </Link>
           )}

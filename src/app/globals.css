@@ -1,1 +1,268 @@
 @import "tailwindcss";
+
+@theme inline {
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-secondary: #6b7280;
+  --color-success: #10b981;
+  --color-success-bg: #ecfdf5;
+  --color-success-border: #a7f3d0;
+  --color-warning: #f59e0b;
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #fde68a;
+  --color-danger: #ef4444;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+  --color-text: #1f2937;
+  --color-text-muted: #6b7280;
+  --color-bg: #f3f4f6;
+  --color-surface: #ffffff;
+  --color-border: #e5e7eb;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-modal: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+:root {
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --secondary: #6b7280;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --text: #1f2937;
+  --text-muted: #6b7280;
+  --bg: #f3f4f6;
+  --bg-card: #ffffff;
+  --border: #e5e7eb;
+  --accent: var(--primary);
+  --accent-dim: #eff6ff;
+  --green: var(--success);
+}
+
+body {
+  color: var(--text);
+  background: var(--bg);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Layout */
+.page-shell {
+  @apply min-h-screen bg-[var(--bg)] px-4 py-8;
+}
+
+.page-container {
+  @apply mx-auto w-full max-w-lg;
+}
+
+.page-container-wide {
+  @apply mx-auto w-full max-w-4xl;
+}
+
+.page-container-admin {
+  @apply mx-auto w-full max-w-[1100px] px-4 py-8;
+}
+
+/* Card */
+.card {
+  @apply rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)];
+}
+
+.card-section {
+  @apply mb-4 rounded-lg border border-[var(--border)] bg-[var(--bg)] p-4 last:mb-0;
+}
+
+/* Buttons */
+.btn {
+  @apply inline-flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.btn-primary {
+  @apply inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.btn-primary-inline {
+  @apply inline-flex items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.btn-secondary {
+  @apply inline-flex w-full items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm font-semibold text-[var(--text)] transition-colors hover:bg-[var(--bg)] disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.btn-secondary-inline {
+  @apply inline-flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm font-semibold text-[var(--text)] transition-colors hover:bg-[var(--bg)] disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.btn-danger-inline {
+  @apply inline-flex items-center justify-center rounded-lg bg-danger px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.btn-row {
+  @apply flex flex-col gap-3 sm:flex-row;
+}
+
+.btn-row .btn-primary,
+.btn-row .btn-secondary {
+  @apply w-full flex-1;
+}
+
+/* Form */
+.input-field {
+  @apply block w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3.5 py-2.5 text-sm text-[var(--text)] outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20;
+}
+
+.input-field-error {
+  @apply border-danger focus:border-danger focus:ring-danger/20;
+}
+
+.label-field {
+  @apply mb-1.5 block text-sm font-semibold text-[var(--text)];
+}
+
+/* Alerts */
+.alert {
+  @apply mb-4 rounded-lg border px-4 py-3 text-sm leading-relaxed;
+}
+
+.alert-success {
+  @apply mb-4 rounded-lg border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-4 py-3 text-sm leading-relaxed text-emerald-800;
+}
+
+.alert-warning {
+  @apply mb-4 rounded-lg border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm leading-relaxed text-amber-900;
+}
+
+.alert-danger {
+  @apply mb-4 rounded-lg border border-[var(--color-danger-border)] bg-[var(--color-danger-bg)] px-4 py-3 text-sm leading-relaxed text-red-800;
+}
+
+/* Modal */
+.modal-overlay {
+  @apply fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4;
+}
+
+.modal-card {
+  @apply w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-modal)];
+}
+
+/* Navigation */
+.site-nav {
+  @apply border-b border-[var(--border)] bg-[var(--bg-card)];
+}
+
+.site-nav-inner {
+  @apply mx-auto flex max-w-[1100px] items-center justify-between gap-4 px-4 py-3;
+}
+
+.nav-brand {
+  @apply text-base font-bold text-[var(--text)] no-underline;
+}
+
+.nav-links {
+  @apply flex items-center gap-4;
+}
+
+.nav-link {
+  @apply text-sm text-[var(--text-muted)] no-underline transition-colors hover:text-[var(--text)];
+}
+
+.nav-link-active {
+  @apply font-semibold text-primary;
+}
+
+.nav-btn-logout {
+  @apply border-none bg-transparent p-0 text-sm text-[var(--text-muted)] transition-colors hover:text-danger disabled:opacity-60;
+}
+
+/* Admin */
+.admin-tabs {
+  @apply mb-6 flex flex-wrap gap-2;
+}
+
+.admin-tab {
+  @apply rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 py-2.5 text-sm font-semibold text-[var(--text-muted)] transition-colors hover:border-primary/30 hover:text-primary;
+}
+
+.admin-tab-active {
+  @apply border-primary bg-primary text-white hover:border-primary hover:text-white;
+}
+
+.admin-panel {
+  @apply rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-card)];
+}
+
+.admin-table-wrap {
+  @apply overflow-x-auto;
+}
+
+.admin-table {
+  @apply w-full border-collapse text-sm;
+}
+
+.admin-table thead tr {
+  @apply border-b border-[var(--border)] bg-[var(--bg)];
+}
+
+.admin-table th {
+  @apply whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)];
+}
+
+.admin-table tbody tr {
+  @apply border-b border-[var(--border)]/60 transition-colors hover:bg-[var(--bg)]/80;
+}
+
+.admin-table td {
+  @apply px-3 py-2.5 text-[var(--text)];
+}
+
+/* Mypage */
+.mypage-dday {
+  @apply text-5xl font-bold leading-none tracking-tight;
+}
+
+.mypage-dday-success {
+  @apply text-success;
+}
+
+.mypage-dday-warning {
+  @apply text-warning;
+}
+
+.mypage-dday-danger {
+  @apply text-danger;
+}
+
+.mypage-dday-muted {
+  @apply text-[var(--text-muted)];
+}
+
+.extend-form-row {
+  @apply flex flex-col gap-3 sm:flex-row sm:items-end;
+}
+
+.extend-form-row .input-field {
+  @apply flex-1;
+}
+
+.extend-form-row .btn-primary-inline {
+  @apply w-full shrink-0 sm:w-auto sm:min-w-[140px];
+}
+
+/* Typography helpers */
+.page-title {
+  @apply mb-1 text-2xl font-bold text-[var(--text)];
+}
+
+.page-subtitle {
+  @apply mb-6 text-sm text-[var(--text-muted)];
+}
+
+.section-title {
+  @apply mb-4 text-base font-bold text-[var(--text)];
+}
+
+.text-muted {
+  @apply text-[var(--text-muted)];
+}

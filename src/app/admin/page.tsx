@@ -93,29 +93,12 @@ function formatDateTime(date: string | null | undefined): string {
   })
 }
 
-const inputStyle: React.CSSProperties = {
-  display: 'block',
-  width: '100%',
-  boxSizing: 'border-box',
-  padding: '10px 12px',
-  borderRadius: '8px',
-  border: '1px solid #d1d5db',
-  backgroundColor: '#ffffff',
-  color: '#111827',
-  fontSize: '0.9rem',
-  outline: 'none',
-}
+const inputStyle = 'input-field'
+const labelStyle = 'label-field'
 
-const btnStyle = (variant: 'primary' | 'secondary' | 'danger' = 'primary'): React.CSSProperties => ({
-  padding: '8px 14px',
-  borderRadius: '8px',
-  border: variant === 'secondary' ? '1px solid #d1d5db' : 'none',
-  backgroundColor: variant === 'primary' ? '#2563eb' : variant === 'danger' ? '#ef4444' : '#ffffff',
-  color: variant === 'secondary' ? '#374151' : '#ffffff',
-  fontSize: '0.85rem',
-  fontWeight: 600,
-  cursor: 'pointer',
-})
+function tabClass(active: boolean) {
+  return active ? 'admin-tab admin-tab-active' : 'admin-tab'
+}
 
 export default function AdminPage() {
   const token = useAdminToken()
@@ -340,91 +323,60 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '2rem 1rem' }}>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#111827', marginBottom: '1.5rem' }}>
-        ⚙️ 관리자
-      </h1>
+    <div className="page-container-admin">
+      <h1 className="page-title mb-6">⚙️ 관리자</h1>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+      <div className="admin-tabs">
         {(Object.keys(TAB_LABELS) as Array<keyof typeof TAB_LABELS>).map(key => (
           <button
             key={key}
             type="button"
             onClick={() => setTab(key)}
-            style={{
-              ...btnStyle(tab === key ? 'primary' : 'secondary'),
-              padding: '10px 18px',
-            }}
+            className={tabClass(tab === key)}
           >
             {TAB_LABELS[key]}
           </button>
         ))}
       </div>
 
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          border: '1px solid #e5e7eb',
-          padding: '1.5rem',
-        }}
-      >
+      <div className="admin-panel">
         {tab === 'events' && (
           <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', margin: 0 }}>대회 목록</h2>
-              <button type="button" onClick={openAddModal} style={btnStyle('primary')}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="section-title mb-0">대회 목록</h2>
+              <button type="button" onClick={openAddModal} className="btn-primary-inline">
                 + 대회 추가
               </button>
             </div>
 
-            {eventError && (
-              <p style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: '1rem' }}>{eventError}</p>
-            )}
+            {eventError && <p className="alert-danger">{eventError}</p>}
 
             {loadingEvents ? (
-              <p style={{ color: '#6b7280' }}>로딩 중...</p>
+              <p className="text-muted">로딩 중...</p>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+              <div className="admin-table-wrap">
+                <table className="admin-table">
                   <thead>
-                    <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                    <tr>
                       {['id', 'name', 'date', 'album_a_url', 'album_b_url', ''].map(col => (
-                        <th
-                          key={col || 'actions'}
-                          style={{
-                            padding: '10px 12px',
-                            textAlign: 'left',
-                            fontWeight: 600,
-                            color: '#374151',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {col || '작업'}
-                        </th>
+                        <th key={col || 'actions'}>{col || '작업'}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {events.map(event => (
-                      <tr key={event.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                        <td style={{ padding: '10px 12px', color: '#6b7280', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {event.id}
-                        </td>
-                        <td style={{ padding: '10px 12px', color: '#111827', fontWeight: 500 }}>{event.name}</td>
-                        <td style={{ padding: '10px 12px', color: '#374151', whiteSpace: 'nowrap' }}>{event.date}</td>
-                        <td style={{ padding: '10px 12px', color: '#6b7280', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {event.album_a_url ?? '-'}
-                        </td>
-                        <td style={{ padding: '10px 12px', color: '#6b7280', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {event.album_b_url ?? '-'}
-                        </td>
-                        <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button type="button" onClick={() => openEditModal(event)} style={btnStyle('secondary')}>
+                      <tr key={event.id}>
+                        <td className="max-w-[120px] truncate text-muted">{event.id}</td>
+                        <td className="font-medium">{event.name}</td>
+                        <td className="whitespace-nowrap">{event.date}</td>
+                        <td className="max-w-[180px] truncate text-muted">{event.album_a_url ?? '-'}</td>
+                        <td className="max-w-[180px] truncate text-muted">{event.album_b_url ?? '-'}</td>
+                        <td className="whitespace-nowrap">
+                          <div className="flex gap-2">
+                            <button type="button" onClick={() => openEditModal(event)} className="btn-secondary-inline px-3 py-1.5 text-xs">
                               수정
                             </button>
-                            <button type="button" onClick={() => handleDeleteEvent(event.id)} style={btnStyle('danger')}>
+                            <button type="button" onClick={() => handleDeleteEvent(event.id)} className="btn-danger-inline px-3 py-1.5 text-xs">
                               삭제
                             </button>
                           </div>
@@ -433,7 +385,7 @@ export default function AdminPage() {
                     ))}
                     {events.length === 0 && (
                       <tr>
-                        <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
+                        <td colSpan={6} className="py-8 text-center text-muted">
                           등록된 대회가 없어요
                         </td>
                       </tr>
@@ -447,55 +399,45 @@ export default function AdminPage() {
 
         {tab === 'settings' && (
           <>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', margin: '0 0 1rem' }}>설정 관리</h2>
+            <h2 className="section-title">설정 관리</h2>
 
             {loadingSettings ? (
-              <p style={{ color: '#6b7280' }}>로딩 중...</p>
+              <p className="text-muted">로딩 중...</p>
             ) : (
-              <form onSubmit={handleSaveSettings} style={{ maxWidth: '480px' }}>
-                <label style={{ display: 'block', marginBottom: '1rem' }}>
-                  <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' }}>
-                    공동 인증번호 (shared_order_number)
-                  </span>
+              <form onSubmit={handleSaveSettings} className="max-w-md">
+                <label className="mb-4 block">
+                  <span className={labelStyle}>공동 인증번호 (shared_order_number)</span>
                   <input
                     value={sharedOrderNumber}
                     onChange={e => setSharedOrderNumber(e.target.value)}
-                    style={inputStyle}
+                    className={inputStyle}
                   />
                 </label>
-                <label style={{ display: 'block', marginBottom: '1rem' }}>
-                  <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' }}>
-                    공동 인증번호 유효기간 (shared_order_period_months, 개월)
-                  </span>
+                <label className="mb-4 block">
+                  <span className={labelStyle}>공동 인증번호 유효기간 (shared_order_period_months, 개월)</span>
                   <input
                     type="number"
                     min={1}
                     value={sharedOrderPeriodMonths}
                     onChange={e => setSharedOrderPeriodMonths(e.target.value)}
-                    style={inputStyle}
+                    className={inputStyle}
                   />
                 </label>
-                <label style={{ display: 'block', marginBottom: '1rem' }}>
-                  <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' }}>
-                    구매 인증 유효기간 (verified_period_months, 개월)
-                  </span>
+                <label className="mb-4 block">
+                  <span className={labelStyle}>구매 인증 유효기간 (verified_period_months, 개월)</span>
                   <input
                     type="number"
                     min={1}
                     value={verifiedPeriodMonths}
                     onChange={e => setVerifiedPeriodMonths(e.target.value)}
-                    style={inputStyle}
+                    className={inputStyle}
                   />
                 </label>
 
-                {settingsError && (
-                  <p style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: '0.75rem' }}>{settingsError}</p>
-                )}
-                {settingsMsg && (
-                  <p style={{ color: '#16a34a', fontSize: '0.85rem', marginBottom: '0.75rem' }}>{settingsMsg}</p>
-                )}
+                {settingsError && <p className="alert-danger">{settingsError}</p>}
+                {settingsMsg && <p className="alert-success">{settingsMsg}</p>}
 
-                <button type="submit" disabled={savingSettings} style={btnStyle('primary')}>
+                <button type="submit" disabled={savingSettings} className="btn-primary-inline">
                   {savingSettings ? '저장 중...' : '저장'}
                 </button>
               </form>
@@ -505,93 +447,53 @@ export default function AdminPage() {
 
         {tab === 'monitoring' && (
           <>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', margin: '0 0 1rem' }}>모니터링</h2>
+            <h2 className="section-title">모니터링</h2>
 
-            {monitoringError && (
-              <p style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: '1rem' }}>{monitoringError}</p>
-            )}
+            {monitoringError && <p className="alert-danger">{monitoringError}</p>}
 
             {loadingMonitoring ? (
-              <p style={{ color: '#6b7280' }}>로딩 중...</p>
+              <p className="text-muted">로딩 중...</p>
             ) : (
               <>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                    gap: '1rem',
-                    marginBottom: '1.5rem',
-                  }}
-                >
+                <div className="mb-6 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
                   {[
                     { label: '총 인증 유저 수', value: monitorSummary?.total_verified_users ?? 0 },
                     { label: '현재 활성 유저 수', value: monitorSummary?.active_users ?? 0 },
                     { label: '만료 임박 유저 수 (30일 이내)', value: monitorSummary?.expiring_soon_users ?? 0 },
                     { label: '총 약관 동의 유저 수', value: monitorSummary?.total_terms_agreed_users ?? 0 },
                   ].map(card => (
-                    <div
-                      key={card.label}
-                      style={{
-                        padding: '1rem',
-                        borderRadius: '10px',
-                        border: '1px solid #e5e7eb',
-                        backgroundColor: '#f9fafb',
-                      }}
-                    >
-                      <p style={{ margin: '0 0 0.35rem', fontSize: '0.8rem', color: '#6b7280' }}>{card.label}</p>
-                      <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#111827' }}>{card.value}</p>
+                    <div key={card.label} className="card-section mb-0 text-center">
+                      <p className="mb-1 text-xs text-muted">{card.label}</p>
+                      <p className="text-2xl font-bold text-[var(--text)]">{card.value}</p>
                     </div>
                   ))}
                 </div>
 
-                <div
-                  style={{
-                    marginBottom: '1.5rem',
-                    padding: '1rem',
-                    borderRadius: '10px',
-                    border: '1px solid #e5e7eb',
-                    backgroundColor: '#ffffff',
-                  }}
-                >
-                  <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#111827', margin: '0 0 0.75rem' }}>
+                <div className="card-section">
+                  <h3 className="section-title mb-3 text-sm">
                     약관 동의 현황 ({termsAgreements.length}건)
                   </h3>
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <div className="admin-table-wrap">
+                    <table className="admin-table">
                       <thead>
-                        <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                        <tr>
                           {['이메일', '동의일시', '버전', 'IP'].map(col => (
-                            <th
-                              key={col}
-                              style={{
-                                padding: '8px 10px',
-                                textAlign: 'left',
-                                fontWeight: 600,
-                                color: '#374151',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {col}
-                            </th>
+                            <th key={col}>{col}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {termsAgreements.map(row => (
-                          <tr key={row.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                            <td style={{ padding: '8px 10px', color: '#111827' }}>{row.email}</td>
-                            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#6b7280' }}>
-                              {formatDateTime(row.agreed_at)}
-                            </td>
-                            <td style={{ padding: '8px 10px', color: '#6b7280' }}>{row.version}</td>
-                            <td style={{ padding: '8px 10px', color: '#6b7280', fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                              {row.ip_address}
-                            </td>
+                          <tr key={row.id}>
+                            <td>{row.email}</td>
+                            <td className="whitespace-nowrap text-muted">{formatDateTime(row.agreed_at)}</td>
+                            <td className="text-muted">{row.version}</td>
+                            <td className="font-mono text-xs text-muted">{row.ip_address}</td>
                           </tr>
                         ))}
                         {termsAgreements.length === 0 && (
                           <tr>
-                            <td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
+                            <td colSpan={4} className="py-8 text-center text-muted">
                               약관 동의 기록이 없어요
                             </td>
                           </tr>
@@ -602,65 +504,37 @@ export default function AdminPage() {
                 </div>
 
                 {monitorExpiringSoon.length > 0 && (
-                  <div
-                    style={{
-                      marginBottom: '1.5rem',
-                      padding: '1rem',
-                      borderRadius: '10px',
-                      border: '1px solid #fde68a',
-                      backgroundColor: '#fffbeb',
-                    }}
-                  >
-                    <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#92400e', margin: '0 0 0.75rem' }}>
+                  <div className="alert-warning mb-4">
+                    <h3 className="section-title mb-3 text-sm text-amber-900">
                       만료 30일 이내 ({monitorExpiringSoon.length}명)
                     </h3>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                    <div className="admin-table-wrap">
+                      <table className="admin-table">
                         <thead>
-                          <tr style={{ borderBottom: '1px solid #fde68a' }}>
+                          <tr className="border-amber-200 bg-amber-50/50">
                             {['이메일', '대회', '만료일', '남은 기간', '알림'].map(col => (
-                              <th
-                                key={col}
-                                style={{
-                                  padding: '8px 10px',
-                                  textAlign: 'left',
-                                  fontWeight: 600,
-                                  color: '#92400e',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {col}
-                              </th>
+                              <th key={col} className="text-amber-900">{col}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {monitorExpiringSoon.map(user => (
-                            <tr key={user.id} style={{ borderBottom: '1px solid #fef3c7' }}>
-                              <td style={{ padding: '8px 10px', color: '#78350f' }}>{user.email}</td>
-                              <td style={{ padding: '8px 10px', color: '#78350f' }}>{user.event_name ?? '-'}</td>
-                              <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#78350f' }}>
+                            <tr key={user.id} className="hover:bg-amber-50/80">
+                              <td className="text-amber-950">{user.email}</td>
+                              <td className="text-amber-950">{user.event_name ?? '-'}</td>
+                              <td className="whitespace-nowrap text-amber-950">
                                 {formatVerificationDate(user.expires_at)}
                               </td>
-                              <td style={{ padding: '8px 10px', color: '#78350f' }}>
-                                {user.days_remaining ?? 0}일
-                              </td>
-                              <td style={{ padding: '8px 10px' }}>
+                              <td className="text-amber-950">{user.days_remaining ?? 0}일</td>
+                              <td>
                                 {user.notification_sent ? (
-                                  <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '0.8rem' }}>
-                                    발송 완료
-                                  </span>
+                                  <span className="text-xs font-semibold text-success">발송 완료</span>
                                 ) : (
                                   <button
                                     type="button"
                                     disabled={notifyingOrderId === user.id}
                                     onClick={() => handleNotifyExpiry(user.id)}
-                                    style={{
-                                      ...btnStyle('primary'),
-                                      padding: '6px 10px',
-                                      fontSize: '0.8rem',
-                                      opacity: notifyingOrderId === user.id ? 0.6 : 1,
-                                    }}
+                                    className="btn-primary-inline px-2.5 py-1.5 text-xs"
                                   >
                                     {notifyingOrderId === user.id ? '발송 중...' : '알림 발송'}
                                   </button>
@@ -674,55 +548,38 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                <div className="admin-table-wrap">
+                  <table className="admin-table">
                     <thead>
-                      <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                      <tr>
                         {['이메일', '주문번호', '플랫폼', '인증일', '만료일', '상태'].map(col => (
-                          <th
-                            key={col}
-                            style={{
-                              padding: '10px 12px',
-                              textAlign: 'left',
-                              fontWeight: 600,
-                              color: '#374151',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {col}
-                          </th>
+                          <th key={col}>{col}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {monitorUsers.map(user => {
-                        const rowStyle: React.CSSProperties =
+                        const rowClass =
                           user.status === 'expiring_soon'
-                            ? { backgroundColor: '#fffbeb' }
+                            ? 'bg-[var(--color-warning-bg)]'
                             : user.status === 'expired'
-                              ? { backgroundColor: '#f9fafb', color: '#9ca3af' }
-                              : {}
+                              ? 'text-muted bg-[var(--bg)]/60'
+                              : ''
 
                         return (
-                          <tr key={user.id} style={{ borderBottom: '1px solid #f3f4f6', ...rowStyle }}>
-                            <td style={{ padding: '10px 12px' }}>{user.email}</td>
-                            <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{user.order_number}</td>
-                            <td style={{ padding: '10px 12px' }}>{user.platform}</td>
-                            <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
-                              {formatVerificationDate(user.verified_at)}
-                            </td>
-                            <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
-                              {formatVerificationDate(user.expires_at)}
-                            </td>
-                            <td style={{ padding: '10px 12px', fontWeight: 600 }}>
-                              {STATUS_LABELS[user.status]}
-                            </td>
+                          <tr key={user.id} className={rowClass}>
+                            <td>{user.email}</td>
+                            <td className="whitespace-nowrap">{user.order_number}</td>
+                            <td>{user.platform}</td>
+                            <td className="whitespace-nowrap">{formatVerificationDate(user.verified_at)}</td>
+                            <td className="whitespace-nowrap">{formatVerificationDate(user.expires_at)}</td>
+                            <td className="font-semibold">{STATUS_LABELS[user.status]}</td>
                           </tr>
                         )
                       })}
                       {monitorUsers.length === 0 && (
                         <tr>
-                          <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
+                          <td colSpan={6} className="py-8 text-center text-muted">
                             인증 기록이 없어요
                           </td>
                         </tr>
@@ -738,113 +595,85 @@ export default function AdminPage() {
 
       {modalOpen && (
         <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.45)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 50,
-            padding: '1rem',
-          }}
+          className="modal-overlay"
           onClick={() => !savingEvent && setModalOpen(false)}
         >
           <form
             onSubmit={handleSaveEvent}
             onClick={e => e.stopPropagation()}
-            style={{
-              backgroundColor: '#ffffff',
-              borderRadius: '12px',
-              border: '1px solid #e5e7eb',
-              padding: '1.5rem',
-              width: '100%',
-              maxWidth: '480px',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-            }}
+            className="modal-card max-h-[90vh] max-w-md overflow-y-auto"
           >
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '0 0 1rem', color: '#111827' }}>
+            <h3 className="section-title">
               {editingId ? '대회 수정' : '대회 추가'}
             </h3>
 
-            <label style={{ display: 'block', marginBottom: '0.75rem' }}>
-              <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem' }}>이름</span>
-              <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={inputStyle} />
+            <label className="mb-3 block">
+              <span className={labelStyle}>이름</span>
+              <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={inputStyle} />
             </label>
-            <label style={{ display: 'block', marginBottom: '0.75rem' }}>
-              <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem' }}>날짜</span>
-              <input required type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={inputStyle} />
+            <label className="mb-3 block">
+              <span className={labelStyle}>날짜</span>
+              <input required type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={inputStyle} />
             </label>
-            <label style={{ display: 'block', marginBottom: '0.75rem' }}>
-              <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem' }}>album_a_url</span>
-              <input value={form.album_a_url} onChange={e => setForm(f => ({ ...f, album_a_url: e.target.value }))} style={inputStyle} />
+            <label className="mb-3 block">
+              <span className={labelStyle}>album_a_url</span>
+              <input value={form.album_a_url} onChange={e => setForm(f => ({ ...f, album_a_url: e.target.value }))} className={inputStyle} />
             </label>
-            <label style={{ display: 'block', marginBottom: '0.75rem' }}>
-              <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem' }}>album_b_url</span>
-              <input value={form.album_b_url} onChange={e => setForm(f => ({ ...f, album_b_url: e.target.value }))} style={inputStyle} />
+            <label className="mb-3 block">
+              <span className={labelStyle}>album_b_url</span>
+              <input value={form.album_b_url} onChange={e => setForm(f => ({ ...f, album_b_url: e.target.value }))} className={inputStyle} />
             </label>
 
-            <div
-              style={{
-                marginBottom: '1rem',
-                padding: '0.875rem',
-                borderRadius: '8px',
-                border: '1px solid #e5e7eb',
-                backgroundColor: '#f9fafb',
-              }}
-            >
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', cursor: 'pointer' }}>
+            <div className="card-section mb-4">
+              <label className="mb-3 flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
                   checked={form.gps_enabled}
                   onChange={e => setForm(f => ({ ...f, gps_enabled: e.target.checked }))}
                 />
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>
+                <span className="text-sm font-semibold text-[var(--text)]">
                   GPS 감지 ON/OFF (gps_enabled)
                 </span>
               </label>
-              <label style={{ display: 'block', marginBottom: '0.75rem' }}>
-                <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem' }}>위도 (gps_lat)</span>
+              <label className="mb-3 block">
+                <span className={labelStyle}>위도 (gps_lat)</span>
                 <input
                   type="number"
                   step="any"
                   value={form.gps_lat}
                   onChange={e => setForm(f => ({ ...f, gps_lat: e.target.value }))}
-                  style={inputStyle}
+                  className={inputStyle}
                   placeholder="37.5665"
                 />
               </label>
-              <label style={{ display: 'block', marginBottom: '0.75rem' }}>
-                <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem' }}>경도 (gps_lng)</span>
+              <label className="mb-3 block">
+                <span className={labelStyle}>경도 (gps_lng)</span>
                 <input
                   type="number"
                   step="any"
                   value={form.gps_lng}
                   onChange={e => setForm(f => ({ ...f, gps_lng: e.target.value }))}
-                  style={inputStyle}
+                  className={inputStyle}
                   placeholder="126.9780"
                 />
               </label>
-              <label style={{ display: 'block', marginBottom: 0 }}>
-                <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem' }}>
-                  반경 (미터, gps_radius_meters)
-                </span>
+              <label className="mb-0 block">
+                <span className={labelStyle}>반경 (미터, gps_radius_meters)</span>
                 <input
                   type="number"
                   min={1}
                   value={form.gps_radius_meters}
                   onChange={e => setForm(f => ({ ...f, gps_radius_meters: e.target.value }))}
-                  style={inputStyle}
+                  className={inputStyle}
                 />
               </label>
             </div>
 
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <button type="button" onClick={() => setModalOpen(false)} style={btnStyle('secondary')} disabled={savingEvent}>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary-inline" disabled={savingEvent}>
                 취소
               </button>
-              <button type="submit" style={btnStyle('primary')} disabled={savingEvent}>
+              <button type="submit" className="btn-primary-inline" disabled={savingEvent}>
                 {savingEvent ? '저장 중...' : '저장'}
               </button>
             </div>

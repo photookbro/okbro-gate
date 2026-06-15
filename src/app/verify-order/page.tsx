@@ -20,6 +20,7 @@ function VerifyOrderContent() {
   const [verification, setVerification] = useState<VerificationInfo>({ status: 'none' })
   const [statusLoading, setStatusLoading] = useState(true)
   const [albumBUrl, setAlbumBUrl] = useState<string | null>(null)
+  const [albumAUrl, setAlbumAUrl] = useState<string | null>(null)
   const [showAlbumModal, setShowAlbumModal] = useState(false)
 
   useEffect(() => {
@@ -44,11 +45,12 @@ function VerifyOrderContent() {
         }
         return data as VerificationInfo
       }),
-      supabase.from('events').select('album_b_url').eq('id', eventId).single(),
+      supabase.from('events').select('album_a_url, album_b_url').eq('id', eventId).single(),
     ])
       .then(([statusData, { data: event }]) => {
         setVerification(statusData ?? { status: 'none' })
         setAlbumBUrl(event?.album_b_url ?? null)
+        setAlbumAUrl(event?.album_a_url ?? null)
         setStatusLoading(false)
       })
       .catch(() => {
@@ -323,6 +325,7 @@ function VerifyOrderContent() {
           onClose={() => setShowAlbumModal(false)}
           verification={verification}
           albumBUrl={albumBUrl}
+          albumAUrl={albumAUrl}
         />
       )}
     </div>
