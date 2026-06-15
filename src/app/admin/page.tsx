@@ -10,6 +10,10 @@ type Event = {
   date: string
   album_a_url: string | null
   album_b_url: string | null
+  gps_lat: number | null
+  gps_lng: number | null
+  gps_radius_meters: number | null
+  gps_enabled: boolean | null
 }
 
 type EventForm = {
@@ -17,6 +21,10 @@ type EventForm = {
   date: string
   album_a_url: string
   album_b_url: string
+  gps_enabled: boolean
+  gps_lat: string
+  gps_lng: string
+  gps_radius_meters: string
 }
 
 const emptyForm: EventForm = {
@@ -24,6 +32,10 @@ const emptyForm: EventForm = {
   date: '',
   album_a_url: '',
   album_b_url: '',
+  gps_enabled: false,
+  gps_lat: '',
+  gps_lng: '',
+  gps_radius_meters: '200',
 }
 
 type MonitorStatus = 'active' | 'expired' | 'expiring_soon'
@@ -246,6 +258,10 @@ export default function AdminPage() {
       date: event.date,
       album_a_url: event.album_a_url ?? '',
       album_b_url: event.album_b_url ?? '',
+      gps_enabled: !!event.gps_enabled,
+      gps_lat: event.gps_lat != null ? String(event.gps_lat) : '',
+      gps_lng: event.gps_lng != null ? String(event.gps_lng) : '',
+      gps_radius_meters: event.gps_radius_meters != null ? String(event.gps_radius_meters) : '200',
     })
     setModalOpen(true)
   }
@@ -260,6 +276,10 @@ export default function AdminPage() {
       date: form.date,
       album_a_url: form.album_a_url,
       album_b_url: form.album_b_url,
+      gps_enabled: form.gps_enabled,
+      gps_lat: form.gps_lat || null,
+      gps_lng: form.gps_lng || null,
+      gps_radius_meters: form.gps_radius_meters || 200,
     })
 
     const res = editingId
@@ -740,6 +760,8 @@ export default function AdminPage() {
               padding: '1.5rem',
               width: '100%',
               maxWidth: '480px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
             }}
           >
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '0 0 1rem', color: '#111827' }}>
@@ -758,10 +780,65 @@ export default function AdminPage() {
               <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem' }}>album_a_url</span>
               <input value={form.album_a_url} onChange={e => setForm(f => ({ ...f, album_a_url: e.target.value }))} style={inputStyle} />
             </label>
-            <label style={{ display: 'block', marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.75rem' }}>
               <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem' }}>album_b_url</span>
               <input value={form.album_b_url} onChange={e => setForm(f => ({ ...f, album_b_url: e.target.value }))} style={inputStyle} />
             </label>
+
+            <div
+              style={{
+                marginBottom: '1rem',
+                padding: '0.875rem',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                backgroundColor: '#f9fafb',
+              }}
+            >
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={form.gps_enabled}
+                  onChange={e => setForm(f => ({ ...f, gps_enabled: e.target.checked }))}
+                />
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>
+                  GPS 감지 ON/OFF (gps_enabled)
+                </span>
+              </label>
+              <label style={{ display: 'block', marginBottom: '0.75rem' }}>
+                <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem' }}>위도 (gps_lat)</span>
+                <input
+                  type="number"
+                  step="any"
+                  value={form.gps_lat}
+                  onChange={e => setForm(f => ({ ...f, gps_lat: e.target.value }))}
+                  style={inputStyle}
+                  placeholder="37.5665"
+                />
+              </label>
+              <label style={{ display: 'block', marginBottom: '0.75rem' }}>
+                <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem' }}>경도 (gps_lng)</span>
+                <input
+                  type="number"
+                  step="any"
+                  value={form.gps_lng}
+                  onChange={e => setForm(f => ({ ...f, gps_lng: e.target.value }))}
+                  style={inputStyle}
+                  placeholder="126.9780"
+                />
+              </label>
+              <label style={{ display: 'block', marginBottom: 0 }}>
+                <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+                  반경 (미터, gps_radius_meters)
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  value={form.gps_radius_meters}
+                  onChange={e => setForm(f => ({ ...f, gps_radius_meters: e.target.value }))}
+                  style={inputStyle}
+                />
+              </label>
+            </div>
 
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
               <button type="button" onClick={() => setModalOpen(false)} style={btnStyle('secondary')} disabled={savingEvent}>

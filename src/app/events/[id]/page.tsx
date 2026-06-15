@@ -9,12 +9,18 @@ import { AlbumAccessModal } from '@/components/album-access-modal'
 import { TermsAgreement } from '@/components/terms-agreement'
 import { hasTermsAgreed } from '@/lib/terms-agreement'
 
+import { GpsDetector } from '@/components/gps-detector'
+
 type Event = {
   id: string
   name: string
   date: string
   album_a_url: string | null
   album_b_url: string | null
+  gps_lat: number | null
+  gps_lng: number | null
+  gps_radius_meters: number | null
+  gps_enabled: boolean | null
 }
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -37,7 +43,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     supabase
       .from('events')
-      .select('id, name, date, album_a_url, album_b_url')
+      .select('id, name, date, album_a_url, album_b_url, gps_lat, gps_lng, gps_radius_meters, gps_enabled')
       .eq('id', id)
       .single()
       .then(({ data }) => setEvent(data))
@@ -172,6 +178,19 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               </p>
             )}
           </div>
+
+          {event.gps_enabled &&
+            event.gps_lat != null &&
+            event.gps_lng != null && (
+              <GpsDetector
+                eventId={event.id}
+                eventName={event.name}
+                gpsLat={event.gps_lat}
+                gpsLng={event.gps_lng}
+                gpsRadiusMeters={event.gps_radius_meters ?? 200}
+                userId={userId}
+              />
+            )}
         </div>
       </div>
 
