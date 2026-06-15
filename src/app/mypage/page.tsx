@@ -13,6 +13,15 @@ type LatestVerification = {
   expiring_soon: boolean
 }
 
+type ShootRecord = {
+  type: 'gps' | 'purchase'
+  event_id: string | null
+  event_name: string
+  passed_at: string
+  display_time: string
+  description: string
+}
+
 function formatDDay(daysRemaining: number, status: string): string {
   if (status === 'expired' || daysRemaining < 0) return '만료됨'
   if (daysRemaining === 0) return 'D-Day'
@@ -31,6 +40,7 @@ export default function MyPage() {
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
   const [latest, setLatest] = useState<LatestVerification | null>(null)
+  const [shootRecords, setShootRecords] = useState<ShootRecord[]>([])
   const [errorMsg, setErrorMsg] = useState('')
 
   const [orderInput, setOrderInput] = useState('')
@@ -47,6 +57,7 @@ export default function MyPage() {
     }
     setEmail(data.email ?? '')
     setLatest(data.latest_verification ?? null)
+    setShootRecords(data.shoot_records ?? [])
     setErrorMsg('')
     return true
   }, [])
@@ -173,6 +184,28 @@ export default function MyPage() {
                 <div className="alert-danger mt-4 mb-0">❌ 만료됨. 새 주문번호로 인증해주세요</div>
               )}
             </>
+          )}
+        </div>
+
+        <div className="card mb-4">
+          <h2 className="section-title">🎬 내 촬영 시각 기록</h2>
+          {shootRecords.length === 0 ? (
+            <p className="text-sm text-muted">아직 기록된 촬영 시각이 없어요</p>
+          ) : (
+            <ul className="space-y-3">
+              {shootRecords.map(record => (
+                <li
+                  key={`${record.type}-${record.event_id ?? 'none'}-${record.passed_at}`}
+                  className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3"
+                >
+                  <p className="text-sm font-semibold text-[var(--text)]">{record.event_name}</p>
+                  <p className="mt-1 text-sm text-[var(--text)]">
+                    {record.type === 'gps' ? 'GPS 통과' : '구매 인증'}: {record.display_time}{' '}
+                    <span className="text-muted">({record.description})</span>
+                  </p>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
 

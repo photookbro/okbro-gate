@@ -1,6 +1,7 @@
 'use client'
 
 import { formatVerificationDate, type VerificationInfo } from '@/lib/order-verification'
+import { formatGpsPassDisplay } from '@/lib/gps-access'
 import { APP_INSTALL_URL } from '@/components/app-install-banner'
 
 type AlbumAccessModalProps = {
@@ -32,11 +33,18 @@ export function AlbumAccessModal({
 
   const isValid = verification.status === 'valid'
   const isExpired = verification.status === 'expired'
+  const isGpsAccess = verification.access_source === 'gps'
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card max-w-[440px]" onClick={e => e.stopPropagation()}>
-        {isValid && verification?.verified_at && verification?.expires_at && (
+        {isValid && isGpsAccess && verification.gps_passed_at && (
+          <div className="alert-success mb-4">
+            📍 GPS 통과: {formatGpsPassDisplay(verification.gps_passed_at)} (B앨범 자동 접근)
+          </div>
+        )}
+
+        {isValid && !isGpsAccess && verification?.verified_at && verification?.expires_at && (
           <div className="alert-success mb-4">
             📅 열람 가능 기간 : {formatVerificationDate(verification.verified_at)} ~{' '}
             {formatVerificationDate(verification.expires_at)}

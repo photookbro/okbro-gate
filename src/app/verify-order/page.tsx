@@ -38,7 +38,7 @@ function VerifyOrderContent() {
 
     setStatusLoading(true)
     Promise.all([
-      fetch('/api/verify-order/status').then(async res => {
+      fetch(`/api/verify-order/status?event_id=${encodeURIComponent(eventId)}`).then(async res => {
         const data = await res.json()
         if (!res.ok || !data?.status) {
           return { status: 'none' } as VerificationInfo

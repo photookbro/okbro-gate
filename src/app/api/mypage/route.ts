@@ -7,6 +7,7 @@ import {
   getMonitorStatus,
   resolveExpiresAt,
 } from '@/lib/order-verification'
+import { formatGpsPassDisplay } from '@/lib/gps-access'
 
 type OrderRow = {
   id: string
@@ -113,12 +114,64 @@ export async function GET() {
     }))
     .filter(e => e.download_count > 0 || e.order_count > 0)
 
+  const { data: gpsLogs } = await admin
+    .from('gps_logs')
+    .select('id, event_id, passed_at, notified, events(name)')
+    .eq('user_id', user.id)
+    .order('passed_at', { ascending: false })
+
+  type ShootRecord = {
+    type: 'gps' | 'purchase'
+    event_id: string | null
+    event_name: string
+    passed_at: string
+    display_time: string
+    description: string
+  }
+
+  const shootRecords: ShootRecord[] = []
+
+  for (const log of gpsLogs ?? []) {
+    const joined = log.events as { name: string | null } | { name: string | null }[] | null
+    const eventName = (Array.isArray(joined) ? joined[0]?.name : joined?.name) ?? '알 수 없는 대회'
+    if (!log.passed_at) continue
+    shootRecords.push({
+      type: 'gps',
+      event_id: log.event_id,
+      event_name: eventName,
+      passed_at: log.passed_at,
+      display_time: formatGpsPassDisplay(log.passed_at),
+      description: 'B앨범 자동 접근',
+    })
+  }
+
+  for (const order of orders ?? []) {
+    const joinedEvent = Array.isArray(order.events) ? order.events[0] : order.events
+    const verifiedAt = order.used_at || order.created_at
+    if (!verifiedAt) continue
+    const verifiedDate = new Date(verifiedAt)
+    if (Number.isNaN(verifiedDate.getTime())) continue
+    shootRecords.push({
+      type: 'purchase',
+      event_id: order.event_id ?? null,
+      event_name: joinedEvent?.name ?? '전체 이용권',
+      passed_at: verifiedDate.toISOString(),
+      display_time: formatGpsPassDisplay(verifiedDate),
+      description: '구매',
+    })
+  }
+
+  shootRecords.sort(
+    (a, b) => new Date(b.passed_at).getTime() - new Date(a.passed_at).getTime()
+  )
+
   return NextResponse.json({
     email: user.email,
     latest_verification: latest ?? null,
     verifications,
     has_expiring_soon: hasExpiringSoon,
     event_stats: eventStats,
+    shoot_records: shootRecords,
     formatted: {
       latest_expires_at: latest?.expires_at
         ? formatVerificationDate(latest.expires_at)

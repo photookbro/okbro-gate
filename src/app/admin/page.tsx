@@ -127,6 +127,8 @@ export default function AdminPage() {
   const [loadingMonitoring, setLoadingMonitoring] = useState(false)
   const [monitoringError, setMonitoringError] = useState('')
   const [notifyingOrderId, setNotifyingOrderId] = useState<string | null>(null)
+  const [notifyingGpsEventId, setNotifyingGpsEventId] = useState<string | null>(null)
+  const [gpsNotifyMsg, setGpsNotifyMsg] = useState('')
 
   const adminFetch = useCallback(
     (url: string, options: RequestInit = {}) =>
@@ -214,6 +216,28 @@ export default function AdminPage() {
       prev.map(row =>
         row.id === orderId ? { ...row, notification_sent: true } : row
       )
+    )
+  }
+
+  async function handleGpsNotify(eventId: string) {
+    setGpsNotifyMsg('')
+    setNotifyingGpsEventId(eventId)
+
+    const res = await adminFetch('/api/gps-notify', {
+      method: 'POST',
+      body: JSON.stringify({ event_id: eventId }),
+    })
+    const data = await res.json()
+
+    setNotifyingGpsEventId(null)
+
+    if (!res.ok) {
+      setEventError(data.error ?? 'GPS 알림 발송 실패')
+      return
+    }
+
+    setGpsNotifyMsg(
+      `✅ ${data.event_name ?? '대회'}: ${data.notified ?? 0}명 알림 발송 (대기 ${data.pending ?? 0}건)`
     )
   }
 
@@ -350,6 +374,7 @@ export default function AdminPage() {
             </div>
 
             {eventError && <p className="alert-danger">{eventError}</p>}
+            {gpsNotifyMsg && <p className="alert-success">{gpsNotifyMsg}</p>}
 
             {loadingEvents ? (
               <p className="text-muted">로딩 중...</p>
@@ -372,7 +397,15 @@ export default function AdminPage() {
                         <td className="max-w-[180px] truncate text-muted">{event.album_a_url ?? '-'}</td>
                         <td className="max-w-[180px] truncate text-muted">{event.album_b_url ?? '-'}</td>
                         <td className="whitespace-nowrap">
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void handleGpsNotify(event.id)}
+                              disabled={notifyingGpsEventId === event.id}
+                              className="btn-primary-inline px-3 py-1.5 text-xs"
+                            >
+                              {notifyingGpsEventId === event.id ? '발송 중...' : 'GPS 알림'}
+                            </button>
                             <button type="button" onClick={() => openEditModal(event)} className="btn-secondary-inline px-3 py-1.5 text-xs">
                               수정
                             </button>

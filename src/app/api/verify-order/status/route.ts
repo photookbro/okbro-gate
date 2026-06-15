@@ -1,15 +1,36 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getAuthenticatedUser } from '@/lib/auth-server'
-import { getVerificationInfo } from '@/lib/order-verification'
+import { getVerificationInfo, type VerificationInfo } from '@/lib/order-verification'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const user = await getAuthenticatedUser()
   if (!user) {
     return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
   }
 
+  const eventId = new URL(req.url).searchParams.get('event_id')
   const admin = supabaseAdmin()
+
+  if (eventId) {
+    const { data: gpsLog } = await admin
+      .from('gps_logs')
+      .select('passed_at')
+      .eq('user_id', user.id)
+      .eq('event_id', eventId)
+      .order('passed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (gpsLog?.passed_at) {
+      const gpsAccess: VerificationInfo = {
+        status: 'valid',
+        access_source: 'gps',
+        gps_passed_at: gpsLog.passed_at,
+      }
+      return NextResponse.json(gpsAccess)
+    }
+  }
 
   const [{ data: order }, { data: settings }] = await Promise.all([
     admin
@@ -29,5 +50,10 @@ export async function GET() {
     settings?.find(s => s?.key === 'verified_period_months')?.value ?? NaN
   )
 
-  return NextResponse.json(getVerificationInfo(order ?? null, verifiedPeriodMonths))
+  const info = getVerificationInfo(order ?? null, verifiedPeriodMonths)
+  if (info.status === 'valid') {
+    return NextResponse.json({ ...info, access_source: 'purchase' as const })
+  }
+
+  return NextResponse.json(info)
 }

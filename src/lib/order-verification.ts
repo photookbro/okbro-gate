@@ -11,6 +11,8 @@ export type MonitorStatus = 'active' | 'expired' | 'expiring_soon'
 
 export type VerificationInfo = {
   status: VerificationStatus
+  access_source?: 'purchase' | 'gps'
+  gps_passed_at?: string
   order_number?: string
   verified_at?: string
   expires_at?: string

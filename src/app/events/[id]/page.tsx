@@ -67,7 +67,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     }
 
     setVerificationChecked(false)
-    fetch('/api/verify-order/status')
+    fetch(`/api/verify-order/status?event_id=${encodeURIComponent(id)}`)
       .then(async res => {
         const data = await res.json()
         if (!res.ok || !data?.status) {
@@ -187,7 +187,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.5rem', textAlign: 'center' }}>
                 {isExpired
                   ? '⚠️ 인증이 만료됐어요. 새 주문번호로 다시 인증해주세요.'
-                  : '⭐ 고화질은 과일 구매 인증 후 이용 가능해요'}
+                  : '⭐ 고화질은 과일 구매 인증 또는 촬영 지점 GPS 통과 후 이용 가능해요'}
               </p>
             )}
           </div>
