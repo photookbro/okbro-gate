@@ -54,30 +54,33 @@ export function GpsDetector({
     return () => clearTimeout(timer)
   }, [toast])
 
-  const recordPass = useCallback(async () => {
-    if (loggedTodayRef.current) return
+  const recordPass = useCallback(
+    async (latitude: number, longitude: number) => {
+      if (loggedTodayRef.current) return
 
-    try {
-      const res = await fetch('/api/gps-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_id: eventId }),
-      })
-      const data = await res.json()
+      try {
+        const res = await fetch('/api/gps-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event_id: eventId, lat: latitude, lng: longitude }),
+        })
+        const data = await res.json()
 
-      if (!res.ok) {
-        setErrorMsg(data.error ?? '통과 기록 저장 실패')
-        return
+        if (!res.ok) {
+          setErrorMsg(data.error ?? '통과 기록 저장 실패')
+          return
+        }
+
+        loggedTodayRef.current = true
+        const passedAt = data.passed_at ? new Date(data.passed_at) : new Date()
+        const timeLabel = formatPassTimeSeconds(passedAt)
+        setToast(`✅ ${eventName} 촬영자 통과! ${timeLabel}`)
+      } catch {
+        setErrorMsg('통과 기록 저장 중 오류가 발생했어요')
       }
-
-      loggedTodayRef.current = true
-      const passedAt = data.passed_at ? new Date(data.passed_at) : new Date()
-      const timeLabel = formatPassTimeSeconds(passedAt)
-      setToast(`✅ ${eventName} 촬영자 통과! ${timeLabel}`)
-    } catch {
-      setErrorMsg('통과 기록 저장 중 오류가 발생했어요')
-    }
-  }, [eventId, eventName])
+    },
+    [eventId, eventName]
+  )
 
   const handlePosition = useCallback(
     (position: GeolocationPosition) => {
@@ -89,7 +92,7 @@ export function GpsDetector({
       setDistanceMeters(Math.round(distance))
 
       if (distance <= gpsRadiusMeters) {
-        void recordPass()
+        void recordPass(latitude, longitude)
       }
     },
     [gpsLat, gpsLng, gpsRadiusMeters, recordPass]

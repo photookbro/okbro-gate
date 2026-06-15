@@ -18,6 +18,16 @@ export function haversineDistanceMeters(
   return EARTH_RADIUS_METERS * c
 }
 
+/** Haversine 거리 (미터) — haversineDistanceMeters 별칭 */
+export function haversineDistance(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  return haversineDistanceMeters(lat1, lng1, lat2, lng2)
+}
+
 export function formatPassTime(date: Date = new Date()): string {
   return date.toLocaleString('ko-KR', {
     month: '2-digit',
