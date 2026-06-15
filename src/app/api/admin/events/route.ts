@@ -33,7 +33,7 @@ function buildEventRow(body: EventPayload) {
     album_b_url: body.album_b_url?.trim() || null,
     gps_lat: parseOptionalNumber(body.gps_lat),
     gps_lng: parseOptionalNumber(body.gps_lng),
-    gps_radius_meters: Number.isFinite(gpsRadius) && gpsRadius > 0 ? gpsRadius : 200,
+    gps_radius_meters: Number.isFinite(gpsRadius) && gpsRadius > 0 ? gpsRadius : 50,
     gps_enabled: gpsEnabled,
   }
 }

@@ -35,7 +35,7 @@ const emptyForm: EventForm = {
   gps_enabled: false,
   gps_lat: '',
   gps_lng: '',
-  gps_radius_meters: '200',
+  gps_radius_meters: '50',
 }
 
 type MonitorStatus = 'active' | 'expired' | 'expiring_soon'
@@ -244,7 +244,7 @@ export default function AdminPage() {
       gps_enabled: !!event.gps_enabled,
       gps_lat: event.gps_lat != null ? String(event.gps_lat) : '',
       gps_lng: event.gps_lng != null ? String(event.gps_lng) : '',
-      gps_radius_meters: event.gps_radius_meters != null ? String(event.gps_radius_meters) : '200',
+      gps_radius_meters: event.gps_radius_meters != null ? String(event.gps_radius_meters) : '50',
     })
     setModalOpen(true)
   }
@@ -262,7 +262,7 @@ export default function AdminPage() {
       gps_enabled: form.gps_enabled,
       gps_lat: form.gps_lat || null,
       gps_lng: form.gps_lng || null,
-      gps_radius_meters: form.gps_radius_meters || 200,
+      gps_radius_meters: form.gps_radius_meters || 50,
     })
 
     const res = editingId

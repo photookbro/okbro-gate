@@ -133,7 +133,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               eventName={event.name}
               gpsLat={event.gps_lat}
               gpsLng={event.gps_lng}
-              gpsRadiusMeters={event.gps_radius_meters ?? 200}
+              gpsRadiusMeters={event.gps_radius_meters ?? 50}
               userId={userId}
             />
           )}

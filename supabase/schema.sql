@@ -87,7 +87,7 @@ ON CONFLICT (key) DO NOTHING;
 -- GPS 감지
 ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_lat double precision;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_lng double precision;
-ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_radius_meters integer DEFAULT 200;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_radius_meters integer DEFAULT 50;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_enabled boolean DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS gps_logs (

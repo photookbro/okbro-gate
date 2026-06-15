@@ -250,6 +250,27 @@ body {
   @apply w-full shrink-0 sm:w-auto sm:min-w-[140px];
 }
 
+/* Toggle switch */
+.toggle-row {
+  @apply flex items-center justify-between gap-4;
+}
+
+.toggle-switch {
+  @apply relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border border-[var(--border)] bg-[var(--bg)] p-0.5 transition-colors;
+}
+
+.toggle-switch-on {
+  @apply border-primary bg-primary;
+}
+
+.toggle-switch-thumb {
+  @apply block h-5 w-5 rounded-full bg-white shadow transition-transform;
+}
+
+.toggle-switch-on .toggle-switch-thumb {
+  @apply translate-x-5;
+}
+
 /* Typography helpers */
 .page-title {
   @apply mb-1 text-2xl font-bold text-[var(--text)];
