@@ -326,7 +326,6 @@ function VerifyOrderContent() {
           verification={verification}
           albumBUrl={albumBUrl}
           albumAUrl={albumAUrl}
-          eventId={eventId ?? undefined}
         />
       )}
     </div>

@@ -8,14 +8,14 @@ import {
   openInExternalBrowser,
 } from '@/lib/in-app-browser'
 
-export default function LoginPage() {
+export default function SignupPage() {
   const [inAppBrowser, setInAppBrowser] = useState(false)
 
   useEffect(() => {
     setInAppBrowser(isInAppBrowser())
   }, [])
 
-  async function handleGoogleLogin() {
+  async function handleGoogleSignup() {
     if (inAppBrowser) {
       const proceed = confirm(
         '앱 내 브라우저에서는 구글 로그인이 차단될 수 있어요.\nSafari 또는 Chrome에서 열어주세요.\n\n그래도 시도할까요?'
@@ -37,9 +37,9 @@ export default function LoginPage() {
           <h1 className="mb-2 text-lg font-extrabold text-[var(--text)]">오켱GATE</h1>
 
           <div className="alert-warning text-left">
-            <p className="font-semibold">⚠️ Google 계정으로 로그인하세요</p>
+            <p className="font-semibold">⚠️ Google 계정으로만 회원가입됩니다</p>
             <p className="mt-1 text-sm">
-              이메일 입력 로그인은 지원하지 않습니다.
+              이메일 입력 회원가입은 지원하지 않습니다.
               {inAppBrowser ? (
                 <>
                   <br />
@@ -55,11 +55,12 @@ export default function LoginPage() {
             </button>
           )}
 
-          <button type="button" onClick={handleGoogleLogin} className="btn-primary">
-            Google로 로그인
+          <button type="button" onClick={handleGoogleSignup} className="btn-primary">
+            Google로 회원가입
           </button>
         </div>
       </div>
     </div>
   )
 }
+

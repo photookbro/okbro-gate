@@ -49,6 +49,18 @@ body {
 }
 
 /* Layout */
+.page-with-bottom-cta {
+  padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+}
+
+.bottom-cta-bar {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.bottom-cta-btn {
+  @apply inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-extrabold text-white shadow-[0_10px_24px_rgba(37,99,235,0.28)] transition-colors hover:bg-[var(--color-primary-hover)] focus:outline-none focus:ring-2 focus:ring-primary/30;
+}
+
 .page-shell {
   @apply min-h-screen bg-[var(--bg)] px-4 py-8;
 }
@@ -257,6 +269,95 @@ body {
 
 .gps-hint-infographic-wrap {
   @apply mb-6 rounded-xl border border-primary/20 bg-[var(--accent-dim)] px-3 py-4 sm:px-4;
+}
+
+.album-a-preview {
+  @apply mb-4 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg)];
+}
+
+.album-a-preview-frame {
+  @apply block h-[280px] w-full border-0 bg-[var(--bg)];
+}
+
+.album-a-preview-link {
+  @apply block border-t border-[var(--border)] px-3 py-2 text-center text-xs font-medium text-primary no-underline hover:underline;
+}
+
+/* Events list split layout */
+.events-split {
+  @apply grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8;
+}
+
+.events-column-title {
+  @apply mb-1 text-base font-bold text-[var(--text)];
+}
+
+.events-column-sub {
+  @apply mb-4 text-xs text-[var(--text-muted)];
+}
+
+.events-list {
+  @apply m-0 list-none space-y-2 p-0;
+}
+
+.events-row {
+  @apply flex flex-col gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 no-underline shadow-[var(--shadow-card)] transition-colors hover:border-primary/30;
+}
+
+.events-row-main {
+  @apply flex flex-wrap items-baseline gap-1;
+}
+
+.events-row-main-inline {
+  @apply w-full items-center justify-between gap-2;
+}
+
+.events-row-upcoming {
+  @apply gap-0;
+}
+
+.events-row-disabled {
+  @apply cursor-default opacity-90 hover:border-[var(--border)] hover:shadow-[var(--shadow-card)];
+}
+
+.events-upcoming-hint {
+  @apply mt-2 text-xs font-medium text-[var(--text-muted)];
+}
+
+.events-row-name {
+  @apply text-sm font-semibold text-[var(--text)];
+}
+
+.events-row-date {
+  @apply text-xs text-[var(--text-muted)];
+}
+
+.events-row-meta {
+  @apply min-h-[1.25rem];
+}
+
+.events-shoot-record {
+  @apply text-xs font-medium text-[var(--text)];
+}
+
+.events-shoot-record-empty {
+  @apply block min-h-[1rem];
+}
+
+.events-empty {
+  @apply rounded-lg border border-dashed border-[var(--border)] px-4 py-6 text-center text-sm text-[var(--text-muted)];
+}
+
+.toggle-switch-sm {
+  @apply h-6 w-10;
+}
+
+.toggle-switch-sm .toggle-switch-thumb {
+  @apply h-4 w-4;
+}
+
+.toggle-switch-sm.toggle-switch-on .toggle-switch-thumb {
+  @apply translate-x-4;
 }
 
 /* Toggle switch */

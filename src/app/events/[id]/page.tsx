@@ -6,10 +6,21 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { VerificationInfo } from '@/lib/order-verification'
 import { AlbumAccessModal } from '@/components/album-access-modal'
+import { BAlbumView } from '@/components/b-album-view'
+import { AAlbumView } from '@/components/a-album-view'
 import { TermsAgreement } from '@/components/terms-agreement'
 import { hasTermsAgreed } from '@/lib/terms-agreement'
+import { resolveEventAlbumBranch } from '@/lib/event-album-branch'
 
-import { GpsDetector } from '@/components/gps-detector'
+function formatEventDate(date: string): string {
+  const d = new Date(`${date}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return date
+  return d.toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+}
 
 type Event = {
   id: string
@@ -17,10 +28,6 @@ type Event = {
   date: string
   album_a_url: string | null
   album_b_url: string | null
-  gps_lat: number | null
-  gps_lng: number | null
-  gps_radius_meters: number | null
-  gps_enabled: boolean | null
 }
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -43,7 +50,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     supabase
       .from('events')
-      .select('id, name, date, album_a_url, album_b_url, gps_lat, gps_lng, gps_radius_meters, gps_enabled')
+      .select('id, name, date, album_a_url, album_b_url')
       .eq('id', id)
       .single()
       .then(({ data }) => setEvent(data))
@@ -61,7 +68,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => {
     if (!userId) {
-      setVerification({ status: 'none' })
+      setVerification({ status: 'none', purchase_verified: false })
       setVerificationChecked(true)
       return
     }
@@ -71,34 +78,26 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       .then(async res => {
         const data = await res.json()
         if (!res.ok || !data?.status) {
-          setVerification({ status: 'none' })
+          setVerification({ status: 'none', purchase_verified: false })
           return
         }
         setVerification(data as VerificationInfo)
       })
       .catch(() => {
-        setVerification({ status: 'none' })
+        setVerification({ status: 'none', purchase_verified: false })
       })
       .finally(() => {
         setVerificationChecked(true)
       })
-  }, [userId])
+  }, [userId, id])
 
-  function handleAlbumA() {
-    if (!event?.album_a_url) return
-    window.open(event.album_a_url, '_blank', 'noopener,noreferrer')
-  }
+  const albumBranch = verificationChecked ? resolveEventAlbumBranch(verification) : null
 
-  function handleAlbumB() {
-    if (!event?.album_b_url || !verificationChecked) return
-
-    if (verification.status === 'valid') {
+  useEffect(() => {
+    if (albumBranch === 'purchase-modal') {
       setShowAlbumModal(true)
-      return
     }
-
-    router.push(`/verify-order?eventId=${id}`)
-  }
+  }, [albumBranch])
 
   if (!termsReady || !event) {
     return (
@@ -107,6 +106,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       </div>
     )
   }
+
+  const eventData = event
 
   if (!termsAgreed) {
     return (
@@ -119,27 +120,50 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     )
   }
 
-  const isValid = verification.status === 'valid'
-  const isExpired = verification.status === 'expired'
+  function renderAlbumSection() {
+    if (!verificationChecked) {
+      return <p className="text-sm text-muted">인증 정보 확인 중...</p>
+    }
+
+    if (albumBranch === 'b-album' && eventData.album_b_url) {
+      return <BAlbumView albumBUrl={eventData.album_b_url} gpsTime={verification.gps_passed_at!} />
+    }
+
+    if (albumBranch === 'purchase-modal' && eventData.album_b_url) {
+      return (
+        <>
+          {!showAlbumModal && (
+            <button
+              type="button"
+              className="btn-primary w-full"
+              onClick={() => setShowAlbumModal(true)}
+            >
+              ⬇️ 고화질 다운로드
+            </button>
+          )}
+          <AlbumAccessModal
+            visible={showAlbumModal}
+            onClose={() => setShowAlbumModal(false)}
+            verification={verification}
+            albumBUrl={eventData.album_b_url}
+            albumAUrl={eventData.album_a_url}
+          />
+        </>
+      )
+    }
+
+    return (
+      <AAlbumView
+        albumAUrl={eventData.album_a_url}
+        incentive="고화질을 보려면 과일 구매!"
+        eventId={eventData.id}
+      />
+    )
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '2rem' }}>
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        {event.gps_enabled &&
-          event.gps_lat != null &&
-          event.gps_lng != null && (
-            <GpsDetector
-              eventId={event.id}
-              eventName={event.name}
-              gpsLat={event.gps_lat}
-              gpsLng={event.gps_lng}
-              gpsRadiusMeters={event.gps_radius_meters ?? 50}
-              userId={userId}
-              purchaseVerified={verification.purchase_verified === true}
-              verificationChecked={verificationChecked}
-            />
-          )}
-
         <Link href="/events" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textDecoration: 'none' }}>
           ← 대회 목록
         </Link>
@@ -147,65 +171,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         <h1 style={{ fontSize: '1.4rem', fontWeight: 700, margin: '1rem 0 0.25rem' }}>
           {event.name}
         </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '2rem' }}>
-          📅 {event.date}
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+          📅 {formatEventDate(event.date)}
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={handleAlbumA}
-            disabled={!event.album_a_url}
-            style={{
-              width: '100%',
-              padding: '14px',
-              fontSize: '1rem',
-              cursor: event.album_a_url ? 'pointer' : 'not-allowed',
-              opacity: event.album_a_url ? 1 : 0.5,
-            }}
-          >
-            📸 사진 보기 (저화소 + 워터마크)
-          </button>
-
-          <div>
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={handleAlbumB}
-              disabled={!event.album_b_url || (!!userId && !verificationChecked)}
-              style={{
-                width: '100%',
-                padding: '14px',
-                fontSize: '1rem',
-                cursor: event.album_b_url ? 'pointer' : 'not-allowed',
-                opacity: event.album_b_url ? 1 : 0.5,
-              }}
-            >
-              고화질 사진 다운로드 (아래에 촬영시각을 앱 푸시로 받으셨다면)
-            </button>
-
-            {event.album_b_url && verificationChecked && !isValid && (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.5rem', textAlign: 'center' }}>
-                {isExpired
-                  ? '⚠️ 인증이 만료됐어요. 새 주문번호로 다시 인증해주세요.'
-                  : '⭐ 고화질은 과일 구매 인증 또는 촬영 지점 GPS 통과 후 이용 가능해요'}
-              </p>
-            )}
-          </div>
-        </div>
+        {renderAlbumSection()}
       </div>
-
-      {event.album_b_url && isValid && (
-        <AlbumAccessModal
-          visible={showAlbumModal}
-          onClose={() => setShowAlbumModal(false)}
-          verification={verification}
-          albumBUrl={event.album_b_url}
-          albumAUrl={event.album_a_url}
-          eventId={id}
-        />
-      )}
     </div>
   )
 }

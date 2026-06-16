@@ -3,6 +3,8 @@ import './globals.css'
 import { SiteNav } from '@/components/site-nav'
 import { InappBrowserWarning } from '@/components/inapp-browser-warning'
 import { PushRegister } from '@/components/push-register'
+import { FixedFruitCta } from '@/components/fixed-fruit-cta'
+import { PushPermissionModal } from '@/components/push-permission-modal'
 
 export const metadata: Metadata = {
   title: '오켱사진링크게이트',
@@ -17,9 +19,11 @@ export default function RootLayout({
     <html lang="ko">
       <body>
         <PushRegister />
+        <PushPermissionModal />
         <InappBrowserWarning />
         <SiteNav />
-        {children}
+        <div className="page-with-bottom-cta">{children}</div>
+        <FixedFruitCta />
       </body>
     </html>
   )

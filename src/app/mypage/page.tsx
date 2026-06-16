@@ -14,12 +14,18 @@ type LatestVerification = {
 }
 
 type ShootRecord = {
-  type: 'gps' | 'purchase'
+  type: 'purchase'
   event_id: string | null
   event_name: string
   passed_at: string
   display_time: string
   description: string
+}
+
+type GpsEventPasses = {
+  event_id: string
+  event_name: string
+  passes: { pass_count: number; display_time: string; passed_at: string }[]
 }
 
 function formatDDay(daysRemaining: number, status: string): string {
@@ -41,6 +47,7 @@ export default function MyPage() {
   const [email, setEmail] = useState('')
   const [latest, setLatest] = useState<LatestVerification | null>(null)
   const [shootRecords, setShootRecords] = useState<ShootRecord[]>([])
+  const [gpsEventPasses, setGpsEventPasses] = useState<GpsEventPasses[]>([])
   const [errorMsg, setErrorMsg] = useState('')
 
   const [orderInput, setOrderInput] = useState('')
@@ -57,7 +64,8 @@ export default function MyPage() {
     }
     setEmail(data.email ?? '')
     setLatest(data.latest_verification ?? null)
-    setShootRecords(data.shoot_records ?? [])
+    setGpsEventPasses(data.gps_event_passes ?? [])
+    setShootRecords((data.shoot_records ?? []).filter((r: ShootRecord) => r.type === 'purchase'))
     setErrorMsg('')
     return true
   }, [])
@@ -189,18 +197,33 @@ export default function MyPage() {
 
         <div className="card mb-4">
           <h2 className="section-title">🎬 내 촬영 시각 기록</h2>
-          {shootRecords.length === 0 ? (
+          {gpsEventPasses.length === 0 && shootRecords.length === 0 ? (
             <p className="text-sm text-muted">아직 기록된 촬영 시각이 없어요</p>
           ) : (
             <ul className="space-y-3">
+              {gpsEventPasses.map(group => (
+                <li
+                  key={group.event_id}
+                  className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3"
+                >
+                  <p className="text-sm font-semibold text-[var(--text)]">{group.event_name}</p>
+                  <ul className="mt-2 space-y-1">
+                    {group.passes.map(pass => (
+                      <li key={`${group.event_id}-${pass.pass_count}`} className="text-sm text-[var(--text)]">
+                        {pass.pass_count}차: {pass.display_time}
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
               {shootRecords.map(record => (
                 <li
-                  key={`${record.type}-${record.event_id ?? 'none'}-${record.passed_at}`}
+                  key={`purchase-${record.event_id ?? 'none'}-${record.passed_at}`}
                   className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3"
                 >
                   <p className="text-sm font-semibold text-[var(--text)]">{record.event_name}</p>
                   <p className="mt-1 text-sm text-[var(--text)]">
-                    {record.type === 'gps' ? 'GPS 통과' : '구매 인증'}: {record.display_time}{' '}
+                    구매 인증: {record.display_time}{' '}
                     <span className="text-muted">({record.description})</span>
                   </p>
                 </li>

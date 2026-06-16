@@ -67,8 +67,17 @@ export async function ensurePushSubscription(): Promise<boolean> {
   return res.ok
 }
 
+export function canShowLocalNotification(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    'Notification' in window &&
+    Notification.permission === 'granted'
+  )
+}
+
 export async function showPassNotification(title: string, body: string, url = '/mypage') {
-  if (!('serviceWorker' in navigator)) return
+  if (!canShowLocalNotification()) return
 
   const registration = await navigator.serviceWorker.ready
   await registration.showNotification(title, {

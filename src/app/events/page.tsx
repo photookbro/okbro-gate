@@ -1,54 +1,118 @@
-import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
+'use client'
 
-export default async function EventsPage() {
-  const { data: events } = await supabase
-    .from('events')
-    .select('id, name, date, album_a_url, album_b_url, gps_lat, gps_lng')
-    .order('date', { ascending: false })
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { GpsTrackingToggle } from '@/components/gps-tracking-toggle'
+
+type PastEvent = {
+  id: string
+  name: string
+  date: string
+  shoot_record: string | null
+}
+
+type UpcomingEvent = {
+  id: string
+  name: string
+  date: string
+  gps_enabled: boolean | null
+}
+
+function formatEventDate(date: string): string {
+  const d = new Date(`${date}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return date
+  return d.toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+}
+
+export default function EventsPage() {
+  const [past, setPast] = useState<PastEvent[]>([])
+  const [upcoming, setUpcoming] = useState<UpcomingEvent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    setLoading(true)
+    setError('')
+    fetch('/api/events/list')
+      .then(async res => {
+        const data = await res.json()
+        if (!res.ok) {
+          setError(data.error ?? '목록을 불러오지 못했어요')
+          return
+        }
+        setPast(data.past ?? [])
+        setUpcoming(data.upcoming ?? [])
+      })
+      .catch(() => setError('목록을 불러오지 못했어요'))
+      .finally(() => setLoading(false))
+  }, [])
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '2rem' }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1.5rem' }}>
-          📋 대회 목록
-        </h1>
+    <div className="page-shell">
+      <div className="page-container-wide">
+        <h1 className="mb-6 text-xl font-bold">📋 대회 목록</h1>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {events?.map(event => {
-            const albumCount = [event.album_a_url, event.album_b_url].filter(Boolean).length
-            const hasGps = event.gps_lat != null && event.gps_lng != null
+        {loading && <p className="text-sm text-muted">로딩 중...</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
 
-            return (
-              <Link key={event.id} href={`/events/${event.id}`} style={{ textDecoration: 'none' }}>
-                <div className="card" style={{ padding: '1.25rem', cursor: 'pointer' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '1.05rem', color: 'var(--text)', marginBottom: '4px' }}>
-                        {event.name}
+        {!loading && !error && (
+          <div className="events-split">
+            <section className="events-column">
+              <h2 className="events-column-title">과거 대회</h2>
+              <p className="events-column-sub">앨범 업로드 완료 · 최근 12개월</p>
+              <ul className="events-list">
+                {past.length === 0 && (
+                  <li className="events-empty">과거 대회가 없어요</li>
+                )}
+                {past.map(event => (
+                  <li key={event.id}>
+                    <Link href={`/events/${event.id}`} className="events-row">
+                      <div className="events-row-main">
+                        <span className="events-row-name">{event.name}</span>
+                        <span className="events-row-date">({formatEventDate(event.date)})</span>
                       </div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                        📅 {event.date}
-                        {hasGps && (
-                          <>
-                            &nbsp;·&nbsp; 📍 {event.gps_lat}, {event.gps_lng}
-                          </>
+                      <div className="events-row-meta">
+                        {event.shoot_record ? (
+                          <span className="events-shoot-record">{event.shoot_record}</span>
+                        ) : (
+                          <span className="events-shoot-record events-shoot-record-empty">&nbsp;</span>
                         )}
                       </div>
-                    </div>
-                    {albumCount > 0 && (
-                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          📷 앨범 {albumCount}개
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section className="events-column">
+              <h2 className="events-column-title">예정 대회</h2>
+              <p className="events-column-sub">앨범 준비 중</p>
+              <ul className="events-list">
+                {upcoming.length === 0 && (
+                  <li className="events-empty">예정된 대회가 없어요</li>
+                )}
+                {upcoming.map(event => (
+                  <li key={event.id}>
+                    <div className="events-row events-row-disabled" aria-disabled="true">
+                      <div className="events-row-main events-row-main-inline">
+                        <div>
+                          <span className="events-row-name">{event.name}</span>
+                          <span className="events-row-date"> ({formatEventDate(event.date)})</span>
                         </div>
+                        {event.gps_enabled && <GpsTrackingToggle eventId={event.id} compact />}
                       </div>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            )
-          })}
-        </div>
+                      <p className="events-upcoming-hint">촬영 감지를 ON으로 해주세요</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -89,12 +89,21 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_lat double precision;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_lng double precision;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_radius_meters integer DEFAULT 50;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_enabled boolean DEFAULT false;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS is_loop_course boolean DEFAULT false;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_1_lat double precision;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_1_lng double precision;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_1_radius_meters integer DEFAULT 50;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_2_lat double precision;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_2_lng double precision;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_2_radius_meters integer DEFAULT 50;
 
 CREATE TABLE IF NOT EXISTS gps_logs (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid REFERENCES auth.users(id),
   event_id uuid REFERENCES events(id),
   passed_at timestamptz DEFAULT now(),
+  pass_count integer DEFAULT 1,
+  location_number integer DEFAULT 1,
   notified boolean DEFAULT false
 );
 

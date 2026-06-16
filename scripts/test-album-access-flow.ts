@@ -11,12 +11,6 @@ function v(partial: Partial<VerificationInfo>): VerificationInfo {
 
 const cases = [
   {
-    name: 'not app installed',
-    verification: v({ purchase_verified: true }),
-    appInstalled: false,
-    expect: 'app-install',
-  },
-  {
     name: 'gps access',
     verification: v({
       status: 'valid',
@@ -24,7 +18,6 @@ const cases = [
       gps_passed_at: '2026-01-01T14:32:45Z',
       purchase_verified: false,
     }),
-    appInstalled: true,
     expect: 'open-album',
   },
   {
@@ -34,20 +27,18 @@ const cases = [
       access_source: 'purchase',
       purchase_verified: true,
     }),
-    appInstalled: true,
     expect: 'gps-hint',
   },
   {
     name: 'no access',
     verification: v({ status: 'none', purchase_verified: false }),
-    appInstalled: true,
     expect: 'verify-order',
   },
 ]
 
 let passed = 0
 for (const c of cases) {
-  const result = resolveAlbumBDownloadAction(c.verification, c.appInstalled)
+  const result = resolveAlbumBDownloadAction(c.verification)
   const ok = result === c.expect
   console.log(`${ok ? '✅' : '❌'} ${c.name}: ${result} (expected ${c.expect})`)
   if (ok) passed++

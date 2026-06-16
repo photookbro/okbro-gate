@@ -1,41 +1,83 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { formatPassTimeSeconds, haversineDistanceMeters } from '@/lib/geo'
+import {
+  createInitialGpsPassZoneState,
+  GPS_EXIT_RADIUS_METERS,
+  MAX_GPS_PASSES_PER_DAY,
+  nextGpsPassZoneState,
+  type GpsPassZoneState,
+} from '@/lib/gps-pass'
+import type { EventGpsLocation, GpsLocationNumber } from '@/lib/gps-locations'
+import {
+  isGpsTrackingEnabled,
+  setGpsTrackingEnabled,
+  useGpsTrackingEnabled,
+} from '@/lib/gps-tracking-storage'
+import { showPassNotification } from '@/lib/push-client'
 
 type GpsDetectorProps = {
   eventId: string
   eventName: string
-  gpsLat: number
-  gpsLng: number
-  gpsRadiusMeters: number
+  locations: EventGpsLocation[]
+  isLoopCourse?: boolean
   userId: string | null
   purchaseVerified: boolean
   verificationChecked: boolean
+  headless?: boolean
 }
 
 function formatCoord(value: number): string {
   return value.toFixed(4)
 }
 
+function createZoneStateMap(locations: EventGpsLocation[], maxPasses: number) {
+  const map = new Map<GpsLocationNumber, GpsPassZoneState>()
+  for (const location of locations) {
+    map.set(location.locationNumber, createInitialGpsPassZoneState(0, { maxPasses }))
+  }
+  return map
+}
+
+function createEarlyAlertMap(locations: EventGpsLocation[]) {
+  const map = new Map<GpsLocationNumber, boolean>()
+  for (const location of locations) {
+    map.set(location.locationNumber, false)
+  }
+  return map
+}
+
 export function GpsDetector({
   eventId,
   eventName,
-  gpsLat,
-  gpsLng,
-  gpsRadiusMeters,
+  locations,
+  isLoopCourse = false,
   userId,
   purchaseVerified,
   verificationChecked,
+  headless = false,
 }: GpsDetectorProps) {
   const watchIdRef = useRef<number | null>(null)
-  const loggedTodayRef = useRef(false)
+  const zoneStateRef = useRef<Map<GpsLocationNumber, GpsPassZoneState>>(
+    createZoneStateMap(locations, isLoopCourse ? MAX_GPS_PASSES_PER_DAY : 1)
+  )
+  const recordingRef = useRef<Set<string>>(new Set())
+  const autoStartedRef = useRef(false)
+  const earlyAlertedRef = useRef<Map<GpsLocationNumber, boolean>>(createEarlyAlertMap(locations))
+  const [storedEnabled] = useGpsTrackingEnabled(eventId)
   const [tracking, setTracking] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [toast, setToast] = useState<string | null>(null)
   const [currentLat, setCurrentLat] = useState<number | null>(null)
   const [currentLng, setCurrentLng] = useState<number | null>(null)
-  const [distanceMeters, setDistanceMeters] = useState<number | null>(null)
+  const [distanceByLocation, setDistanceByLocation] = useState<Record<number, number>>({})
+  const [passCountToday, setPassCountToday] = useState(0)
+  const maxPasses = isLoopCourse ? MAX_GPS_PASSES_PER_DAY : 1
+  const activeLocations = useMemo(
+    () => (locations.length > 0 ? locations : []),
+    [locations]
+  )
 
   const stopTracking = useCallback(() => {
     if (watchIdRef.current !== null) {
@@ -45,8 +87,15 @@ export function GpsDetector({
     setTracking(false)
     setCurrentLat(null)
     setCurrentLng(null)
-    setDistanceMeters(null)
-  }, [])
+    setDistanceByLocation({})
+    earlyAlertedRef.current = createEarlyAlertMap(activeLocations)
+    setGpsTrackingEnabled(eventId, false)
+  }, [activeLocations, eventId])
+
+  useEffect(() => {
+    zoneStateRef.current = createZoneStateMap(activeLocations, maxPasses)
+    earlyAlertedRef.current = createEarlyAlertMap(activeLocations)
+  }, [activeLocations, maxPasses])
 
   useEffect(() => {
     return () => stopTracking()
@@ -58,7 +107,7 @@ export function GpsDetector({
     }
   }, [purchaseVerified, tracking, stopTracking])
 
-  const canUseGps = verificationChecked && !!userId && purchaseVerified
+  const canUseGps = verificationChecked && !!userId && purchaseVerified && activeLocations.length > 0
 
   useEffect(() => {
     if (!toast) return
@@ -66,48 +115,137 @@ export function GpsDetector({
     return () => clearTimeout(timer)
   }, [toast])
 
-  const recordPass = useCallback(
-    async (latitude: number, longitude: number) => {
-      if (loggedTodayRef.current) return
+  const syncTodayPasses = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/gps-log?event_id=${encodeURIComponent(eventId)}`)
+      const data = await res.json()
+      if (!res.ok) return
 
+      const nextState = createZoneStateMap(activeLocations, maxPasses)
+      for (const group of data.locations ?? []) {
+        const locationNumber = Number(group.location_number) === 2 ? 2 : 1
+        const count = group.pass_count ?? group.passes?.length ?? 0
+        nextState.set(locationNumber, createInitialGpsPassZoneState(count, { maxPasses }))
+      }
+      zoneStateRef.current = nextState
+      setPassCountToday(data.pass_count ?? 0)
+    } catch {
+      // ignore
+    }
+  }, [activeLocations, eventId, maxPasses])
+
+  const recordPass = useCallback(
+    async (
+      latitude: number,
+      longitude: number,
+      locationNumber: GpsLocationNumber,
+      passCount: number
+    ) => {
+      const key = `${locationNumber}-${passCount}`
+      if (recordingRef.current.has(key)) return
+
+      recordingRef.current.add(key)
       try {
         const res = await fetch('/api/gps-log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ event_id: eventId, lat: latitude, lng: longitude }),
+          body: JSON.stringify({
+            event_id: eventId,
+            lat: latitude,
+            lng: longitude,
+            location_number: locationNumber,
+          }),
         })
         const data = await res.json()
 
         if (!res.ok) {
+          const state = zoneStateRef.current.get(locationNumber)
+          if (state) {
+            zoneStateRef.current.set(locationNumber, {
+              ...state,
+              passCountToday: Math.max(0, state.passCountToday - 1),
+              armedForNextPass: true,
+            })
+          }
+          setPassCountToday(prev => Math.max(0, prev - 1))
           setErrorMsg(data.error ?? '통과 기록 저장 실패')
           return
         }
 
-        loggedTodayRef.current = true
         const passedAt = data.passed_at ? new Date(data.passed_at) : new Date()
         const timeLabel = formatPassTimeSeconds(passedAt)
-        setToast(`✅ ${eventName} 촬영자 통과! ${timeLabel}`)
+        const recordedPass = data.pass_count ?? passCount
+        const locationLabel = activeLocations.length > 1 ? `${locationNumber}차 위치 ` : ''
+        const arrivalMessage = isLoopCourse
+          ? `🎬 ${locationLabel}촬영 지점 도착! ${timeLabel} (${recordedPass}차)`
+          : `🎬 ${locationLabel}촬영 지점 도착! ${timeLabel}`
+        setPassCountToday(prev => prev + 1)
+        setToast(arrivalMessage)
+        void showPassNotification('오켱사진링크게이트', arrivalMessage, `/events/${eventId}`)
       } catch {
+        const state = zoneStateRef.current.get(locationNumber)
+        if (state) {
+          zoneStateRef.current.set(locationNumber, {
+            ...state,
+            passCountToday: Math.max(0, state.passCountToday - 1),
+            armedForNextPass: true,
+          })
+        }
+        setPassCountToday(prev => Math.max(0, prev - 1))
         setErrorMsg('통과 기록 저장 중 오류가 발생했어요')
+      } finally {
+        recordingRef.current.delete(key)
       }
     },
-    [eventId, eventName]
+    [activeLocations.length, eventId, isLoopCourse]
   )
 
   const handlePosition = useCallback(
     (position: GeolocationPosition) => {
       const { latitude, longitude } = position.coords
-      const distance = haversineDistanceMeters(latitude, longitude, gpsLat, gpsLng)
+      const nextDistances: Record<number, number> = {}
 
       setCurrentLat(latitude)
       setCurrentLng(longitude)
-      setDistanceMeters(Math.round(distance))
 
-      if (distance <= gpsRadiusMeters) {
-        void recordPass(latitude, longitude)
+      for (const location of activeLocations) {
+        const distance = haversineDistanceMeters(latitude, longitude, location.lat, location.lng)
+        nextDistances[location.locationNumber] = Math.round(distance)
+        const alertDistanceMeters = location.radiusMeters * 3
+        const exitRadius = Math.max(GPS_EXIT_RADIUS_METERS, location.radiusMeters * 2)
+
+        if (
+          !earlyAlertedRef.current.get(location.locationNumber) &&
+          distance <= alertDistanceMeters &&
+          distance > location.radiusMeters
+        ) {
+          earlyAlertedRef.current.set(location.locationNumber, true)
+          setToast('🎬 오켱이 기다리고 있어요')
+          void showPassNotification(
+            '오켱사진링크게이트',
+            '🎬 오켱이 기다리고 있어요',
+            `/events/${eventId}`
+          )
+        }
+
+        const currentState =
+          zoneStateRef.current.get(location.locationNumber) ??
+          createInitialGpsPassZoneState(0, { maxPasses })
+        const { state, shouldRecord } = nextGpsPassZoneState(currentState, distance, {
+          enterRadius: location.radiusMeters,
+          exitRadius,
+          maxPasses,
+        })
+        zoneStateRef.current.set(location.locationNumber, state)
+
+        if (shouldRecord) {
+          void recordPass(latitude, longitude, location.locationNumber, state.passCountToday)
+        }
       }
+
+      setDistanceByLocation(nextDistances)
     },
-    [gpsLat, gpsLng, gpsRadiusMeters, recordPass]
+    [activeLocations, eventId, maxPasses, recordPass]
   )
 
   const startTracking = useCallback(() => {
@@ -119,6 +257,7 @@ export function GpsDetector({
     }
 
     setErrorMsg('')
+    void syncTodayPasses()
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       handlePosition,
@@ -138,7 +277,14 @@ export function GpsDetector({
     )
 
     setTracking(true)
-  }, [canUseGps, handlePosition, stopTracking])
+    setGpsTrackingEnabled(eventId, true)
+  }, [canUseGps, eventId, handlePosition, stopTracking, syncTodayPasses])
+
+  useEffect(() => {
+    if (!canUseGps || autoStartedRef.current || !isGpsTrackingEnabled(eventId)) return
+    autoStartedRef.current = true
+    startTracking()
+  }, [canUseGps, eventId, startTracking])
 
   function handleToggle() {
     if (!canUseGps) return
@@ -149,25 +295,30 @@ export function GpsDetector({
     startTracking()
   }
 
+  if (headless) {
+    return null
+  }
+
   return (
     <>
-      <div className="card-section">
+      <div className="card-section" data-event-name={eventName}>
         <div className="toggle-row mb-3">
           <div>
             <p className="text-sm font-semibold text-[var(--text)]">📍 촬영 감지</p>
             <p className="mt-1 text-xs text-muted">
-              촬영 지점 반경 {gpsRadiusMeters}m 이내 진입 시 통과 시각을 기록해요.
+              촬영 위치 {activeLocations.length}곳 · 위치별 {maxPasses}회까지 기록
+              {isLoopCourse ? ` (순환 코스 최대 ${MAX_GPS_PASSES_PER_DAY}회)` : ' (대회당 1회)'}
             </p>
           </div>
           <button
             type="button"
             role="switch"
-            aria-checked={tracking}
+            aria-checked={tracking || storedEnabled}
             aria-disabled={!canUseGps}
             aria-label="촬영 감지 ON/OFF"
             disabled={!canUseGps}
             onClick={handleToggle}
-            className={`toggle-switch ${tracking ? 'toggle-switch-on' : ''}`}
+            className={`toggle-switch ${tracking || storedEnabled ? 'toggle-switch-on' : ''}`}
           >
             <span className="toggle-switch-thumb" />
           </button>
@@ -181,16 +332,40 @@ export function GpsDetector({
           <p className="text-xs text-muted">로그인 후 이용할 수 있어요</p>
         )}
 
+        {activeLocations.length === 0 && (
+          <p className="text-xs text-muted">촬영 위치가 설정되지 않았어요</p>
+        )}
+
+        {passCountToday > 0 && (
+          <p className="mb-2 text-xs font-medium text-success">오늘 총 {passCountToday}회 기록됨</p>
+        )}
+
         {tracking && currentLat != null && currentLng != null && (
-          <div className="space-y-1 text-xs leading-relaxed">
+          <div className="space-y-2 text-xs leading-relaxed">
             <p className="font-medium text-danger">
               🔴 추적 중... (현재 좌표: {formatCoord(currentLat)}, {formatCoord(currentLng)})
             </p>
-            {distanceMeters != null && (
-              <p className={distanceMeters <= gpsRadiusMeters ? 'text-success' : 'text-muted'}>
-                거리: {distanceMeters}m (반경: {gpsRadiusMeters}m)
-              </p>
-            )}
+            {activeLocations.map(location => {
+              const distance = distanceByLocation[location.locationNumber]
+              const exitRadius = Math.max(GPS_EXIT_RADIUS_METERS, location.radiusMeters * 2)
+              const alertDistance = location.radiusMeters * 3
+              return (
+                <p
+                  key={location.locationNumber}
+                  className={
+                    distance != null && distance <= location.radiusMeters
+                      ? 'text-success'
+                      : distance != null && distance >= exitRadius
+                        ? 'text-muted'
+                        : 'text-warning'
+                  }
+                >
+                  {activeLocations.length > 1 ? `${location.locationNumber}차 위치` : '촬영 위치'}:{' '}
+                  {distance != null ? `${distance}m` : '-'} (조기 알림 {alertDistance}m · 도착{' '}
+                  {location.radiusMeters}m)
+                </p>
+              )
+            })}
           </div>
         )}
 

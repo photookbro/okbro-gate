@@ -116,12 +116,53 @@ export async function GET() {
 
   const { data: gpsLogs } = await admin
     .from('gps_logs')
-    .select('id, event_id, passed_at, notified, events(name)')
+    .select('id, event_id, passed_at, pass_count, notified, events(name)')
     .eq('user_id', user.id)
-    .order('passed_at', { ascending: false })
+    .order('passed_at', { ascending: true })
+
+  type GpsEventPassGroup = {
+    event_id: string
+    event_name: string
+    passes: { pass_count: number; display_time: string; passed_at: string }[]
+  }
+
+  const gpsEventPassMap = new Map<string, GpsEventPassGroup>()
+
+  for (const log of gpsLogs ?? []) {
+    const joined = log.events as { name: string | null } | { name: string | null }[] | null
+    const eventName = (Array.isArray(joined) ? joined[0]?.name : joined?.name) ?? '알 수 없는 대회'
+    if (!log.event_id || !log.passed_at) continue
+
+    let group = gpsEventPassMap.get(log.event_id)
+    if (!group) {
+      group = {
+        event_id: log.event_id,
+        event_name: eventName,
+        passes: [],
+      }
+    }
+
+    group.passes.push({
+      pass_count: log.pass_count ?? group.passes.length + 1,
+      display_time: formatGpsPassDisplay(log.passed_at),
+      passed_at: log.passed_at,
+    })
+    gpsEventPassMap.set(log.event_id, group)
+  }
+
+  const gps_event_passes = [...gpsEventPassMap.values()]
+    .map(group => ({
+      ...group,
+      passes: [...group.passes].sort((a, b) => a.pass_count - b.pass_count),
+    }))
+    .sort(
+      (a, b) =>
+        new Date(b.passes[b.passes.length - 1]?.passed_at ?? 0).getTime() -
+        new Date(a.passes[a.passes.length - 1]?.passed_at ?? 0).getTime()
+    )
 
   type ShootRecord = {
-    type: 'gps' | 'purchase'
+    type: 'purchase'
     event_id: string | null
     event_name: string
     passed_at: string
@@ -130,20 +171,6 @@ export async function GET() {
   }
 
   const shootRecords: ShootRecord[] = []
-
-  for (const log of gpsLogs ?? []) {
-    const joined = log.events as { name: string | null } | { name: string | null }[] | null
-    const eventName = (Array.isArray(joined) ? joined[0]?.name : joined?.name) ?? '알 수 없는 대회'
-    if (!log.passed_at) continue
-    shootRecords.push({
-      type: 'gps',
-      event_id: log.event_id,
-      event_name: eventName,
-      passed_at: log.passed_at,
-      display_time: formatGpsPassDisplay(log.passed_at),
-      description: 'B앨범 자동 접근',
-    })
-  }
 
   for (const order of orders ?? []) {
     const joinedEvent = Array.isArray(order.events) ? order.events[0] : order.events
@@ -171,6 +198,7 @@ export async function GET() {
     verifications,
     has_expiring_soon: hasExpiringSoon,
     event_stats: eventStats,
+    gps_event_passes,
     shoot_records: shootRecords,
     formatted: {
       latest_expires_at: latest?.expires_at
