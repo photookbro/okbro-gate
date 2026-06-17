@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getAuthenticatedUser } from '@/lib/auth-server'
 import { getEventGpsLocations } from '@/lib/gps-locations'
-import { formatPastGpsPassMessage } from '@/lib/shoot-record'
+import { buildPastGpsPassDisplay } from '@/lib/shoot-record'
 
 function twelveMonthsAgoDateString(): string {
   const d = new Date()
@@ -13,11 +13,15 @@ function twelveMonthsAgoDateString(): string {
   return `${y}-${m}-${day}`
 }
 
+function hasHighResAlbumUrl(url: string | null | undefined): boolean {
+  return typeof url === 'string' && url.trim().length > 0
+}
+
 export async function GET() {
   const admin = supabaseAdmin()
   const cutoff = twelveMonthsAgoDateString()
 
-  const [{ data: pastEvents, error: pastError }, upcomingResult] = await Promise.all([
+  const [{ data: pastEventsRaw, error: pastError }, upcomingResult] = await Promise.all([
       admin
         .from('events')
         .select('id, name, date, gps_enabled, album_b_url')
@@ -50,7 +54,12 @@ export async function GET() {
     return NextResponse.json({ error: '대회 목록 조회 실패' }, { status: 500 })
   }
 
-  const shootRecordByEvent: Record<string, string> = {}
+  const pastEvents = (pastEventsRaw ?? []).filter(event => hasHighResAlbumUrl(event.album_b_url))
+
+  const shootRecordByEvent: Record<
+    string,
+    { username: string; time: string } | null
+  > = {}
   const user = await getAuthenticatedUser()
 
   if (user && pastEvents?.length) {
@@ -66,7 +75,7 @@ export async function GET() {
 
     for (const log of logs ?? []) {
       if (!log.event_id || !log.passed_at || shootRecordByEvent[log.event_id]) continue
-      shootRecordByEvent[log.event_id] = formatPastGpsPassMessage(email, log.passed_at)
+      shootRecordByEvent[log.event_id] = buildPastGpsPassDisplay(email, log.passed_at)
     }
   }
 

@@ -63,7 +63,7 @@ export function AlbumAccessModal({
             <p className="mt-1 text-sm">당신의 개인 정보가 포함되어 있어요.</p>
           </div>
           <button type="button" onClick={handleOpenAlbumB} className="btn-primary w-full">
-            B앨범 열기
+            고화소 앨범 열기
           </button>
         </div>
       </div>
@@ -88,7 +88,7 @@ export function AlbumAccessModal({
       <div className="modal-card max-w-[440px]" onClick={e => e.stopPropagation()}>
         {isValid && isGpsAccess && verification.gps_passed_at && (
           <div className="alert-success mb-4">
-            📍 GPS 통과: {formatGpsPassDisplay(verification.gps_passed_at)} (B앨범 자동 접근)
+            📍 GPS 통과: {formatGpsPassDisplay(verification.gps_passed_at)} (고화소 앨범 자동 접근)
           </div>
         )}
 

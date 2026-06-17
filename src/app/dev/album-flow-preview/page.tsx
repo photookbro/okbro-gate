@@ -29,7 +29,7 @@ export default function AlbumFlowPreviewPage() {
   return (
     <div className="page-shell">
       <div className="page-container-wide max-w-md space-y-4">
-        <p className="text-xs text-muted">Dev preview — A앨범 유도 / B앨범 경고 플로우</p>
+        <p className="text-xs text-muted">Dev preview — 저화소 앨범 유도 / 고화소 앨범 경고 플로우</p>
 
         <div className="flex gap-2">
           <button

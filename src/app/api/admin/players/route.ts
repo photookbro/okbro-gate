@@ -12,7 +12,7 @@ import {
   orderStatusLabel,
 } from '@/lib/admin-players'
 import { getEventCourseLabel, getEventGpsLocations, type EventGpsFields } from '@/lib/gps-locations'
-import { getMonitorStatus, resolveExpiresAt } from '@/lib/order-verification'
+import { getDaysRemaining, getMonitorStatus, resolveExpiresAt, formatVerificationDate } from '@/lib/order-verification'
 
 async function listAllAuthUsers(admin: ReturnType<typeof supabaseAdmin>): Promise<User[]> {
   const users: User[] = []
@@ -318,10 +318,15 @@ export async function GET(req: NextRequest) {
   }
 
   const purchaseValidByUser = new Set<string>()
+  const latestVerificationByUser = new Map<
+    string,
+    { verified_at: string; expires_at: Date }
+  >()
   if (Number.isFinite(verifiedPeriodMonths) && verifiedPeriodMonths > 0) {
     const now = new Date()
     for (const order of orders ?? []) {
       if (!order.user_id) continue
+      const verifiedAt = order.used_at ?? order.created_at
       const expiresAt = resolveExpiresAt(
         {
           order_number: '',
@@ -331,7 +336,17 @@ export async function GET(req: NextRequest) {
         },
         verifiedPeriodMonths
       )
-      if (expiresAt && getMonitorStatus(expiresAt, now) !== 'expired') {
+      if (!verifiedAt || !expiresAt) continue
+
+      const existing = latestVerificationByUser.get(order.user_id)
+      if (!existing || expiresAt > existing.expires_at) {
+        latestVerificationByUser.set(order.user_id, {
+          verified_at: verifiedAt,
+          expires_at: expiresAt,
+        })
+      }
+
+      if (getMonitorStatus(expiresAt, now) !== 'expired') {
         purchaseValidByUser.add(order.user_id)
       }
     }
@@ -369,6 +384,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  const now = new Date()
+
   const players = authUsers.map(user => {
     const lastActivity = maxIsoDate(
       termsByUser.get(user.id),
@@ -377,6 +394,7 @@ export async function GET(req: NextRequest) {
       prefUpdatedByUser.get(user.id),
       user.last_sign_in_at
     )
+    const verification = latestVerificationByUser.get(user.id)
 
     return {
       id: user.id,
@@ -387,10 +405,20 @@ export async function GET(req: NextRequest) {
       terms_agreed: termsByUser.has(user.id),
       purchase_verified: purchaseValidByUser.has(user.id),
       gps_record: gpsByUser.has(user.id),
+      verified_at_display: verification ? formatVerificationDate(verification.verified_at) : '-',
+      expires_at_display: verification ? formatVerificationDate(verification.expires_at) : '-',
+      days_remaining: verification ? getDaysRemaining(verification.expires_at, now) : null,
       last_activity: lastActivity,
       last_activity_display: lastActivity ? formatAdminDateTime(lastActivity) : '-',
     }
   })
+
+  const summary = {
+    total_signups: players.length,
+    terms_agreed: players.filter(player => player.terms_agreed).length,
+    purchase_verified: players.filter(player => player.purchase_verified).length,
+    gps_users: players.filter(player => player.gps_record).length,
+  }
 
   players.sort((a, b) => {
     const aMs = a.last_activity ? new Date(a.last_activity).getTime() : 0
@@ -398,5 +426,5 @@ export async function GET(req: NextRequest) {
     return bMs - aMs
   })
 
-  return NextResponse.json({ players })
+  return NextResponse.json({ players, summary })
 }

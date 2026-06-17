@@ -1,3 +1,6 @@
+export const USER_EXPIRY_WARNING_DAYS = 7
+export const ADMIN_EXPIRY_SOON_DAYS = 30
+
 export type OrderRecord = {
   order_number: string
   used_at: string
@@ -104,14 +107,19 @@ export function formatVerificationDate(date: string | Date | null | undefined): 
   })
 }
 
+export function isUserExpiringSoon(expiresAt: Date, now: Date = new Date()): boolean {
+  return isExpiringWithinDays(expiresAt, USER_EXPIRY_WARNING_DAYS, now)
+}
+
 export function getMonitorStatus(
   expiresAt: Date,
-  now: Date = new Date()
+  now: Date = new Date(),
+  soonDays: number = ADMIN_EXPIRY_SOON_DAYS
 ): MonitorStatus {
   if (now > expiresAt) return 'expired'
 
   const threshold = new Date(now)
-  threshold.setDate(threshold.getDate() + 30)
+  threshold.setDate(threshold.getDate() + soonDays)
   if (expiresAt <= threshold) return 'expiring_soon'
 
   return 'active'

@@ -185,7 +185,7 @@ export default function MyPage() {
               </div>
 
               {isExpiringSoon && !isExpired && (
-                <div className="alert-warning mt-4 mb-0">⚠️ 곧 만료돼요!</div>
+                <div className="alert-warning mt-4 mb-0">⚠️ 곧 만료</div>
               )}
 
               {isExpired && (

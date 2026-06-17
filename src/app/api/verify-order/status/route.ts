@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getAuthenticatedUser } from '@/lib/auth-server'
-import { getVerificationInfo, type VerificationInfo } from '@/lib/order-verification'
+import {
+  getVerificationInfo,
+  isUserExpiringSoon,
+  resolveExpiresAt,
+  type VerificationInfo,
+} from '@/lib/order-verification'
 
 export async function GET(req: NextRequest) {
   const user = await getAuthenticatedUser()
@@ -32,6 +37,11 @@ export async function GET(req: NextRequest) {
 
   const purchaseInfo = getVerificationInfo(order ?? null, verifiedPeriodMonths)
   const purchaseVerified = purchaseInfo.status === 'valid'
+  const expiresAt = order ? resolveExpiresAt(order, verifiedPeriodMonths) : null
+  const showExpiryWarning =
+    purchaseInfo.status === 'valid' &&
+    expiresAt != null &&
+    isUserExpiringSoon(expiresAt)
 
   if (eventId) {
     const { data: gpsLog } = await admin
@@ -50,7 +60,10 @@ export async function GET(req: NextRequest) {
         gps_passed_at: gpsLog.passed_at,
         purchase_verified: purchaseVerified,
       }
-      return NextResponse.json(gpsAccess)
+      return NextResponse.json({
+        ...gpsAccess,
+        show_expiry_warning: showExpiryWarning,
+      })
     }
   }
 
@@ -59,11 +72,13 @@ export async function GET(req: NextRequest) {
       ...purchaseInfo,
       access_source: 'purchase' as const,
       purchase_verified: true,
+      show_expiry_warning: showExpiryWarning,
     })
   }
 
   return NextResponse.json({
     ...purchaseInfo,
     purchase_verified: false,
+    show_expiry_warning: false,
   })
 }

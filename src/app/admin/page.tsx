@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useAdminToken } from './admin-auth-context'
-import { formatVerificationDate } from '@/lib/order-verification'
 import { AdminDateInput } from '@/components/admin-date-input'
 import { isCompleteIsoDate } from '@/lib/date-input'
 import { formatTimeInputValue, isCompleteTime } from '@/lib/time-input'
@@ -56,34 +55,11 @@ const emptyForm: EventForm = {
   gps_2_radius_meters: '50',
 }
 
-type MonitorStatus = 'active' | 'expired' | 'expiring_soon'
-
-type MonitorUser = {
-  id: string
-  email: string
-  order_number: string
-  platform: string
-  event_name?: string
-  verified_at: string | null
-  expires_at: string | null
-  days_remaining?: number
-  status: MonitorStatus
-  notification_sent?: boolean
-}
-
-type MonitorSummary = {
-  total_verified_users: number
-  active_users: number
-  expiring_soon_users: number
-  total_terms_agreed_users: number
-}
-
-type TermsAgreementRow = {
-  id: string
-  email: string
-  agreed_at: string | null
-  version: string
-  ip_address: string
+type PlayerSummary = {
+  total_signups: number
+  terms_agreed: number
+  purchase_verified: number
+  gps_users: number
 }
 
 type PlayerRow = {
@@ -95,6 +71,9 @@ type PlayerRow = {
   terms_agreed: boolean
   purchase_verified: boolean
   gps_record: boolean
+  verified_at_display: string
+  expires_at_display: string
+  days_remaining: number | null
   last_activity: string | null
   last_activity_display: string
 }
@@ -150,18 +129,24 @@ type PlayerDetail = {
   }[]
 }
 
+type EventMonitorRow = {
+  id: string
+  user_id: string | null
+  player_label: string
+  gps_passed: boolean
+  passed_at: string | null
+  passed_at_display: string | null
+  pass_count: number | null
+  location_number: number | null
+  notified: boolean
+}
+
 const TAB_LABELS = {
   events: '대회 관리',
   settings: '설정 관리',
   players: '선수 관리',
-  monitoring: '모니터링',
+  event_monitoring: '대회별 모니터링',
 } as const
-
-const STATUS_LABELS: Record<MonitorStatus, string> = {
-  active: '활성',
-  expiring_soon: '임박',
-  expired: '만료',
-}
 
 function formatDateOnly(date: string | null | undefined): string {
   if (!date) return '-'
@@ -191,7 +176,9 @@ function OxBadge({ value }: { value: boolean }) {
 
 export default function AdminPage() {
   const token = useAdminToken()
-  const [tab, setTab] = useState<'events' | 'settings' | 'players' | 'monitoring'>('events')
+  const [tab, setTab] = useState<
+    'events' | 'settings' | 'players' | 'event_monitoring'
+  >('events')
   const [events, setEvents] = useState<Event[]>([])
   const [loadingEvents, setLoadingEvents] = useState(true)
   const [eventError, setEventError] = useState('')
@@ -209,15 +196,8 @@ export default function AdminPage() {
   const [form, setForm] = useState<EventForm>(emptyForm)
   const [savingEvent, setSavingEvent] = useState(false)
 
-  const [monitorSummary, setMonitorSummary] = useState<MonitorSummary | null>(null)
-  const [monitorUsers, setMonitorUsers] = useState<MonitorUser[]>([])
-  const [monitorExpiringSoon, setMonitorExpiringSoon] = useState<MonitorUser[]>([])
-  const [termsAgreements, setTermsAgreements] = useState<TermsAgreementRow[]>([])
-  const [loadingMonitoring, setLoadingMonitoring] = useState(false)
-  const [monitoringError, setMonitoringError] = useState('')
-  const [notifyingOrderId, setNotifyingOrderId] = useState<string | null>(null)
-  const [notifyingGpsEventId, setNotifyingGpsEventId] = useState<string | null>(null)
   const [gpsNotifyMsg, setGpsNotifyMsg] = useState('')
+  const [notifyingGpsEventId, setNotifyingGpsEventId] = useState<string | null>(null)
 
   const [gpsLogsModalEvent, setGpsLogsModalEvent] = useState<{ id: string; name: string } | null>(null)
   const [gpsLogs, setGpsLogs] = useState<
@@ -235,12 +215,18 @@ export default function AdminPage() {
   const [gpsAddError, setGpsAddError] = useState('')
 
   const [players, setPlayers] = useState<PlayerRow[]>([])
+  const [playerSummary, setPlayerSummary] = useState<PlayerSummary | null>(null)
   const [loadingPlayers, setLoadingPlayers] = useState(false)
   const [playersError, setPlayersError] = useState('')
   const [playerDetail, setPlayerDetail] = useState<PlayerDetail | null>(null)
   const [loadingPlayerDetail, setLoadingPlayerDetail] = useState(false)
   const [playerDetailError, setPlayerDetailError] = useState('')
   const [expandedGpsEventId, setExpandedGpsEventId] = useState<string | null>(null)
+
+  const [eventMonitorEventId, setEventMonitorEventId] = useState('')
+  const [eventMonitorRows, setEventMonitorRows] = useState<EventMonitorRow[]>([])
+  const [loadingEventMonitoring, setLoadingEventMonitoring] = useState(false)
+  const [eventMonitoringError, setEventMonitoringError] = useState('')
 
   const adminFetch = useCallback(
     (url: string, options: RequestInit = {}) =>
@@ -285,22 +271,27 @@ export default function AdminPage() {
     setLoadingSettings(false)
   }, [adminFetch])
 
-  const loadMonitoring = useCallback(async () => {
-    setLoadingMonitoring(true)
-    setMonitoringError('')
-    const res = await adminFetch('/api/admin/monitoring')
-    const data = await res.json()
-    if (!res.ok) {
-      setMonitoringError(data.error ?? '모니터링 데이터를 불러오지 못했어요')
-      setLoadingMonitoring(false)
-      return
-    }
-    setMonitorSummary(data.summary ?? null)
-    setMonitorUsers(data.users ?? [])
-    setMonitorExpiringSoon(data.expiring_soon ?? [])
-    setTermsAgreements(data.terms_agreements ?? [])
-    setLoadingMonitoring(false)
-  }, [adminFetch])
+  const loadEventMonitoring = useCallback(
+    async (eventId: string) => {
+      if (!eventId) {
+        setEventMonitorRows([])
+        return
+      }
+      setLoadingEventMonitoring(true)
+      setEventMonitoringError('')
+      const res = await adminFetch(`/api/admin/event-monitoring?event_id=${encodeURIComponent(eventId)}`)
+      const data = await res.json()
+      if (!res.ok) {
+        setEventMonitoringError(data.error ?? '대회별 모니터링 데이터를 불러오지 못했어요')
+        setEventMonitorRows([])
+        setLoadingEventMonitoring(false)
+        return
+      }
+      setEventMonitorRows(data.rows ?? [])
+      setLoadingEventMonitoring(false)
+    },
+    [adminFetch]
+  )
 
   const loadPlayers = useCallback(async () => {
     setLoadingPlayers(true)
@@ -309,10 +300,12 @@ export default function AdminPage() {
     const data = await res.json()
     if (!res.ok) {
       setPlayersError(data.error ?? '선수 목록을 불러오지 못했어요')
+      setPlayerSummary(null)
       setLoadingPlayers(false)
       return
     }
     setPlayers(data.players ?? [])
+    setPlayerSummary(data.summary ?? null)
     setLoadingPlayers(false)
   }, [adminFetch])
 
@@ -339,35 +332,6 @@ export default function AdminPage() {
     setPlayerDetail(null)
     setPlayerDetailError('')
     setExpandedGpsEventId(null)
-  }
-
-  async function handleNotifyExpiry(orderId: string) {
-    setNotifyingOrderId(orderId)
-    setMonitoringError('')
-
-    const res = await adminFetch('/api/admin/monitoring/notify', {
-      method: 'POST',
-      body: JSON.stringify({ order_id: orderId }),
-    })
-    const data = await res.json()
-
-    setNotifyingOrderId(null)
-
-    if (!res.ok) {
-      setMonitoringError(data.error ?? '알림 발송 실패')
-      return
-    }
-
-    setMonitorExpiringSoon(prev =>
-      prev.map(row =>
-        row.id === orderId ? { ...row, notification_sent: true } : row
-      )
-    )
-    setMonitorUsers(prev =>
-      prev.map(row =>
-        row.id === orderId ? { ...row, notification_sent: true } : row
-      )
-    )
   }
 
   async function handleGpsNotify(eventId: string) {
@@ -493,13 +457,13 @@ export default function AdminPage() {
   }, [loadEvents, loadSettings])
 
   useEffect(() => {
-    if (tab === 'monitoring') {
-      loadMonitoring()
-    }
     if (tab === 'players') {
       loadPlayers()
     }
-  }, [tab, loadMonitoring, loadPlayers])
+    if (tab === 'event_monitoring' && eventMonitorEventId) {
+      loadEventMonitoring(eventMonitorEventId)
+    }
+  }, [tab, loadPlayers, loadEventMonitoring, eventMonitorEventId])
 
   function openAddModal() {
     setEditingId(null)
@@ -658,35 +622,40 @@ export default function AdminPage() {
               <p className="text-muted">로딩 중...</p>
             ) : (
               <div className="admin-table-wrap">
-                <table className="admin-table">
+                <table className="admin-table admin-event-table">
                   <thead>
                     <tr>
-                      {['id', 'name', 'date', 'album_a_url', 'album_b_url', ''].map(col => (
-                        <th key={col || 'actions'}>{col || '작업'}</th>
-                      ))}
+                      <th>대회명</th>
+                      <th>날짜</th>
+                      <th>저화소 앨범</th>
+                      <th>고화소 앨범</th>
+                      <th>작업</th>
                     </tr>
                   </thead>
                   <tbody>
                     {events.map(event => (
                       <tr key={event.id}>
-                        <td className="max-w-[120px] truncate text-muted">{event.id}</td>
-                        <td className="font-medium">{event.name}</td>
-                        <td className="whitespace-nowrap">{event.date}</td>
-                        <td className="max-w-[180px] truncate text-muted">{event.album_a_url ?? '-'}</td>
-                        <td className="max-w-[180px] truncate text-muted">{event.album_b_url ?? '-'}</td>
+                        <td className="font-medium whitespace-nowrap">{event.name}</td>
+                        <td className="whitespace-nowrap text-[var(--text-muted)]">{event.date}</td>
+                        <td className="max-w-[220px] truncate text-[var(--text-muted)]" title={event.album_a_url ?? undefined}>
+                          {event.album_a_url ?? '-'}
+                        </td>
+                        <td className="max-w-[220px] truncate text-[var(--text-muted)]" title={event.album_b_url ?? undefined}>
+                          {event.album_b_url ?? '-'}
+                        </td>
                         <td className="whitespace-nowrap">
-                          <div className="flex flex-wrap gap-2">
+                          <div className="admin-event-row-actions">
                             <button
                               type="button"
                               onClick={() => void openGpsLogsModal(event)}
-                              className="btn-secondary-inline px-3 py-1.5 text-xs"
+                              className="btn-secondary-inline"
                             >
                               GPS 로그
                             </button>
                             <button
                               type="button"
                               onClick={() => void openGpsAddModal(event)}
-                              className="btn-secondary-inline px-3 py-1.5 text-xs"
+                              className="btn-secondary-inline"
                             >
                               GPS 로그 추가
                             </button>
@@ -694,14 +663,22 @@ export default function AdminPage() {
                               type="button"
                               onClick={() => void handleGpsNotify(event.id)}
                               disabled={notifyingGpsEventId === event.id}
-                              className="btn-primary-inline px-3 py-1.5 text-xs"
+                              className="btn-primary-inline"
                             >
                               {notifyingGpsEventId === event.id ? '발송 중...' : 'GPS 알림'}
                             </button>
-                            <button type="button" onClick={() => openEditModal(event)} className="btn-secondary-inline px-3 py-1.5 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(event)}
+                              className="btn-secondary-inline"
+                            >
                               수정
                             </button>
-                            <button type="button" onClick={() => handleDeleteEvent(event.id)} className="btn-danger-inline px-3 py-1.5 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEvent(event.id)}
+                              className="btn-danger-inline"
+                            >
                               삭제
                             </button>
                           </div>
@@ -710,7 +687,7 @@ export default function AdminPage() {
                     ))}
                     {events.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-muted">
+                        <td colSpan={5} className="py-8 text-center text-muted">
                           등록된 대회가 없어요
                         </td>
                       </tr>
@@ -782,11 +759,37 @@ export default function AdminPage() {
             {loadingPlayers ? (
               <p className="text-muted">로딩 중...</p>
             ) : (
-              <div className="admin-table-wrap">
+              <>
+                <div className="mb-6 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
+                  {[
+                    { label: '웹앱 가입 수', value: playerSummary?.total_signups ?? 0 },
+                    { label: '약관 동의', value: playerSummary?.terms_agreed ?? 0 },
+                    { label: '구매 인증', value: playerSummary?.purchase_verified ?? 0 },
+                    { label: 'GPS 사용', value: playerSummary?.gps_users ?? 0 },
+                  ].map(card => (
+                    <div key={card.label} className="card-section mb-0 text-center">
+                      <p className="mb-1 text-xs text-muted">{card.label}</p>
+                      <p className="text-2xl font-bold text-[var(--text)]">{card.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="admin-table-wrap">
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      {['이름', '이메일', '가입일', '약관 동의', '구매 인증', 'GPS 기록', '마지막 활동'].map(col => (
+                      {[
+                        '이름',
+                        '이메일',
+                        '가입일',
+                        '약관 동의',
+                        '구매 인증',
+                        'GPS 기록',
+                        '인증일',
+                        '만료일',
+                        '남은 기간',
+                        '마지막 활동',
+                      ].map(col => (
                         <th key={col}>{col}</th>
                       ))}
                     </tr>
@@ -804,13 +807,113 @@ export default function AdminPage() {
                         <td><OxBadge value={player.terms_agreed} /></td>
                         <td><OxBadge value={player.purchase_verified} /></td>
                         <td><OxBadge value={player.gps_record} /></td>
+                        <td className="whitespace-nowrap text-muted">{player.verified_at_display}</td>
+                        <td className="whitespace-nowrap text-muted">{player.expires_at_display}</td>
+                        <td className="whitespace-nowrap">
+                          {player.days_remaining == null
+                            ? '-'
+                            : player.days_remaining <= 0
+                              ? '만료'
+                              : `${player.days_remaining}일`}
+                        </td>
                         <td className="whitespace-nowrap text-muted">{player.last_activity_display}</td>
                       </tr>
                     ))}
                     {players.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-muted">
+                        <td colSpan={10} className="py-8 text-center text-muted">
                           등록된 선수가 없어요
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              </>
+            )}
+          </>
+        )}
+
+        {tab === 'event_monitoring' && (
+          <>
+            <h2 className="section-title">대회별 모니터링</h2>
+
+            <div className="mb-4 max-w-md">
+              <label htmlFor="event-monitor-select" className={labelStyle}>
+                대회 선택
+              </label>
+              <select
+                id="event-monitor-select"
+                value={eventMonitorEventId}
+                onChange={e => {
+                  const nextId = e.target.value
+                  setEventMonitorEventId(nextId)
+                  if (nextId) loadEventMonitoring(nextId)
+                  else setEventMonitorRows([])
+                }}
+                className={inputStyle}
+              >
+                <option value="">대회를 선택하세요</option>
+                {events.map(event => (
+                  <option key={event.id} value={event.id}>
+                    {event.name} ({formatDateOnly(event.date)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {eventMonitoringError && <p className="alert-danger">{eventMonitoringError}</p>}
+
+            {!eventMonitorEventId ? (
+              <p className="text-sm text-muted">GPS 통과 현황을 보려면 대회를 선택하세요.</p>
+            ) : loadingEventMonitoring ? (
+              <p className="text-muted">로딩 중...</p>
+            ) : (
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      {[
+                        '선수명',
+                        'GPS 통과',
+                        '통과 시각',
+                        'pass_count',
+                        'notified',
+                      ].map(col => (
+                        <th key={col}>{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {eventMonitorRows.map(row => (
+                      <tr key={row.id}>
+                        <td>{row.player_label}</td>
+                        <td>
+                          <OxBadge value={row.gps_passed} />
+                        </td>
+                        <td className="whitespace-nowrap">
+                          {row.passed_at_display ?? '-'}
+                        </td>
+                        <td>
+                          {row.pass_count != null ? `${row.pass_count}차` : '-'}
+                        </td>
+                        <td>
+                          {row.gps_passed ? (
+                            row.notified ? (
+                              <span className="text-xs font-semibold text-success">발송</span>
+                            ) : (
+                              <span className="text-xs text-muted">미발송</span>
+                            )
+                          ) : (
+                            '-'
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {eventMonitorRows.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-muted">
+                          GPS 로그가 없어요
                         </td>
                       </tr>
                     )}
@@ -821,118 +924,6 @@ export default function AdminPage() {
           </>
         )}
 
-        {tab === 'monitoring' && (
-          <>
-            <h2 className="section-title">모니터링</h2>
-
-            {monitoringError && <p className="alert-danger">{monitoringError}</p>}
-
-            {loadingMonitoring ? (
-              <p className="text-muted">로딩 중...</p>
-            ) : (
-              <>
-                <div className="mb-6 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
-                  {[
-                    { label: '총 인증 유저 수', value: monitorSummary?.total_verified_users ?? 0 },
-                    { label: '현재 활성 유저 수', value: monitorSummary?.active_users ?? 0 },
-                    { label: '만료 임박 유저 수 (30일 이내)', value: monitorSummary?.expiring_soon_users ?? 0 },
-                    { label: '총 약관 동의 유저 수', value: monitorSummary?.total_terms_agreed_users ?? 0 },
-                  ].map(card => (
-                    <div key={card.label} className="card-section mb-0 text-center">
-                      <p className="mb-1 text-xs text-muted">{card.label}</p>
-                      <p className="text-2xl font-bold text-[var(--text)]">{card.value}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {monitorExpiringSoon.length > 0 && (
-                  <div className="alert-warning mb-4">
-                    <h3 className="section-title mb-3 text-sm text-amber-900">
-                      만료 30일 이내 ({monitorExpiringSoon.length}명)
-                    </h3>
-                    <div className="admin-table-wrap">
-                      <table className="admin-table">
-                        <thead>
-                          <tr className="border-amber-200 bg-amber-50/50">
-                            {['이메일', '대회', '만료일', '남은 기간', '알림'].map(col => (
-                              <th key={col} className="text-amber-900">{col}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {monitorExpiringSoon.map(user => (
-                            <tr key={user.id} className="hover:bg-amber-50/80">
-                              <td className="text-amber-950">{user.email}</td>
-                              <td className="text-amber-950">{user.event_name ?? '-'}</td>
-                              <td className="whitespace-nowrap text-amber-950">
-                                {formatVerificationDate(user.expires_at)}
-                              </td>
-                              <td className="text-amber-950">{user.days_remaining ?? 0}일</td>
-                              <td>
-                                {user.notification_sent ? (
-                                  <span className="text-xs font-semibold text-success">발송 완료</span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    disabled={notifyingOrderId === user.id}
-                                    onClick={() => handleNotifyExpiry(user.id)}
-                                    className="btn-primary-inline px-2.5 py-1.5 text-xs"
-                                  >
-                                    {notifyingOrderId === user.id ? '발송 중...' : '알림 발송'}
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                <div className="admin-table-wrap">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        {['이메일', '주문번호', '플랫폼', '인증일', '만료일', '상태'].map(col => (
-                          <th key={col}>{col}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {monitorUsers.map(user => {
-                        const rowClass =
-                          user.status === 'expiring_soon'
-                            ? 'bg-[var(--color-warning-bg)]'
-                            : user.status === 'expired'
-                              ? 'text-muted bg-[var(--bg)]/60'
-                              : ''
-
-                        return (
-                          <tr key={user.id} className={rowClass}>
-                            <td>{user.email}</td>
-                            <td className="whitespace-nowrap">{user.order_number}</td>
-                            <td>{user.platform}</td>
-                            <td className="whitespace-nowrap">{formatVerificationDate(user.verified_at)}</td>
-                            <td className="whitespace-nowrap">{formatVerificationDate(user.expires_at)}</td>
-                            <td className="font-semibold">{STATUS_LABELS[user.status]}</td>
-                          </tr>
-                        )
-                      })}
-                      {monitorUsers.length === 0 && (
-                        <tr>
-                          <td colSpan={6} className="py-8 text-center text-muted">
-                            인증 기록이 없어요
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </>
-        )}
       </div>
 
       {modalOpen && (
@@ -943,14 +934,14 @@ export default function AdminPage() {
           <form
             onSubmit={handleSaveEvent}
             onClick={e => e.stopPropagation()}
-            className="modal-card max-h-[90vh] max-w-md overflow-y-auto"
+            className="modal-card admin-event-modal max-h-[90vh] overflow-y-auto"
           >
             <h3 className="section-title">
               {editingId ? '대회 수정' : '대회 추가'}
             </h3>
 
             <label className="mb-3 block">
-              <span className={labelStyle}>이름</span>
+              <span className={labelStyle}>대회명</span>
               <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={inputStyle} />
             </label>
             <label className="mb-3 block">
@@ -963,11 +954,11 @@ export default function AdminPage() {
               />
             </label>
             <label className="mb-3 block">
-              <span className={labelStyle}>album_a_url</span>
+              <span className={labelStyle}>저화소 앨범 URL</span>
               <input value={form.album_a_url} onChange={e => setForm(f => ({ ...f, album_a_url: e.target.value }))} className={inputStyle} />
             </label>
             <label className="mb-3 block">
-              <span className={labelStyle}>album_b_url</span>
+              <span className={labelStyle}>고화소 앨범 URL</span>
               <input value={form.album_b_url} onChange={e => setForm(f => ({ ...f, album_b_url: e.target.value }))} className={inputStyle} />
             </label>
 
@@ -978,84 +969,90 @@ export default function AdminPage() {
                   checked={form.gps_enabled}
                   onChange={e => setForm(f => ({ ...f, gps_enabled: e.target.checked }))}
                 />
-                <span className="text-sm font-semibold text-[var(--text)]">
-                  GPS 감지 ON/OFF (gps_enabled)
-                </span>
+                <span className="text-sm font-semibold text-[var(--text)]">GPS 감지</span>
               </label>
-              <label className="mb-3 flex cursor-pointer items-center gap-2">
+              <label className="mb-4 flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
                   checked={form.is_loop_course}
                   onChange={e => setForm(f => ({ ...f, is_loop_course: e.target.checked }))}
                 />
-                <span className="text-sm font-semibold text-[var(--text)]">
-                  순환 코스인가? (is_loop_course)
-                </span>
+                <span className="text-sm font-semibold text-[var(--text)]">순환 코스</span>
               </label>
-              <label className="mb-3 block">
-                <span className={labelStyle}>[1차 촬영 위치] 위도 (gps_1_lat)</span>
-                <input
-                  type="number"
-                  step="any"
-                  value={form.gps_1_lat}
-                  onChange={e => setForm(f => ({ ...f, gps_1_lat: e.target.value }))}
-                  className={inputStyle}
-                  placeholder="37.5665"
-                />
-              </label>
-              <label className="mb-3 block">
-                <span className={labelStyle}>[1차 촬영 위치] 경도 (gps_1_lng)</span>
-                <input
-                  type="number"
-                  step="any"
-                  value={form.gps_1_lng}
-                  onChange={e => setForm(f => ({ ...f, gps_1_lng: e.target.value }))}
-                  className={inputStyle}
-                  placeholder="126.9780"
-                />
-              </label>
-              <label className="mb-3 block">
-                <span className={labelStyle}>[1차 촬영 위치] 반경 (gps_1_radius_meters)</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={form.gps_1_radius_meters}
-                  onChange={e => setForm(f => ({ ...f, gps_1_radius_meters: e.target.value }))}
-                  className={inputStyle}
-                />
-              </label>
-              <label className="mb-3 block">
-                <span className={labelStyle}>[2차 촬영 위치] 위도 (gps_2_lat)</span>
-                <input
-                  type="number"
-                  step="any"
-                  value={form.gps_2_lat}
-                  onChange={e => setForm(f => ({ ...f, gps_2_lat: e.target.value }))}
-                  className={inputStyle}
-                  placeholder="선택 입력"
-                />
-              </label>
-              <label className="mb-3 block">
-                <span className={labelStyle}>[2차 촬영 위치] 경도 (gps_2_lng)</span>
-                <input
-                  type="number"
-                  step="any"
-                  value={form.gps_2_lng}
-                  onChange={e => setForm(f => ({ ...f, gps_2_lng: e.target.value }))}
-                  className={inputStyle}
-                  placeholder="선택 입력"
-                />
-              </label>
-              <label className="mb-0 block">
-                <span className={labelStyle}>[2차 촬영 위치] 반경 (gps_2_radius_meters)</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={form.gps_2_radius_meters}
-                  onChange={e => setForm(f => ({ ...f, gps_2_radius_meters: e.target.value }))}
-                  className={inputStyle}
-                />
-              </label>
+
+              <div className="admin-gps-location-grid">
+                <div className="admin-gps-location-card">
+                  <p className="admin-gps-location-title">1차 촬영</p>
+                  <label className="mb-3 block">
+                    <span className={labelStyle}>위도</span>
+                    <input
+                      type="number"
+                      step="any"
+                      value={form.gps_1_lat}
+                      onChange={e => setForm(f => ({ ...f, gps_1_lat: e.target.value }))}
+                      className={inputStyle}
+                      placeholder="37.5665"
+                    />
+                  </label>
+                  <label className="mb-3 block">
+                    <span className={labelStyle}>경도</span>
+                    <input
+                      type="number"
+                      step="any"
+                      value={form.gps_1_lng}
+                      onChange={e => setForm(f => ({ ...f, gps_1_lng: e.target.value }))}
+                      className={inputStyle}
+                      placeholder="126.9780"
+                    />
+                  </label>
+                  <label className="mb-0 block">
+                    <span className={labelStyle}>반경</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={form.gps_1_radius_meters}
+                      onChange={e => setForm(f => ({ ...f, gps_1_radius_meters: e.target.value }))}
+                      className={inputStyle}
+                    />
+                  </label>
+                </div>
+
+                <div className="admin-gps-location-card">
+                  <p className="admin-gps-location-title">2차 촬영</p>
+                  <label className="mb-3 block">
+                    <span className={labelStyle}>위도</span>
+                    <input
+                      type="number"
+                      step="any"
+                      value={form.gps_2_lat}
+                      onChange={e => setForm(f => ({ ...f, gps_2_lat: e.target.value }))}
+                      className={inputStyle}
+                      placeholder="선택 입력"
+                    />
+                  </label>
+                  <label className="mb-3 block">
+                    <span className={labelStyle}>경도</span>
+                    <input
+                      type="number"
+                      step="any"
+                      value={form.gps_2_lng}
+                      onChange={e => setForm(f => ({ ...f, gps_2_lng: e.target.value }))}
+                      className={inputStyle}
+                      placeholder="선택 입력"
+                    />
+                  </label>
+                  <label className="mb-0 block">
+                    <span className={labelStyle}>반경</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={form.gps_2_radius_meters}
+                      onChange={e => setForm(f => ({ ...f, gps_2_radius_meters: e.target.value }))}
+                      className={inputStyle}
+                    />
+                  </label>
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2">

@@ -26,7 +26,7 @@ export function BAlbumView({ albumBUrl, gpsTime }: BAlbumViewProps) {
       </div>
 
       <button type="button" onClick={handleOpen} className="btn-primary w-full">
-        B앨범 열기
+        고화소 앨범 열기
       </button>
     </div>
   )

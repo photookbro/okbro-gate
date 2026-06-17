@@ -74,7 +74,7 @@ body {
 }
 
 .page-container-admin {
-  @apply mx-auto w-full max-w-[1100px] px-4 py-8;
+  @apply mx-auto w-full max-w-[1400px] px-4 py-8;
 }
 
 /* Card */
@@ -227,6 +227,40 @@ body {
 
 .admin-table td {
   @apply px-3 py-2.5 text-[var(--text)];
+}
+
+.admin-event-table th {
+  @apply normal-case;
+}
+
+.admin-event-table td {
+  @apply align-middle;
+}
+
+.admin-event-row-actions {
+  @apply flex flex-nowrap items-center justify-end gap-1.5;
+}
+
+.admin-event-row-actions .btn-secondary-inline,
+.admin-event-row-actions .btn-primary-inline,
+.admin-event-row-actions .btn-danger-inline {
+  @apply whitespace-nowrap px-2.5 py-1.5 text-xs;
+}
+
+.admin-event-modal {
+  @apply w-full min-w-[40rem] max-w-3xl;
+}
+
+.admin-gps-location-grid {
+  @apply grid grid-cols-2 gap-4;
+}
+
+.admin-gps-location-card {
+  @apply rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4;
+}
+
+.admin-gps-location-title {
+  @apply mb-3 text-sm font-semibold text-[var(--text)];
 }
 
 /* Mypage */

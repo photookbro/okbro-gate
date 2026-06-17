@@ -8,7 +8,7 @@ type PastEvent = {
   id: string
   name: string
   date: string
-  shoot_record: string | null
+  shoot_record: { username: string; time: string } | null
 }
 
 type UpcomingEvent = {
@@ -63,7 +63,7 @@ export default function EventsPage() {
           <div className="events-split">
             <section className="events-column">
               <h2 className="events-column-title">과거 대회</h2>
-              <p className="events-column-sub">앨범 업로드 완료 · 최근 12개월</p>
+              <p className="events-column-sub">고화소 앨범 업로드 완료 · 최근 12개월</p>
               <ul className="events-list">
                 {past.length === 0 && (
                   <li className="events-empty">과거 대회가 없어요</li>
@@ -77,7 +77,11 @@ export default function EventsPage() {
                       </div>
                       <div className="events-row-meta">
                         {event.shoot_record ? (
-                          <span className="events-shoot-record">{event.shoot_record}</span>
+                          <span className="events-shoot-record">
+                            <strong>{event.shoot_record.username}</strong>님은{' '}
+                            <strong>{event.shoot_record.time}</strong>에 오켱 카메라 앞을
+                            지나갔습니다.
+                          </span>
                         ) : (
                           <span className="events-shoot-record events-shoot-record-empty">&nbsp;</span>
                         )}

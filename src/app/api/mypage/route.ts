@@ -5,6 +5,7 @@ import {
   formatVerificationDate,
   getDaysRemaining,
   getMonitorStatus,
+  isUserExpiringSoon,
   resolveExpiresAt,
 } from '@/lib/order-verification'
 import { formatGpsPassDisplay } from '@/lib/gps-access'
@@ -58,7 +59,7 @@ export async function GET() {
       expires_at: expiresAt?.toISOString() ?? null,
       days_remaining: expiresAt ? getDaysRemaining(expiresAt, now) : 0,
       status,
-      expiring_soon: status === 'expiring_soon',
+      expiring_soon: expiresAt ? isUserExpiringSoon(expiresAt, now) : false,
     }
   })
 
