@@ -127,7 +127,7 @@ function VerifyOrderContent() {
       <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
           <p style={{ color: '#6b7280', marginBottom: '1rem' }}>대회 정보가 없어요</p>
-          <Link href="/events" style={{ color: '#2563eb', fontSize: '0.9rem' }}>
+          <Link href="/events" style={{ color: '#FF5500', fontSize: '0.9rem' }}>
             대회 목록으로
           </Link>
         </div>
@@ -233,7 +233,7 @@ function VerifyOrderContent() {
                 padding: '12px 14px',
                 borderRadius: '8px',
                 border: 'none',
-                backgroundColor: albumBUrl ? '#2563eb' : '#9ca3af',
+                backgroundColor: albumBUrl ? '#FF5500' : '#9ca3af',
                 color: '#ffffff',
                 fontSize: '0.95rem',
                 fontWeight: 600,
@@ -305,7 +305,7 @@ function VerifyOrderContent() {
                   padding: '12px 14px',
                   borderRadius: '8px',
                   border: 'none',
-                  backgroundColor: loading ? '#9ca3af' : '#2563eb',
+                  backgroundColor: loading ? '#9ca3af' : '#FF5500',
                   color: '#ffffff',
                   fontSize: '0.95rem',
                   fontWeight: 600,

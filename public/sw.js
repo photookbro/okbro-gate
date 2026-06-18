@@ -1,6 +1,6 @@
 self.addEventListener('push', event => {
   let payload = {
-    title: '오켱사진링크게이트',
+    title: 'OKbroGATE',
     body: '알림',
     url: '/mypage',
   }
@@ -16,8 +16,8 @@ self.addEventListener('push', event => {
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.body,
-      icon: '/window.svg',
-      badge: '/window.svg',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
       data: { url: payload.url || '/mypage' },
     })
   )

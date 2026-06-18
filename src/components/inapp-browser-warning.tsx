@@ -110,7 +110,7 @@ export function InappBrowserWarning() {
             padding: '12px 14px',
             borderRadius: '8px',
             border: 'none',
-            backgroundColor: copied ? '#16a34a' : '#2563eb',
+            backgroundColor: copied ? '#16a34a' : '#FF5500',
             color: '#ffffff',
             fontSize: '0.95rem',
             fontWeight: 600,

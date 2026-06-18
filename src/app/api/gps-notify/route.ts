@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   for (const log of logs) {
     const body = buildGpsShootNotifyBody(log.passed_at)
     const { sent, failed } = await sendPushToUser(log.user_id, {
-      title: '오켱사진링크게이트',
+      title: 'OKbroGATE',
       body,
       url: `/events/${event_id}`,
     })

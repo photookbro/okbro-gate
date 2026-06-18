@@ -228,7 +228,7 @@ export function TermsAgreement({
           padding: '12px 14px',
           borderRadius: '8px',
           border: 'none',
-          backgroundColor: allChecked && !submitting ? '#2563eb' : '#9ca3af',
+          backgroundColor: allChecked && !submitting ? '#FF5500' : '#9ca3af',
           color: '#ffffff',
           fontSize: '0.95rem',
           fontWeight: 600,

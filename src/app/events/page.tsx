@@ -3,49 +3,82 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { GpsTrackingToggle } from '@/components/gps-tracking-toggle'
+import {
+  EVENTS_PAST_SECTION_SUB_MAIN,
+  EVENTS_PAST_SECTION_SUB_TAIL,
+  EVENTS_UPCOMING_ON_DETAIL,
+  EVENTS_UPCOMING_ON_PROMPT,
+  EVENTS_UPCOMING_SECTION_TITLE,
+  formatEventDateDisplay,
+  GPS_SHOOT_RECORD_DISCLAIMER,
+  parseEventsListResponse,
+  type EventsListPastEvent,
+  type EventsListUpcomingEvent,
+} from '@/lib/events-list-client'
 
-type PastEvent = {
-  id: string
-  name: string
-  date: string
-  shoot_record: { username: string; time: string } | null
+function UpcomingEventItem({ event }: { event: EventsListUpcomingEvent }) {
+  return (
+    <li className="events-list-item">
+      <article className="events-card events-card-upcoming">
+        <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
+        <span className="events-event-name">{event.name}</span>
+        {event.show_gps_toggle ? (
+          <GpsTrackingToggle eventId={event.id} variant="events-list" />
+        ) : null}
+      </article>
+    </li>
+  )
 }
 
-type UpcomingEvent = {
-  id: string
-  name: string
-  date: string
-  gps_enabled: boolean | null
-}
+function PastEventItem({ event }: { event: EventsListPastEvent }) {
+  const record = event.shoot_record
+  const hasRecord = record !== null
 
-function formatEventDate(date: string): string {
-  const d = new Date(`${date}T00:00:00`)
-  if (Number.isNaN(d.getTime())) return date
-  return d.toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
+  return (
+    <li className="events-list-item">
+      <Link href={`/events/${event.id}`} className="events-card events-card-past">
+        <div className="events-past-heading">
+          <span className="events-past-icon" aria-hidden="true">
+            {hasRecord ? '📸' : '⏳'}
+          </span>
+          <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
+          <span className="events-event-name">{event.name}</span>
+        </div>
+        {record ? (
+          <div className="events-past-meta">
+            <p className="events-shoot-record">
+              <strong>{record.username}</strong>님은 <strong>{record.time}</strong>경에 오켱 카메라
+              앞을 지나갔습니다
+            </p>
+            <p className="events-shoot-record-note">{GPS_SHOOT_RECORD_DISCLAIMER}</p>
+          </div>
+        ) : null}
+      </Link>
+    </li>
+  )
 }
 
 export default function EventsPage() {
-  const [past, setPast] = useState<PastEvent[]>([])
-  const [upcoming, setUpcoming] = useState<UpcomingEvent[]>([])
+  const [past, setPast] = useState<EventsListPastEvent[]>([])
+  const [upcoming, setUpcoming] = useState<EventsListUpcomingEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
     setLoading(true)
     setError('')
+
     fetch('/api/events/list')
       .then(async res => {
         const data = await res.json()
         if (!res.ok) {
-          setError(data.error ?? '목록을 불러오지 못했어요')
+          setError(typeof data.error === 'string' ? data.error : '목록을 불러오지 못했어요')
           return
         }
-        setPast(data.past ?? [])
-        setUpcoming(data.upcoming ?? [])
+
+        const parsed = parseEventsListResponse(data)
+        setPast(parsed.past)
+        setUpcoming(parsed.upcoming)
       })
       .catch(() => setError('목록을 불러오지 못했어요'))
       .finally(() => setLoading(false))
@@ -53,66 +86,37 @@ export default function EventsPage() {
 
   return (
     <div className="page-shell">
-      <div className="page-container-wide">
-        <h1 className="mb-6 text-xl font-bold">📋 대회 목록</h1>
-
+      <div className="page-container">
         {loading && <p className="text-sm text-muted">로딩 중...</p>}
         {error && <p className="text-sm text-danger">{error}</p>}
 
         {!loading && !error && (
-          <div className="events-split">
-            <section className="events-column">
-              <h2 className="events-column-title">과거 대회</h2>
-              <p className="events-column-sub">고화소 앨범 업로드 완료 · 최근 12개월</p>
-              <ul className="events-list">
-                {past.length === 0 && (
-                  <li className="events-empty">과거 대회가 없어요</li>
+          <div className="events-page">
+            <section className="events-section">
+              <h2 className="events-section-title">{EVENTS_UPCOMING_SECTION_TITLE}</h2>
+              <p className="events-upcoming-prompt">{EVENTS_UPCOMING_ON_PROMPT}</p>
+              <p className="events-upcoming-detail">{EVENTS_UPCOMING_ON_DETAIL}</p>
+              <ul className="events-vertical-list">
+                {upcoming.length === 0 ? (
+                  <li className="events-empty">예정된 대회가 없어요</li>
+                ) : (
+                  upcoming.map(event => <UpcomingEventItem key={event.id} event={event} />)
                 )}
-                {past.map(event => (
-                  <li key={event.id}>
-                    <Link href={`/events/${event.id}`} className="events-row">
-                      <div className="events-row-main">
-                        <span className="events-row-name">{event.name}</span>
-                        <span className="events-row-date">({formatEventDate(event.date)})</span>
-                      </div>
-                      <div className="events-row-meta">
-                        {event.shoot_record ? (
-                          <span className="events-shoot-record">
-                            <strong>{event.shoot_record.username}</strong>님은{' '}
-                            <strong>{event.shoot_record.time}</strong>에 오켱 카메라 앞을
-                            지나갔습니다.
-                          </span>
-                        ) : (
-                          <span className="events-shoot-record events-shoot-record-empty">&nbsp;</span>
-                        )}
-                      </div>
-                    </Link>
-                  </li>
-                ))}
               </ul>
             </section>
 
-            <section className="events-column">
-              <h2 className="events-column-title">예정 대회</h2>
-              <p className="events-column-sub">앨범 준비 중</p>
-              <ul className="events-list">
-                {upcoming.length === 0 && (
-                  <li className="events-empty">예정된 대회가 없어요</li>
+            <section className="events-section">
+              <h2 className="events-section-title">🎬 오켱 출사 대회</h2>
+              <p className="events-section-sub events-past-section-sub">
+                <span>{EVENTS_PAST_SECTION_SUB_MAIN}</span>
+                <span className="events-past-section-sub-tail">{EVENTS_PAST_SECTION_SUB_TAIL}</span>
+              </p>
+              <ul className="events-vertical-list">
+                {past.length === 0 ? (
+                  <li className="events-empty">오켱 출사 대회가 없어요</li>
+                ) : (
+                  past.map(event => <PastEventItem key={event.id} event={event} />)
                 )}
-                {upcoming.map(event => (
-                  <li key={event.id}>
-                    <div className="events-row events-row-disabled" aria-disabled="true">
-                      <div className="events-row-main events-row-main-inline">
-                        <div>
-                          <span className="events-row-name">{event.name}</span>
-                          <span className="events-row-date"> ({formatEventDate(event.date)})</span>
-                        </div>
-                        {event.gps_enabled && <GpsTrackingToggle eventId={event.id} compact />}
-                      </div>
-                      <p className="events-upcoming-hint">촬영 감지를 ON으로 해주세요</p>
-                    </div>
-                  </li>
-                ))}
               </ul>
             </section>
           </div>

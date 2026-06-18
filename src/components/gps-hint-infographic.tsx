@@ -40,7 +40,7 @@ export function GpsHintInfographic() {
             refY="4"
             orient="auto"
           >
-            <path d="M0,0 L8,4 L0,8 Z" fill="#2563eb" />
+            <path d="M0,0 L8,4 L0,8 Z" fill="#FF5500" />
           </marker>
         </defs>
 
@@ -55,7 +55,7 @@ export function GpsHintInfographic() {
                 cy={30}
                 r={24}
                 fill="#eff6ff"
-                stroke="#2563eb"
+                stroke="#FF5500"
                 strokeWidth="2"
               />
               <text x={cx} y={36} textAnchor="middle" fontSize="18">
@@ -66,7 +66,7 @@ export function GpsHintInfographic() {
                 y={22}
                 fontSize="9"
                 fontWeight="700"
-                fill="#2563eb"
+                fill="#FF5500"
               >
                 {step.num}
               </text>
@@ -90,7 +90,7 @@ export function GpsHintInfographic() {
                   y1={30}
                   x2={cx + STEP_GAP - 26}
                   y2={30}
-                  stroke="#2563eb"
+                  stroke="#FF5500"
                   strokeWidth="2"
                   markerEnd="url(#gps-hint-arrow)"
                   opacity="0.85"

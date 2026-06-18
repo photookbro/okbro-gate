@@ -43,7 +43,7 @@ export function SiteNav() {
     <nav className="site-nav">
       <div className="site-nav-inner">
         <Link href="/events" className="nav-brand">
-          🏅 오켱GATE
+          <span className="nav-brand-accent">OKbro</span>GATE
         </Link>
         <div className="nav-links">
           <Link href="/events" className={navLinkClass(pathname === '/events' || pathname.startsWith('/events/'))}>

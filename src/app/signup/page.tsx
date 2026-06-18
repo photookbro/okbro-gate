@@ -33,8 +33,10 @@ export default function SignupPage() {
     <div className="page-shell">
       <div className="page-container">
         <div className="card p-7 text-center">
-          <div className="mb-2 text-4xl">🏅📸</div>
-          <h1 className="mb-2 text-lg font-extrabold text-[var(--text)]">오켱GATE</h1>
+          <img src="/icons/icon-192.png" alt="" width={72} height={72} className="mx-auto mb-3 rounded-2xl" />
+          <h1 className="page-title mb-2 text-center text-xl md:text-2xl">
+            <span className="text-okbro-orange">OKbro</span>GATE
+          </h1>
 
           <div className="alert-warning text-left">
             <p className="font-semibold">⚠️ Google 계정으로만 회원가입됩니다</p>

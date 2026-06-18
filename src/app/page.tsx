@@ -14,7 +14,7 @@ export default async function Home() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center">
-      <h1 className="text-2xl font-semibold">오켱사진링크게이트</h1>
+      <h1 className="page-title text-center">OKbroGATE</h1>
       <AuthSection user={user} />
     </main>
   )

@@ -181,7 +181,7 @@ export function GpsDetector({
           : `🎬 ${locationLabel}촬영 지점 도착! ${timeLabel}`
         setPassCountToday(prev => prev + 1)
         setToast(arrivalMessage)
-        void showPassNotification('오켱사진링크게이트', arrivalMessage, `/events/${eventId}`)
+        void showPassNotification('OKbroGATE', arrivalMessage, `/events/${eventId}`)
       } catch {
         const state = zoneStateRef.current.get(locationNumber)
         if (state) {
@@ -222,7 +222,7 @@ export function GpsDetector({
           earlyAlertedRef.current.set(location.locationNumber, true)
           setToast('🎬 오켱이 기다리고 있어요')
           void showPassNotification(
-            '오켱사진링크게이트',
+            'OKbroGATE',
             '🎬 오켱이 기다리고 있어요',
             `/events/${eventId}`
           )

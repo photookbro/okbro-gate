@@ -115,7 +115,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               padding: '12px',
               borderRadius: '8px',
               border: 'none',
-              backgroundColor: loading ? '#9ca3af' : '#2563eb',
+              backgroundColor: loading ? '#9ca3af' : '#FF5500',
               color: '#ffffff',
               fontWeight: 600,
               fontSize: '0.95rem',

@@ -75,7 +75,10 @@ export async function GET() {
 
     for (const log of logs ?? []) {
       if (!log.event_id || !log.passed_at || shootRecordByEvent[log.event_id]) continue
-      shootRecordByEvent[log.event_id] = buildPastGpsPassDisplay(email, log.passed_at)
+      const record = buildPastGpsPassDisplay(email, log.passed_at)
+      if (record) {
+        shootRecordByEvent[log.event_id] = record
+      }
     }
   }
 

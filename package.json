@@ -3,10 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "clean": "rimraf .next",
     "dev": "next dev --turbopack",
+    "dev:clean": "npm run clean && npm run dev",
     "build": "next build --turbopack",
+    "build:clean": "npm run clean && npm run build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "icons": "node scripts/generate-pwa-icons.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
@@ -27,6 +31,8 @@
     "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "15.5.19",
+    "rimraf": "^6.1.3",
+    "sharp": "^0.35.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

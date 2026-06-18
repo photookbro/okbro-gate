@@ -43,5 +43,5 @@ export function formatShootRecordLabel(passedAt: string | Date): string {
 export function formatPastGpsPassMessage(email: string, passedAt: string | Date): string {
   const display = buildPastGpsPassDisplay(email, passedAt)
   if (!display) return ''
-  return `${display.username}님은 ${display.time}에 오켱 카메라 앞을 지나갔습니다`
+  return `${display.username}님은 ${display.time}경에 오켱 카메라 앞을 지나갔습니다`
 }

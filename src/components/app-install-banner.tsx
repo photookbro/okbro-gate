@@ -50,7 +50,7 @@ export function AppInstallBanner({ visible = true }: AppInstallBannerProps) {
             padding: '10px 14px',
             borderRadius: '8px',
             border: 'none',
-            backgroundColor: '#2563eb',
+            backgroundColor: '#FF5500',
             color: '#ffffff',
             fontSize: '0.9rem',
             fontWeight: 600,
