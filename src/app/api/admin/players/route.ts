@@ -13,6 +13,7 @@ import {
 } from '@/lib/admin-players'
 import { getEventCourseLabel, getEventGpsLocations, type EventGpsFields } from '@/lib/gps-locations'
 import { getDaysRemaining, getMonitorStatus, resolveExpiresAt, formatVerificationDate } from '@/lib/order-verification'
+import { buildDuplicateInfoByOrderNumber } from '@/lib/order-duplicate'
 
 async function listAllAuthUsers(admin: ReturnType<typeof supabaseAdmin>): Promise<User[]> {
   const users: User[] = []
@@ -220,6 +221,11 @@ export async function GET(req: NextRequest) {
     }
 
     const terms = termsRows?.[0]
+    const duplicateByOrderNumber = await buildDuplicateInfoByOrderNumber(
+      admin,
+      (orders ?? []).map(order => order.order_number),
+      userId
+    )
 
     return NextResponse.json({
       player: {
@@ -298,6 +304,11 @@ export async function GET(req: NextRequest) {
             validity_period_display: formatValidityPeriod(order.used_at, expiresAt),
             status,
             is_valid: expiresAt ? getMonitorStatus(expiresAt, now) !== 'expired' : false,
+            ...(duplicateByOrderNumber.get(order.order_number.trim()) ?? {
+              is_duplicate: false,
+              duplicate_count: 0,
+              duplicate_users: [],
+            }),
           }
         }),
       },

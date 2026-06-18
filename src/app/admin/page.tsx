@@ -126,6 +126,9 @@ type PlayerDetail = {
     validity_period_display: string
     status: string
     is_valid: boolean
+    is_duplicate: boolean
+    duplicate_count: number
+    duplicate_users: { user_id: string; email: string }[]
   }[]
 }
 
@@ -222,6 +225,10 @@ export default function AdminPage() {
   const [loadingPlayerDetail, setLoadingPlayerDetail] = useState(false)
   const [playerDetailError, setPlayerDetailError] = useState('')
   const [expandedGpsEventId, setExpandedGpsEventId] = useState<string | null>(null)
+  const [duplicateModalUsers, setDuplicateModalUsers] = useState<
+    { user_id: string; email: string }[]
+  >([])
+  const [duplicateModalOrderNumber, setDuplicateModalOrderNumber] = useState('')
 
   const [eventMonitorEventId, setEventMonitorEventId] = useState('')
   const [eventMonitorRows, setEventMonitorRows] = useState<EventMonitorRow[]>([])
@@ -1341,7 +1348,23 @@ export default function AdminPage() {
                         <div key={order.id} className="rounded-lg border border-[var(--border)] p-3 text-sm">
                           <div className="flex justify-between gap-4">
                             <span className="text-muted">주문번호</span>
-                            <span className="font-medium">{order.order_number}</span>
+                            <span className="flex items-center gap-2 font-medium">
+                              {order.order_number}
+                              {order.is_duplicate ? (
+                                <button
+                                  type="button"
+                                  className="cursor-pointer border-0 bg-transparent p-0 text-sm"
+                                  onClick={() => {
+                                    setDuplicateModalOrderNumber(order.order_number)
+                                    setDuplicateModalUsers(order.duplicate_users)
+                                  }}
+                                >
+                                  ⚠️ (중복 {order.duplicate_count}개)
+                                </button>
+                              ) : (
+                                <span className="text-success">✅</span>
+                              )}
+                            </span>
                           </div>
                           <div className="mt-1 flex justify-between gap-4">
                             <span className="text-muted">유효기간</span>
@@ -1368,6 +1391,32 @@ export default function AdminPage() {
             )}
 
             <button type="button" onClick={closePlayerDetail} className="btn-primary mt-2 w-full">
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {duplicateModalUsers.length > 0 && (
+        <div className="modal-overlay" onClick={() => setDuplicateModalUsers([])}>
+          <div className="modal-panel max-w-md" onClick={e => e.stopPropagation()}>
+            <h3 className="mb-2 text-lg font-semibold">중복 주문번호</h3>
+            <p className="mb-4 text-sm text-muted">
+              <span className="font-medium text-[var(--text)]">{duplicateModalOrderNumber}</span>
+              를 사용 중인 다른 계정:
+            </p>
+            <ul className="mb-4 space-y-2 text-sm">
+              {duplicateModalUsers.map(user => (
+                <li key={user.user_id} className="rounded-lg border border-[var(--border)] px-3 py-2">
+                  {user.email}
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              className="btn-primary w-full"
+              onClick={() => setDuplicateModalUsers([])}
+            >
               닫기
             </button>
           </div>

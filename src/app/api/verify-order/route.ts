@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getAuthenticatedUser } from '@/lib/auth-server'
-import {
-  addMonths,
-  calculateNewExpiresAt,
-} from '@/lib/order-verification'
+import { addMonths, calculateNewExpiresAt } from '@/lib/order-verification'
+import { ORDER_DUPLICATE_ERROR } from '@/lib/order-duplicate'
+import { extendUserOrderVerification } from '@/lib/verify-order-extend'
 
 const NAVER_ORDER_PATTERN = /^\d{4}-\d{8}-\d{8}$/
 
@@ -104,25 +103,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const { data: existingOrder } = await admin
+  const { data: existingOrders } = await admin
     .from('orders')
     .select('id, user_id')
     .eq('order_number', trimmedOrderNumber)
-    .maybeSingle()
 
-  if (existingOrder) {
-    if (existingOrder.user_id === user.id) {
-      return NextResponse.json({ success: true, already_verified: true })
-    }
+  const ownedBySelf = existingOrders?.find(row => row.user_id === user.id)
+  const ownedByOthers = existingOrders?.filter(row => row.user_id !== user.id) ?? []
 
-    if (!isSharedOrder) {
-      return NextResponse.json(
-        { error: '이미 다른 계정에서 사용한 주문번호예요' },
-        { status: 409 }
-      )
-    }
-
-    return NextResponse.json({ success: true, already_verified: true })
+  if (ownedByOthers.length > 0 && !isSharedOrder) {
+    return NextResponse.json(
+      { success: false, error: ORDER_DUPLICATE_ERROR },
+      { status: 409 }
+    )
   }
 
   if (!Number.isFinite(periodMonths) || periodMonths <= 0) {
@@ -134,6 +127,40 @@ export async function POST(req: NextRequest) {
       },
       { status: 500 }
     )
+  }
+
+  const now = new Date()
+
+  if (ownedBySelf) {
+    try {
+      const { expiresAt, extended } = await extendUserOrderVerification(
+        admin,
+        user.id,
+        periodMonths,
+        {
+          orderId: ownedBySelf.id,
+          eventId: event_id || null,
+          now,
+        }
+      )
+      return NextResponse.json({
+        success: true,
+        extended,
+        re_verified: true,
+        expires_at: expiresAt.toISOString(),
+      })
+    } catch (error) {
+      const dbError = formatDbError(error as { message?: string; code?: string; details?: string | null })
+      console.error('[verify-order] re-verify extend failed:', dbError)
+      return NextResponse.json(
+        { success: false, error: '인증 연장에 실패했어요', db_error: dbError },
+        { status: 500 }
+      )
+    }
+  }
+
+  if (isSharedOrder && ownedByOthers.length > 0) {
+    return NextResponse.json({ success: true, already_verified: true })
   }
 
   const { data: userLatestOrder, error: latestOrderError } = await admin
@@ -157,7 +184,6 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const now = new Date()
   let previousExpires: Date | null = null
 
   if (userLatestOrder?.expires_at) {

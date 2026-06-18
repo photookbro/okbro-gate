@@ -9,6 +9,7 @@ import {
   resolveExpiresAt,
 } from '@/lib/order-verification'
 import { formatGpsPassDisplay } from '@/lib/gps-access'
+import { buildDuplicateInfoByOrderNumber } from '@/lib/order-duplicate'
 
 type OrderRow = {
   id: string
@@ -42,12 +43,25 @@ export async function GET() {
     settings?.find(s => s?.key === 'verified_period_months')?.value ?? NaN
   )
 
+  const userOrders = (orders as OrderRow[] | null) ?? []
+  const duplicateByOrderNumber = await buildDuplicateInfoByOrderNumber(
+    admin,
+    userOrders.map(order => order.order_number),
+    user.id
+  )
+
   const now = new Date()
-  const verifications = (orders as OrderRow[] | null ?? []).map(order => {
+  const verifications = userOrders.map(order => {
     const joinedEvent = Array.isArray(order.events) ? order.events[0] : order.events
     const verifiedAt = new Date(order.used_at || order.created_at || '')
     const expiresAt = resolveExpiresAt(order, verifiedPeriodMonths)
     const status = expiresAt ? getMonitorStatus(expiresAt, now) : 'expired'
+
+    const duplicate = duplicateByOrderNumber.get(order.order_number.trim()) ?? {
+      is_duplicate: false,
+      duplicate_count: 0,
+      duplicate_users: [],
+    }
 
     return {
       id: order.id,
@@ -60,6 +74,9 @@ export async function GET() {
       days_remaining: expiresAt ? getDaysRemaining(expiresAt, now) : 0,
       status,
       expiring_soon: expiresAt ? isUserExpiringSoon(expiresAt, now) : false,
+      is_duplicate: duplicate.is_duplicate,
+      duplicate_count: duplicate.duplicate_count,
+      duplicate_users: duplicate.duplicate_users,
     }
   })
 

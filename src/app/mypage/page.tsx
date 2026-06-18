@@ -28,6 +28,17 @@ type GpsEventPasses = {
   passes: { pass_count: number; display_time: string; passed_at: string }[]
 }
 
+type VerificationRow = {
+  id: string
+  order_number: string
+  event_name: string
+  expires_at: string | null
+  status: string
+  is_duplicate: boolean
+  duplicate_count: number
+  duplicate_users: { user_id: string; email: string }[]
+}
+
 function formatDDay(daysRemaining: number, status: string): string {
   if (status === 'expired' || daysRemaining < 0) return '만료됨'
   if (daysRemaining === 0) return 'D-Day'
@@ -47,6 +58,7 @@ export default function MyPage() {
   const [email, setEmail] = useState('')
   const [latest, setLatest] = useState<LatestVerification | null>(null)
   const [shootRecords, setShootRecords] = useState<ShootRecord[]>([])
+  const [verifications, setVerifications] = useState<VerificationRow[]>([])
   const [gpsEventPasses, setGpsEventPasses] = useState<GpsEventPasses[]>([])
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -64,6 +76,7 @@ export default function MyPage() {
     }
     setEmail(data.email ?? '')
     setLatest(data.latest_verification ?? null)
+    setVerifications(data.verifications ?? [])
     setGpsEventPasses(data.gps_event_passes ?? [])
     setShootRecords((data.shoot_records ?? []).filter((r: ShootRecord) => r.type === 'purchase'))
     setErrorMsg('')
@@ -118,7 +131,9 @@ export default function MyPage() {
       }
 
       const newExpiresAt = data.expires_at as string | undefined
-      if (newExpiresAt) {
+      if (data.re_verified && newExpiresAt) {
+        setExtendSuccess(`✅ 동일 주문번호로 ${formatVerificationDate(newExpiresAt)}까지 연장됐어요!`)
+      } else if (newExpiresAt) {
         setExtendSuccess(`✅ ${formatVerificationDate(newExpiresAt)}까지 연장됐어요!`)
       } else {
         setExtendSuccess('✅ 인증이 완료됐어요!')
@@ -231,6 +246,38 @@ export default function MyPage() {
             </ul>
           )}
         </div>
+
+        {verifications.length > 0 && (
+          <div className="card mb-4">
+            <h2 className="section-title">주문번호 인증 내역</h2>
+            <ul className="space-y-3">
+              {verifications.map(verification => (
+                <li
+                  key={verification.id}
+                  className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3"
+                >
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[var(--text)]">
+                    <span>{verification.order_number}</span>
+                    <span className={verification.is_duplicate ? 'text-warning' : 'text-success'}>
+                      {verification.is_duplicate ? '⚠️ 중복 사용' : '✅'}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-sm text-muted">
+                    {verification.event_name}
+                    {verification.expires_at
+                      ? ` · 만료 ${formatVerificationDate(verification.expires_at)}`
+                      : ''}
+                  </p>
+                  {verification.is_duplicate && verification.duplicate_count > 0 && (
+                    <p className="alert-warning mt-2 mb-0 text-sm">
+                      ⚠️ 이 주문번호는 다른 계정({verification.duplicate_count}개)에서도 사용 중입니다
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="card">
           <h2 className="section-title">인증 연장</h2>
