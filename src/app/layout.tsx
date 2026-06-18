@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { SiteNav } from '@/components/site-nav'
 import { InappBrowserWarning } from '@/components/inapp-browser-warning'
+import { AppFirstLaunchPermissions } from '@/components/app-first-launch-permissions'
 import { PushRegister } from '@/components/push-register'
 import { FixedFruitCta } from '@/components/fixed-fruit-cta'
 import { PushPermissionModal } from '@/components/push-permission-modal'
@@ -48,6 +49,7 @@ export default function RootLayout({
       </head>
       <body>
         <PushRegister />
+        <AppFirstLaunchPermissions />
         <PushPermissionModal />
         <VerificationExpiryModal />
         <InappBrowserWarning />

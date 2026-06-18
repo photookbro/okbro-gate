@@ -273,8 +273,32 @@ body {
 }
 
 /* Mypage */
+.mypage-status-card {
+  @apply py-6;
+}
+
+.mypage-status-label {
+  @apply mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)];
+}
+
+.mypage-status-sub {
+  @apply mt-3 text-base font-medium text-[var(--text-muted)];
+}
+
 .mypage-dday {
-  @apply text-5xl font-bold leading-none tracking-tight;
+  @apply text-6xl font-extrabold leading-none tracking-tight md:text-7xl;
+}
+
+.mypage-history-list {
+  @apply m-0 list-none space-y-2 p-0;
+}
+
+.mypage-history-item {
+  @apply flex items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-sm font-semibold text-[var(--text)];
+}
+
+.mypage-history-duplicate {
+  @apply shrink-0 text-base;
 }
 
 .mypage-dday-success {
@@ -513,4 +537,111 @@ body {
 
 .text-muted {
   @apply text-[var(--text-muted)];
+}
+
+/* Landing page */
+.landing-page {
+  @apply bg-[var(--bg)];
+}
+
+.landing-hero {
+  position: relative;
+  display: flex;
+  min-height: 100svh;
+  align-items: center;
+  justify-content: center;
+  padding: calc(72px + env(safe-area-inset-top, 0px)) 1.25rem 3rem;
+  background-color: #1f2937;
+  background-image:
+    linear-gradient(180deg, rgba(17, 24, 39, 0.72) 0%, rgba(31, 41, 55, 0.88) 100%),
+    url('https://images.unsplash.com/photo-1452626038306-9fff5e01e25f?auto=format&fit=crop&w=1800&q=80');
+  background-position: center;
+  background-size: cover;
+}
+
+.landing-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% 20%, rgba(255, 85, 0, 0.18), transparent 45%);
+  pointer-events: none;
+}
+
+.landing-hero-content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 42rem;
+  text-align: center;
+  color: #ffffff;
+}
+
+.landing-hero-kicker {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffcba8;
+}
+
+.landing-hero-copy {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.65;
+}
+
+@media (min-width: 768px) {
+  .landing-hero-copy {
+    font-size: 1.5rem;
+    line-height: 1.6;
+  }
+}
+
+.landing-install-btn {
+  display: inline-flex;
+  min-width: min(100%, 18rem);
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 1rem;
+  background-color: #ff5500;
+  padding: 1rem 1.5rem;
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: #ffffff;
+  box-shadow: 0 14px 32px rgba(255, 85, 0, 0.38);
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.landing-install-btn:hover:not(:disabled) {
+  background-color: #e04a00;
+  transform: translateY(-1px);
+}
+
+.landing-install-btn:disabled {
+  opacity: 0.75;
+  cursor: wait;
+}
+
+.landing-install-installed {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #d1fae5;
+}
+
+.landing-below {
+  @apply px-4 py-10;
+}
+
+.landing-events-wrap {
+  @apply max-w-4xl;
+}
+
+.landing-events-section {
+  @apply mb-0;
 }

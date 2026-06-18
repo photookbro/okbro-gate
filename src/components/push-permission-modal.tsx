@@ -10,6 +10,8 @@ import {
   shouldShowPushPrompt,
   type MobilePlatform,
 } from '@/lib/push-permission'
+import { isFirstAppLaunchPending } from '@/lib/app-first-launch'
+import { isStandaloneDisplayMode } from '@/lib/pwa-install'
 
 type ModalStep = 'prompt' | 'settings'
 
@@ -22,6 +24,7 @@ export function PushPermissionModal() {
 
   useEffect(() => {
     if (pathname?.startsWith('/admin')) return
+    if (isStandaloneDisplayMode() && isFirstAppLaunchPending()) return
     if (!shouldShowPushPrompt()) return
 
     setPlatform(detectMobilePlatform(navigator.userAgent))

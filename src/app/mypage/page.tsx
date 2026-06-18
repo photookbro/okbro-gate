@@ -4,7 +4,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { formatVerificationDate } from '@/lib/order-verification'
+import {
+  formatOrderHistoryDate,
+  formatVerificationDate,
+} from '@/lib/order-verification'
 
 type LatestVerification = {
   expires_at: string | null
@@ -13,25 +16,11 @@ type LatestVerification = {
   expiring_soon: boolean
 }
 
-type ShootRecord = {
-  type: 'purchase'
-  event_id: string | null
-  event_name: string
-  passed_at: string
-  display_time: string
-  description: string
-}
-
-type GpsEventPasses = {
-  event_id: string
-  event_name: string
-  passes: { pass_count: number; display_time: string; passed_at: string }[]
-}
-
 type VerificationRow = {
   id: string
   order_number: string
   event_name: string
+  verified_at: string | null
   expires_at: string | null
   status: string
   is_duplicate: boolean
@@ -57,9 +46,7 @@ export default function MyPage() {
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
   const [latest, setLatest] = useState<LatestVerification | null>(null)
-  const [shootRecords, setShootRecords] = useState<ShootRecord[]>([])
   const [verifications, setVerifications] = useState<VerificationRow[]>([])
-  const [gpsEventPasses, setGpsEventPasses] = useState<GpsEventPasses[]>([])
   const [errorMsg, setErrorMsg] = useState('')
 
   const [orderInput, setOrderInput] = useState('')
@@ -77,8 +64,6 @@ export default function MyPage() {
     setEmail(data.email ?? '')
     setLatest(data.latest_verification ?? null)
     setVerifications(data.verifications ?? [])
-    setGpsEventPasses(data.gps_event_passes ?? [])
-    setShootRecords((data.shoot_records ?? []).filter((r: ShootRecord) => r.type === 'purchase'))
     setErrorMsg('')
     return true
   }, [])
@@ -168,36 +153,32 @@ export default function MyPage() {
 
         {errorMsg && <p className="alert-danger">{errorMsg}</p>}
 
-        <div className="card mb-4">
+        <div className="card mb-4 mypage-status-card">
           <h2 className="section-title">사진 열람 만기 현황</h2>
 
           {!hasVerification ? (
             <div>
-              <p className="mb-4 text-sm text-muted">인증 기록이 없어요</p>
+              <p className="mypage-dday mypage-dday-muted mb-3 text-center">인증 없음</p>
+              <p className="mb-4 text-center text-sm text-muted">인증 기록이 없어요</p>
               <Link href="/events" className="btn-primary-inline inline-flex no-underline">
                 대회 목록에서 인증하기
               </Link>
             </div>
           ) : (
-            <>
-              <div className="mb-4 text-center">
-                <p className="mb-2 text-sm text-muted">남은 기간</p>
-                <p className={ddayClass(latest?.status ?? 'expired', !!isExpiringSoon)}>
-                  {formatDDay(latest?.days_remaining ?? 0, latest?.status ?? 'expired')}
-                </p>
-                {!isExpired && (
-                  <p className="mt-2 text-sm font-medium text-[var(--text-muted)]">
-                    {latest?.days_remaining ?? 0}일 남음
-                  </p>
-                )}
-              </div>
-
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-center">
-                <p className="mb-1 text-xs text-muted">만료일</p>
-                <p className="text-sm font-semibold text-[var(--text)]">
+            <div className="text-center">
+              <p className="mypage-status-label">남은 기간</p>
+              <p className={ddayClass(latest?.status ?? 'expired', !!isExpiringSoon)}>
+                {formatDDay(latest?.days_remaining ?? 0, latest?.status ?? 'expired')}
+              </p>
+              {!isExpired && (
+                <p className="mypage-status-sub">
+                  {latest?.days_remaining ?? 0}일 남음 · 만료{' '}
                   {formatVerificationDate(latest?.expires_at)}
                 </p>
-              </div>
+              )}
+              {isExpired && (
+                <p className="mypage-status-sub">만료일 {formatVerificationDate(latest?.expires_at)}</p>
+              )}
 
               {isExpiringSoon && !isExpired && (
                 <div className="alert-warning mt-4 mb-0">⚠️ 곧 만료</div>
@@ -206,80 +187,11 @@ export default function MyPage() {
               {isExpired && (
                 <div className="alert-danger mt-4 mb-0">❌ 만료됨. 새 주문번호로 인증해주세요</div>
               )}
-            </>
+            </div>
           )}
         </div>
 
         <div className="card mb-4">
-          <h2 className="section-title">🎬 내 촬영 시각 기록</h2>
-          {gpsEventPasses.length === 0 && shootRecords.length === 0 ? (
-            <p className="text-sm text-muted">아직 기록된 촬영 시각이 없어요</p>
-          ) : (
-            <ul className="space-y-3">
-              {gpsEventPasses.map(group => (
-                <li
-                  key={group.event_id}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3"
-                >
-                  <p className="text-sm font-semibold text-[var(--text)]">{group.event_name}</p>
-                  <ul className="mt-2 space-y-1">
-                    {group.passes.map(pass => (
-                      <li key={`${group.event_id}-${pass.pass_count}`} className="text-sm text-[var(--text)]">
-                        {pass.pass_count}차: {pass.display_time}
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
-              {shootRecords.map(record => (
-                <li
-                  key={`purchase-${record.event_id ?? 'none'}-${record.passed_at}`}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3"
-                >
-                  <p className="text-sm font-semibold text-[var(--text)]">{record.event_name}</p>
-                  <p className="mt-1 text-sm text-[var(--text)]">
-                    구매 인증: {record.display_time}{' '}
-                    <span className="text-muted">({record.description})</span>
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {verifications.length > 0 && (
-          <div className="card mb-4">
-            <h2 className="section-title">주문번호 인증 내역</h2>
-            <ul className="space-y-3">
-              {verifications.map(verification => (
-                <li
-                  key={verification.id}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3"
-                >
-                  <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[var(--text)]">
-                    <span>{verification.order_number}</span>
-                    <span className={verification.is_duplicate ? 'text-warning' : 'text-success'}>
-                      {verification.is_duplicate ? '⚠️ 중복 사용' : '✅'}
-                    </span>
-                  </p>
-                  <p className="mt-1 text-sm text-muted">
-                    {verification.event_name}
-                    {verification.expires_at
-                      ? ` · 만료 ${formatVerificationDate(verification.expires_at)}`
-                      : ''}
-                  </p>
-                  {verification.is_duplicate && verification.duplicate_count > 0 && (
-                    <p className="alert-warning mt-2 mb-0 text-sm">
-                      ⚠️ 이 주문번호는 다른 계정({verification.duplicate_count}개)에서도 사용 중입니다
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <div className="card">
           <h2 className="section-title">인증 연장</h2>
           <p className="mb-4 text-sm leading-relaxed text-muted">
             추가 주문번호로 인증하면 만료일이 연장돼요
@@ -302,7 +214,7 @@ export default function MyPage() {
                 />
               </div>
               <button type="submit" disabled={extending} className="btn-primary-inline">
-                {extending ? '인증 중...' : '인증하고 연장하기'}
+                {extending ? '인증 중...' : '인증 연장하기'}
               </button>
             </div>
 
@@ -310,6 +222,26 @@ export default function MyPage() {
             {extendSuccess && <p className="alert-success mt-3 mb-0">{extendSuccess}</p>}
           </form>
         </div>
+
+        {verifications.length > 0 && (
+          <div className="card">
+            <h2 className="section-title">과거 인증 이력</h2>
+            <ul className="mypage-history-list">
+              {verifications.map(verification => (
+                <li key={verification.id} className="mypage-history-item">
+                  <span>
+                    {formatOrderHistoryDate(verification.order_number, verification.verified_at)}
+                  </span>
+                  {verification.is_duplicate ? (
+                    <span className="mypage-history-duplicate" title="중복 사용">
+                      ⚠️
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   )
