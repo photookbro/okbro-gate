@@ -645,3 +645,69 @@ body {
 .landing-events-section {
   @apply mb-0;
 }
+
+.inapp-browser-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background-color: #ffffff;
+}
+
+.inapp-browser-card {
+  width: 100%;
+  max-width: 24rem;
+  text-align: center;
+}
+
+.inapp-browser-title {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #111827;
+}
+
+.inapp-browser-text {
+  margin: 0 0 1rem;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: #6b7280;
+}
+
+.inapp-browser-copy-btn {
+  width: 100%;
+  margin-top: 0.5rem;
+  border: none;
+  border-radius: 0.75rem;
+  background-color: #ff5500;
+  padding: 0.875rem 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.inapp-browser-copy-btn:hover {
+  background-color: #e04a00;
+}
+
+.inapp-browser-toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  z-index: 10000;
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+  transform: translateX(-50%);
+  border-radius: 0.75rem;
+  background-color: #111827;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
