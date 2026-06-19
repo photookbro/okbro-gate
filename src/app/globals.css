@@ -755,6 +755,36 @@ body {
   color: var(--text);
 }
 
+.gps-permission-emphasis {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 8px;
+  background-color: #ff5500;
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.gps-permission-emphasis-title {
+  margin: 0 0 0.5rem;
+  font-weight: 800;
+}
+
+.gps-permission-emphasis-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gps-permission-emphasis-list li {
+  margin: 0.15rem 0;
+}
+
+.gps-permission-emphasis-warning {
+  margin: 0.75rem 0 0;
+  font-weight: 700;
+}
+
 .gps-tracking-banner {
   position: sticky;
   top: 0;

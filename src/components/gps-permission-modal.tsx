@@ -1,10 +1,13 @@
 'use client'
 
+import type { ReactNode } from 'react'
+
 type GpsPermissionModalProps = {
   open: boolean
   requesting?: boolean
   onAllow: () => void
   onDismiss?: () => void
+  footer?: ReactNode
 }
 
 export function GpsPermissionModal({
@@ -12,6 +15,7 @@ export function GpsPermissionModal({
   requesting = false,
   onAllow,
   onDismiss,
+  footer,
 }: GpsPermissionModalProps) {
   if (!open) return null
 
@@ -43,6 +47,8 @@ export function GpsPermissionModal({
         >
           {requesting ? '요청 중...' : '사이트에 있는 동안 허용'}
         </button>
+
+        {footer}
       </div>
     </div>
   )

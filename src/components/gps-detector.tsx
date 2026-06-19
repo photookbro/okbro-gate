@@ -50,6 +50,21 @@ function createEarlyAlertMap(locations: EventGpsLocation[]) {
   return map
 }
 
+function GpsPermissionEmphasisNotice() {
+  return (
+    <div className="gps-permission-emphasis">
+      <p className="gps-permission-emphasis-title">⚠️ 중요 안내</p>
+      <ul className="gps-permission-emphasis-list">
+        <li>✓ &apos;사이트에 있는 동안 허용&apos;을 선택하세요</li>
+        <li>✓ 레이스 중 앱을 종료하지 마세요</li>
+        <li>✓ 화면이 꺼져도 괜찮습니다</li>
+        <li>✓ 레이스 종료 후 OFF를 눌러주세요</li>
+      </ul>
+      <p className="gps-permission-emphasis-warning">주의: 앱을 닫으면 위치 추적이 멈춥니다!</p>
+    </div>
+  )
+}
+
 export function GpsDetector({
   eventId,
   eventName,
@@ -408,6 +423,7 @@ export function GpsDetector({
         requesting={requestingPermission}
         onAllow={() => void beginTrackingWithPermission()}
         onDismiss={() => setPermissionOpen(false)}
+        footer={<GpsPermissionEmphasisNotice />}
       />
     </>
   )
