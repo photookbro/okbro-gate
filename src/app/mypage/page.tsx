@@ -85,7 +85,7 @@ export default function MyPage() {
     setExtendSuccess('')
 
     if (!orderInput.trim()) {
-      setExtendError('주문번호 또는 공동 인증번호를 입력해주세요')
+      setExtendError('주문번호 또는 하이패스를 입력해주세요')
       return
     }
 

@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
 
 const EMAIL_BODY =
-  '안녕하세요! 오켱게이트 인증이 30일 후 만료돼요. 재구매 인증 시 6개월 연장됩니다.'
+  '안녕하세요! 오켱게이트 인증이 30일 후 만료돼요. 재구매 인증 시 기간이 연장됩니다.'
 
 async function sendExpiryEmail(to: string) {
   if (process.env.RESEND_API_KEY) {

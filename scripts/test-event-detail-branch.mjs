@@ -32,7 +32,7 @@ async function buildVerification(userId, eventId) {
       .order('expires_at', { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle(),
-    supabase.from('settings').select('key, value').eq('key', 'verified_period_months'),
+    supabase.from('settings').select('key, value').in('key', ['verified_period_days', 'verified_period_months']),
     supabase
       .from('gps_logs')
       .select('passed_at')

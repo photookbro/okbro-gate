@@ -6,6 +6,7 @@ import {
   getMonitorStatus,
   resolveExpiresAt,
 } from '@/lib/order-verification'
+import { loadVerificationSettings } from '@/lib/verification-settings'
 
 type OrderRow = {
   id: string
@@ -84,16 +85,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: '모니터링 데이터 조회 실패' }, { status: 500 })
   }
 
-  const { data: settings } = await admin
-    .from('settings')
-    .select('key, value')
-    .eq('key', 'verified_period_months')
+  const settings = await loadVerificationSettings(admin)
+  const verifiedPeriodDays = settings.verifiedPeriodDays
 
-  const verifiedPeriodMonths = Number(
-    settings?.find(s => s?.key === 'verified_period_months')?.value ?? NaN
-  )
-
-  if (!Number.isFinite(verifiedPeriodMonths) || verifiedPeriodMonths <= 0) {
+  if (!Number.isFinite(verifiedPeriodDays) || verifiedPeriodDays <= 0) {
     return NextResponse.json({ error: '인증 기간 설정을 확인할 수 없어요' }, { status: 500 })
   }
 
@@ -102,7 +97,7 @@ export async function GET(req: NextRequest) {
 
   const rows = orders.map(order => {
     const verifiedAt = new Date(order.used_at || order.created_at || '')
-    const expiresAt = resolveExpiresAt(order, verifiedPeriodMonths)
+    const expiresAt = resolveExpiresAt(order, verifiedPeriodDays)
     const status =
       !expiresAt || Number.isNaN(verifiedAt.getTime())
         ? ('expired' as const)

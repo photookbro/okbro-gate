@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { User } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabase'
 import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
+import { loadVerificationSettings } from '@/lib/verification-settings'
 import {
   buildGpsLogsByLocation,
   formatAdminDateTime,
@@ -43,14 +44,12 @@ export async function GET(req: NextRequest) {
   const userId = new URL(req.url).searchParams.get('user_id')
   const admin = supabaseAdmin()
 
-  const [{ data: settings }, authUsers] = await Promise.all([
-    admin.from('settings').select('key, value').eq('key', 'verified_period_months'),
+  const [{ settings }, authUsers] = await Promise.all([
+    loadVerificationSettings(admin).then(settings => ({ settings })),
     listAllAuthUsers(admin),
   ])
 
-  const verifiedPeriodMonths = Number(
-    settings?.find(s => s?.key === 'verified_period_months')?.value ?? NaN
-  )
+  const verifiedPeriodDays = settings.verifiedPeriodDays
 
   if (userId) {
     const user = authUsers.find(u => u.id === userId)
@@ -285,11 +284,11 @@ export async function GET(req: NextRequest) {
               created_at: order.created_at,
               expires_at: order.expires_at,
             },
-            verifiedPeriodMonths
+            verifiedPeriodDays
           )
           const status =
-            Number.isFinite(verifiedPeriodMonths) && verifiedPeriodMonths > 0
-              ? orderStatusLabel(order, verifiedPeriodMonths)
+            Number.isFinite(verifiedPeriodDays) && verifiedPeriodDays > 0
+              ? orderStatusLabel(order, verifiedPeriodDays)
               : '만료'
 
           return {
@@ -333,7 +332,7 @@ export async function GET(req: NextRequest) {
     string,
     { verified_at: string; expires_at: Date }
   >()
-  if (Number.isFinite(verifiedPeriodMonths) && verifiedPeriodMonths > 0) {
+  if (Number.isFinite(verifiedPeriodDays) && verifiedPeriodDays > 0) {
     const now = new Date()
     for (const order of orders ?? []) {
       if (!order.user_id) continue
@@ -345,7 +344,7 @@ export async function GET(req: NextRequest) {
           created_at: order.created_at,
           expires_at: order.expires_at,
         },
-        verifiedPeriodMonths
+        verifiedPeriodDays
       )
       if (!verifiedAt || !expiresAt) continue
 

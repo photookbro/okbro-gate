@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getAuthenticatedUser } from '@/lib/auth-server'
-import { addMonths, calculateNewExpiresAt } from '@/lib/order-verification'
+import {
+  addDays,
+  calculateNewExpiresAt,
+  isOrderDateWithinVerifiedPeriod,
+} from '@/lib/order-verification'
 import { ORDER_DUPLICATE_ERROR } from '@/lib/order-duplicate'
 import { extendUserOrderVerification } from '@/lib/verify-order-extend'
+import { loadVerificationSettings } from '@/lib/verification-settings'
 
 const NAVER_ORDER_PATTERN = /^\d{4}-\d{8}-\d{8}$/
 
@@ -31,12 +36,6 @@ function parseOrderDate(orderNumber: string | null | undefined): Date | null {
   return date
 }
 
-function isWithinVerifiedPeriod(orderDate: Date, months: number): boolean {
-  const cutoff = new Date()
-  cutoff.setMonth(cutoff.getMonth() - months)
-  return orderDate >= cutoff
-}
-
 function formatDbError(error: { message?: string; code?: string; details?: string | null }) {
   return {
     message: error.message ?? 'Unknown error',
@@ -59,26 +58,17 @@ export async function POST(req: NextRequest) {
 
   const trimmedOrderNumber = order_number.trim()
   const admin = supabaseAdmin()
+  const settings = await loadVerificationSettings(admin)
 
-  const { data: settings } = await admin
-    .from('settings')
-    .select('key, value')
-    .in('key', ['shared_order_number', 'verified_period_months', 'shared_order_period_months'])
+  const isHipassOrder =
+    !!settings.sharedOrderNumber &&
+    trimmedOrderNumber.toLowerCase() === settings.sharedOrderNumber.toLowerCase()
 
-  const settingsMap = Object.fromEntries(
-    (settings ?? []).map(({ key, value }) => [key, value])
-  )
-  const sharedOrderNumber = settingsMap.shared_order_number?.trim()
-  const verifiedPeriodMonths = Number(settingsMap.verified_period_months)
-  const sharedOrderPeriodMonths = Number(settingsMap.shared_order_period_months ?? 1)
+  const periodDays = isHipassOrder
+    ? settings.sharedOrderPeriodDays
+    : settings.verifiedPeriodDays
 
-  const isSharedOrder =
-    !!sharedOrderNumber &&
-    trimmedOrderNumber.toLowerCase() === sharedOrderNumber.toLowerCase()
-
-  const periodMonths = isSharedOrder ? sharedOrderPeriodMonths : verifiedPeriodMonths
-
-  if (!isSharedOrder) {
+  if (!isHipassOrder) {
     if (!NAVER_ORDER_PATTERN.test(trimmedOrderNumber)) {
       return NextResponse.json(
         { error: '네이버 주문번호 형식이 올바르지 않아요 (예: 2024-XXXXXXXX-XXXXXXXX)' },
@@ -86,7 +76,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (!Number.isFinite(verifiedPeriodMonths) || verifiedPeriodMonths <= 0) {
+    if (!Number.isFinite(settings.verifiedPeriodDays) || settings.verifiedPeriodDays <= 0) {
       return NextResponse.json({ error: '인증 기간 설정을 확인할 수 없어요' }, { status: 500 })
     }
 
@@ -95,9 +85,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '주문번호에서 날짜를 확인할 수 없어요' }, { status: 400 })
     }
 
-    if (!isWithinVerifiedPeriod(orderDate, verifiedPeriodMonths)) {
+    if (!isOrderDateWithinVerifiedPeriod(orderDate, settings.verifiedPeriodDays)) {
       return NextResponse.json(
-        { error: `최근 ${verifiedPeriodMonths}개월 이내 주문만 인증할 수 있어요` },
+        { error: `최근 ${settings.verifiedPeriodDays}일 이내 주문만 인증할 수 있어요` },
         { status: 400 }
       )
     }
@@ -111,18 +101,18 @@ export async function POST(req: NextRequest) {
   const ownedBySelf = existingOrders?.find(row => row.user_id === user.id)
   const ownedByOthers = existingOrders?.filter(row => row.user_id !== user.id) ?? []
 
-  if (ownedByOthers.length > 0 && !isSharedOrder) {
+  if (ownedByOthers.length > 0 && !isHipassOrder) {
     return NextResponse.json(
       { success: false, error: ORDER_DUPLICATE_ERROR },
       { status: 409 }
     )
   }
 
-  if (!Number.isFinite(periodMonths) || periodMonths <= 0) {
+  if (!Number.isFinite(periodDays) || periodDays <= 0) {
     return NextResponse.json(
       {
-        error: isSharedOrder
-          ? '공동 인증번호 유효기간 설정을 확인할 수 없어요'
+        error: isHipassOrder
+          ? '하이패스 유효기간 설정을 확인할 수 없어요'
           : '구매 인증 유효기간 설정을 확인할 수 없어요',
       },
       { status: 500 }
@@ -136,7 +126,7 @@ export async function POST(req: NextRequest) {
       const { expiresAt, extended } = await extendUserOrderVerification(
         admin,
         user.id,
-        periodMonths,
+        periodDays,
         {
           orderId: ownedBySelf.id,
           eventId: event_id || null,
@@ -159,7 +149,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (isSharedOrder && ownedByOthers.length > 0) {
+  if (isHipassOrder && ownedByOthers.length > 0) {
     return NextResponse.json({ success: true, already_verified: true })
   }
 
@@ -189,12 +179,12 @@ export async function POST(req: NextRequest) {
   if (userLatestOrder?.expires_at) {
     previousExpires = new Date(userLatestOrder.expires_at)
   } else if (userLatestOrder?.used_at) {
-    previousExpires = addMonths(new Date(userLatestOrder.used_at), periodMonths)
+    previousExpires = addDays(new Date(userLatestOrder.used_at), periodDays)
   }
 
   const expiresAt = calculateNewExpiresAt(
     previousExpires && !Number.isNaN(previousExpires.getTime()) ? previousExpires : null,
-    periodMonths,
+    periodDays,
     now
   )
 

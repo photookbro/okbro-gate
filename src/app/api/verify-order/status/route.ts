@@ -7,6 +7,7 @@ import {
   resolveExpiresAt,
   type VerificationInfo,
 } from '@/lib/order-verification'
+import { loadVerificationSettings } from '@/lib/verification-settings'
 
 export async function GET(req: NextRequest) {
   const user = await getAuthenticatedUser()
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
   const eventId = new URL(req.url).searchParams.get('event_id')
   const admin = supabaseAdmin()
 
-  const [{ data: order }, { data: settings }] = await Promise.all([
+  const [{ data: order }, settings] = await Promise.all([
     admin
       .from('orders')
       .select('order_number, used_at, created_at, expires_at')
@@ -25,19 +26,14 @@ export async function GET(req: NextRequest) {
       .order('expires_at', { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle(),
-    admin
-      .from('settings')
-      .select('key, value')
-      .eq('key', 'verified_period_months'),
+    loadVerificationSettings(admin),
   ])
 
-  const verifiedPeriodMonths = Number(
-    settings?.find(s => s?.key === 'verified_period_months')?.value ?? NaN
-  )
+  const verifiedPeriodDays = settings.verifiedPeriodDays
 
-  const purchaseInfo = getVerificationInfo(order ?? null, verifiedPeriodMonths)
+  const purchaseInfo = getVerificationInfo(order ?? null, verifiedPeriodDays)
   const purchaseVerified = purchaseInfo.status === 'valid'
-  const expiresAt = order ? resolveExpiresAt(order, verifiedPeriodMonths) : null
+  const expiresAt = order ? resolveExpiresAt(order, verifiedPeriodDays) : null
   const showExpiryWarning =
     purchaseInfo.status === 'valid' &&
     expiresAt != null &&

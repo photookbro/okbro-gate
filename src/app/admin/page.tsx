@@ -187,8 +187,8 @@ export default function AdminPage() {
   const [eventError, setEventError] = useState('')
 
   const [sharedOrderNumber, setSharedOrderNumber] = useState('')
-  const [sharedOrderPeriodMonths, setSharedOrderPeriodMonths] = useState('')
-  const [verifiedPeriodMonths, setVerifiedPeriodMonths] = useState('')
+  const [sharedOrderPeriodDays, setSharedOrderPeriodDays] = useState('')
+  const [verifiedPeriodDays, setVerifiedPeriodDays] = useState('')
   const [loadingSettings, setLoadingSettings] = useState(true)
   const [settingsError, setSettingsError] = useState('')
   const [settingsMsg, setSettingsMsg] = useState('')
@@ -273,8 +273,8 @@ export default function AdminPage() {
       return
     }
     setSharedOrderNumber(data.shared_order_number ?? '')
-    setSharedOrderPeriodMonths(data.shared_order_period_months ?? '1')
-    setVerifiedPeriodMonths(data.verified_period_months ?? '')
+    setSharedOrderPeriodDays(data.shared_order_period_days ?? '30')
+    setVerifiedPeriodDays(data.verified_period_days ?? '')
     setLoadingSettings(false)
   }, [adminFetch])
 
@@ -576,8 +576,8 @@ export default function AdminPage() {
       method: 'PUT',
       body: JSON.stringify({
         shared_order_number: sharedOrderNumber,
-        shared_order_period_months: sharedOrderPeriodMonths,
-        verified_period_months: verifiedPeriodMonths,
+        shared_order_period_days: sharedOrderPeriodDays,
+        verified_period_days: verifiedPeriodDays,
       }),
     })
 
@@ -589,8 +589,8 @@ export default function AdminPage() {
     }
 
     setSharedOrderNumber(data.shared_order_number ?? '')
-    setSharedOrderPeriodMonths(data.shared_order_period_months ?? '1')
-    setVerifiedPeriodMonths(data.verified_period_months ?? '')
+    setSharedOrderPeriodDays(data.shared_order_period_days ?? '30')
+    setVerifiedPeriodDays(data.verified_period_days ?? '')
     setSettingsMsg('저장되었어요')
     setSavingSettings(false)
   }
@@ -715,7 +715,7 @@ export default function AdminPage() {
             ) : (
               <form onSubmit={handleSaveSettings} className="max-w-md">
                 <label className="mb-4 block">
-                  <span className={labelStyle}>공동 인증번호 (shared_order_number)</span>
+                  <span className={labelStyle}>하이패스 번호</span>
                   <input
                     value={sharedOrderNumber}
                     onChange={e => setSharedOrderNumber(e.target.value)}
@@ -723,22 +723,22 @@ export default function AdminPage() {
                   />
                 </label>
                 <label className="mb-4 block">
-                  <span className={labelStyle}>공동 인증번호 유효기간 (shared_order_period_months, 개월)</span>
+                  <span className={labelStyle}>하이패스 유효기간 (일)</span>
                   <input
                     type="number"
                     min={1}
-                    value={sharedOrderPeriodMonths}
-                    onChange={e => setSharedOrderPeriodMonths(e.target.value)}
+                    value={sharedOrderPeriodDays}
+                    onChange={e => setSharedOrderPeriodDays(e.target.value)}
                     className={inputStyle}
                   />
                 </label>
                 <label className="mb-4 block">
-                  <span className={labelStyle}>구매 인증 유효기간 (verified_period_months, 개월)</span>
+                  <span className={labelStyle}>구매 인증 유효기간 (일)</span>
                   <input
                     type="number"
                     min={1}
-                    value={verifiedPeriodMonths}
-                    onChange={e => setVerifiedPeriodMonths(e.target.value)}
+                    value={verifiedPeriodDays}
+                    onChange={e => setVerifiedPeriodDays(e.target.value)}
                     className={inputStyle}
                   />
                 </label>

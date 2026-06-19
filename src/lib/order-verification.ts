@@ -23,31 +23,26 @@ export type VerificationInfo = {
   days_remaining?: number
 }
 
-export function addMonths(date: Date, months: number): Date {
+export function addDays(date: Date, days: number): Date {
   const result = new Date(date)
-  result.setMonth(result.getMonth() + months)
+  result.setDate(result.getDate() + days)
   return result
-}
-
-export function getDaysRemaining(expiresAt: Date, now: Date = new Date()): number {
-  const diff = expiresAt.getTime() - now.getTime()
-  return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
 
 export function calculateNewExpiresAt(
   previousExpiresAt: Date | null,
-  verifiedPeriodMonths: number,
+  verifiedPeriodDays: number,
   now: Date = new Date()
 ): Date {
   if (previousExpiresAt && previousExpiresAt > now) {
-    return addMonths(previousExpiresAt, verifiedPeriodMonths)
+    return addDays(previousExpiresAt, verifiedPeriodDays)
   }
-  return addMonths(now, verifiedPeriodMonths)
+  return addDays(now, verifiedPeriodDays)
 }
 
 export function resolveExpiresAt(
   order: OrderRecord,
-  verifiedPeriodMonths: number
+  verifiedPeriodDays: number
 ): Date | null {
   if (order.expires_at) {
     const expiresAt = new Date(order.expires_at)
@@ -57,16 +52,16 @@ export function resolveExpiresAt(
   const verifiedAt = new Date(order.used_at || order.created_at || '')
   if (Number.isNaN(verifiedAt.getTime())) return null
 
-  if (!Number.isFinite(verifiedPeriodMonths) || verifiedPeriodMonths <= 0) {
+  if (!Number.isFinite(verifiedPeriodDays) || verifiedPeriodDays <= 0) {
     return null
   }
 
-  return addMonths(verifiedAt, verifiedPeriodMonths)
+  return addDays(verifiedAt, verifiedPeriodDays)
 }
 
 export function getVerificationInfo(
   order: OrderRecord | null | undefined,
-  verifiedPeriodMonths: number
+  verifiedPeriodDays: number
 ): VerificationInfo {
   if (!order) {
     return { status: 'none' }
@@ -77,7 +72,7 @@ export function getVerificationInfo(
     return { status: 'none' }
   }
 
-  const expiresAt = resolveExpiresAt(order, verifiedPeriodMonths)
+  const expiresAt = resolveExpiresAt(order, verifiedPeriodDays)
   if (!expiresAt) {
     return { status: 'none' }
   }
@@ -92,6 +87,11 @@ export function getVerificationInfo(
     expires_at: expiresAt.toISOString(),
     days_remaining: getDaysRemaining(expiresAt, now),
   }
+}
+
+export function getDaysRemaining(expiresAt: Date, now: Date = new Date()): number {
+  const diff = expiresAt.getTime() - now.getTime()
+  return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
 
 export function formatVerificationDate(date: string | Date | null | undefined): string {
@@ -154,4 +154,14 @@ export function isExpiringWithinDays(
   const threshold = new Date(now)
   threshold.setDate(threshold.getDate() + days)
   return expiresAt <= threshold
+}
+
+export function isOrderDateWithinVerifiedPeriod(
+  orderDate: Date,
+  verifiedPeriodDays: number,
+  now: Date = new Date()
+): boolean {
+  const cutoff = new Date(now)
+  cutoff.setDate(cutoff.getDate() - verifiedPeriodDays)
+  return orderDate >= cutoff
 }

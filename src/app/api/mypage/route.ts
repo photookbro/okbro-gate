@@ -10,6 +10,7 @@ import {
 } from '@/lib/order-verification'
 import { formatGpsPassDisplay } from '@/lib/gps-access'
 import { buildDuplicateInfoByOrderNumber } from '@/lib/order-duplicate'
+import { loadVerificationSettings } from '@/lib/verification-settings'
 
 type OrderRow = {
   id: string
@@ -30,18 +31,16 @@ export async function GET() {
 
   const admin = supabaseAdmin()
 
-  const [{ data: orders }, { data: settings }] = await Promise.all([
+  const [{ data: orders }, settings] = await Promise.all([
     admin
       .from('orders')
       .select('id, order_number, platform, used_at, created_at, expires_at, event_id, events(name)')
       .eq('user_id', user.id)
       .order('expires_at', { ascending: false, nullsFirst: false }),
-    admin.from('settings').select('key, value').eq('key', 'verified_period_months'),
+    loadVerificationSettings(admin),
   ])
 
-  const verifiedPeriodMonths = Number(
-    settings?.find(s => s?.key === 'verified_period_months')?.value ?? NaN
-  )
+  const verifiedPeriodDays = settings.verifiedPeriodDays
 
   const userOrders = (orders as OrderRow[] | null) ?? []
   const duplicateByOrderNumber = await buildDuplicateInfoByOrderNumber(
@@ -54,7 +53,7 @@ export async function GET() {
   const verifications = userOrders.map(order => {
     const joinedEvent = Array.isArray(order.events) ? order.events[0] : order.events
     const verifiedAt = new Date(order.used_at || order.created_at || '')
-    const expiresAt = resolveExpiresAt(order, verifiedPeriodMonths)
+    const expiresAt = resolveExpiresAt(order, verifiedPeriodDays)
     const status = expiresAt ? getMonitorStatus(expiresAt, now) : 'expired'
 
     const duplicate = duplicateByOrderNumber.get(order.order_number.trim()) ?? {

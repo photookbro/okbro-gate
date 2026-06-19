@@ -115,7 +115,7 @@ export function maxIsoDate(...dates: (string | null | undefined)[]): string | nu
 
 export function orderStatusLabel(
   order: { used_at?: string | null; created_at?: string | null; expires_at?: string | null },
-  verifiedPeriodMonths: number
+  verifiedPeriodDays: number
 ): string {
   const expiresAt = resolveExpiresAt(
     {
@@ -124,7 +124,7 @@ export function orderStatusLabel(
       created_at: order.created_at,
       expires_at: order.expires_at,
     },
-    verifiedPeriodMonths
+    verifiedPeriodDays
   )
   if (!expiresAt) return '만료'
   const status = getMonitorStatus(expiresAt)

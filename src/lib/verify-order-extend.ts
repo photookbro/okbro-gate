@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { addMonths, calculateNewExpiresAt } from '@/lib/order-verification'
+import { addDays, calculateNewExpiresAt } from '@/lib/order-verification'
 
 type ExtendResult = {
   expiresAt: Date
@@ -9,7 +9,7 @@ type ExtendResult = {
 export async function extendUserOrderVerification(
   admin: SupabaseClient,
   userId: string,
-  periodMonths: number,
+  periodDays: number,
   options?: {
     orderId?: string
     eventId?: string | null
@@ -35,12 +35,12 @@ export async function extendUserOrderVerification(
   if (userLatestOrder?.expires_at) {
     previousExpires = new Date(userLatestOrder.expires_at)
   } else if (userLatestOrder?.used_at) {
-    previousExpires = addMonths(new Date(userLatestOrder.used_at), periodMonths)
+    previousExpires = addDays(new Date(userLatestOrder.used_at), periodDays)
   }
 
   const expiresAt = calculateNewExpiresAt(
     previousExpires && !Number.isNaN(previousExpires.getTime()) ? previousExpires : null,
-    periodMonths,
+    periodDays,
     now
   )
 
