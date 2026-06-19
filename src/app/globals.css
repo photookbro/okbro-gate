@@ -756,13 +756,21 @@ body {
 }
 
 .gps-permission-emphasis {
-  margin-top: 16px;
+  margin-top: 0;
   padding: 16px;
   border-radius: 8px;
   background-color: #ff5500;
   color: #ffffff;
   font-size: 14px;
   line-height: 1.55;
+}
+
+.gps-permission-stack {
+  display: flex;
+  width: 100%;
+  max-width: 28rem;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .gps-permission-emphasis-title {

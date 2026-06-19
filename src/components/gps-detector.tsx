@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { formatPassTimeSeconds, haversineDistanceMeters } from '@/lib/geo'
 import { PRECISE_GEOLOCATION_OPTIONS, requestPreciseGeolocation } from '@/lib/geolocation-request'
 import { GpsPermissionModal } from '@/components/gps-permission-modal'
+import { GpsPermissionEmphasisNotice } from '@/components/gps-permission-emphasis-notice'
 import {
   createInitialGpsPassZoneState,
   GPS_EXIT_RADIUS_METERS,
@@ -18,6 +19,7 @@ import {
   useGpsTrackingEnabled,
 } from '@/lib/gps-tracking-storage'
 import { showPassNotification } from '@/lib/push-client'
+import { syncGpsTrackingPref } from '@/lib/gps-tracking-pref-client'
 
 type GpsDetectorProps = {
   eventId: string
@@ -48,21 +50,6 @@ function createEarlyAlertMap(locations: EventGpsLocation[]) {
     map.set(location.locationNumber, false)
   }
   return map
-}
-
-function GpsPermissionEmphasisNotice() {
-  return (
-    <div className="gps-permission-emphasis">
-      <p className="gps-permission-emphasis-title">⚠️ 중요 안내</p>
-      <ul className="gps-permission-emphasis-list">
-        <li>✓ &apos;사이트에 있는 동안 허용&apos;을 선택하세요</li>
-        <li>✓ 레이스 중 앱을 종료하지 마세요</li>
-        <li>✓ 화면이 꺼져도 괜찮습니다</li>
-        <li>✓ 레이스 종료 후 OFF를 눌러주세요</li>
-      </ul>
-      <p className="gps-permission-emphasis-warning">주의: 앱을 닫으면 위치 추적이 멈춥니다!</p>
-    </div>
-  )
 }
 
 export function GpsDetector({
@@ -109,6 +96,7 @@ export function GpsDetector({
     setDistanceByLocation({})
     earlyAlertedRef.current = createEarlyAlertMap(activeLocations)
     setGpsTrackingEnabled(eventId, false)
+    void syncGpsTrackingPref(eventId, false)
   }, [activeLocations, eventId])
 
   useEffect(() => {
@@ -293,6 +281,7 @@ export function GpsDetector({
 
     setTracking(true)
     setGpsTrackingEnabled(eventId, true)
+    void syncGpsTrackingPref(eventId, true)
   }, [canUseGps, eventId, handlePosition, stopTracking, syncTodayPasses])
 
   const beginTrackingWithPermission = useCallback(async () => {
@@ -301,13 +290,13 @@ export function GpsDetector({
     setRequestingPermission(true)
     const granted = await requestPreciseGeolocation()
     setRequestingPermission(false)
-    setPermissionOpen(false)
 
     if (!granted) {
       setErrorMsg('위치 권한이 필요해요. 정확한 위치를 허용해주세요.')
       return
     }
 
+    setPermissionOpen(false)
     startTracking()
   }, [canUseGps, startTracking, tracking])
 
@@ -423,7 +412,7 @@ export function GpsDetector({
         requesting={requestingPermission}
         onAllow={() => void beginTrackingWithPermission()}
         onDismiss={() => setPermissionOpen(false)}
-        footer={<GpsPermissionEmphasisNotice />}
+        footer={permissionOpen ? <GpsPermissionEmphasisNotice /> : null}
       />
     </>
   )

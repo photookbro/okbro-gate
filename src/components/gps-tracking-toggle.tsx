@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { GpsPermissionModal } from '@/components/gps-permission-modal'
+import { GpsPermissionEmphasisNotice } from '@/components/gps-permission-emphasis-notice'
 import { requestPreciseGeolocation } from '@/lib/geolocation-request'
+import { syncGpsTrackingPref } from '@/lib/gps-tracking-pref-client'
 import { useGpsTrackingEnabled } from '@/lib/gps-tracking-storage'
 
 type GpsTrackingToggleProps = {
@@ -28,27 +30,19 @@ export function GpsTrackingToggle({
     setRequesting(true)
     const granted = await requestPreciseGeolocation()
     setRequesting(false)
-    setPermissionOpen(false)
 
     if (!granted) return
 
     setEnabled(true)
     onToggle?.(true)
-    void fetch('/api/gps-tracking-pref', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_id: eventId, enabled: true }),
-    }).catch(() => {})
+    setPermissionOpen(false)
+    void syncGpsTrackingPref(eventId, true)
   }
 
   function disableTracking() {
     setEnabled(false)
     onToggle?.(false)
-    void fetch('/api/gps-tracking-pref', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_id: eventId, enabled: false }),
-    }).catch(() => {})
+    void syncGpsTrackingPref(eventId, false)
   }
 
   function handleClick(e: React.MouseEvent) {
@@ -112,6 +106,7 @@ export function GpsTrackingToggle({
         requesting={requesting}
         onAllow={() => void enableTracking()}
         onDismiss={() => setPermissionOpen(false)}
+        footer={permissionOpen ? <GpsPermissionEmphasisNotice /> : null}
       />
     </>
   )
