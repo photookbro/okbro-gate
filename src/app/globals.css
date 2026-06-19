@@ -158,6 +158,7 @@ body {
 /* Modal */
 .modal-overlay {
   @apply fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4;
+  overflow-y: auto;
 }
 
 .modal-card {
@@ -771,6 +772,7 @@ body {
   max-width: 28rem;
   flex-direction: column;
   gap: 12px;
+  margin: auto;
 }
 
 .gps-permission-emphasis-title {
