@@ -157,7 +157,7 @@ body {
 
 /* Modal */
 .modal-overlay {
-  @apply fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4;
+  @apply fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/45 p-4;
   overflow-y: auto;
 }
 
@@ -773,6 +773,8 @@ body {
   flex-direction: column;
   gap: 12px;
   margin: auto;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .gps-permission-emphasis-title {

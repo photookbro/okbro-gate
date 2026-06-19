@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 type GpsPermissionModalProps = {
   open: boolean
   requesting?: boolean
+  errorMessage?: string
   onAllow: () => void
   onDismiss?: () => void
   footer?: ReactNode
@@ -13,11 +14,17 @@ type GpsPermissionModalProps = {
 export function GpsPermissionModal({
   open,
   requesting = false,
+  errorMessage,
   onAllow,
   onDismiss,
   footer,
 }: GpsPermissionModalProps) {
   if (!open) return null
+
+  function handleAllowClick(e: React.MouseEvent<HTMLButtonElement>) {
+    e.stopPropagation()
+    onAllow()
+  }
 
   return (
     <div className="modal-overlay z-[70]" onClick={onDismiss}>
@@ -40,11 +47,15 @@ export function GpsPermissionModal({
             <span className="gps-permission-choice-label">정확한 위치</span>
           </div>
 
+          {errorMessage ? (
+            <p className="alert-danger mt-4 mb-0 text-sm">{errorMessage}</p>
+          ) : null}
+
           <button
             type="button"
             className="btn-primary mt-5 w-full"
             disabled={requesting}
-            onClick={onAllow}
+            onClick={handleAllowClick}
           >
             {requesting ? '요청 중...' : '사이트에 있는 동안 허용'}
           </button>

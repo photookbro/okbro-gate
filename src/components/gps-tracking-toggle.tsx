@@ -3,7 +3,10 @@
 import { useState } from 'react'
 import { GpsPermissionModal } from '@/components/gps-permission-modal'
 import { GpsPermissionEmphasisNotice } from '@/components/gps-permission-emphasis-notice'
-import { requestPreciseGeolocation } from '@/lib/geolocation-request'
+import {
+  geolocationFailureMessage,
+  requestPreciseGeolocation,
+} from '@/lib/geolocation-request'
 import { syncGpsTrackingPref } from '@/lib/gps-tracking-pref-client'
 import { useGpsTrackingEnabled } from '@/lib/gps-tracking-storage'
 
@@ -25,13 +28,18 @@ export function GpsTrackingToggle({
   const [enabled, setEnabled] = useGpsTrackingEnabled(eventId)
   const [permissionOpen, setPermissionOpen] = useState(false)
   const [requesting, setRequesting] = useState(false)
+  const [permissionError, setPermissionError] = useState('')
 
   async function enableTracking() {
+    setPermissionError('')
     setRequesting(true)
-    const granted = await requestPreciseGeolocation()
+    const result = await requestPreciseGeolocation()
     setRequesting(false)
 
-    if (!granted) return
+    if (!result.granted) {
+      setPermissionError(geolocationFailureMessage(result.reason))
+      return
+    }
 
     setEnabled(true)
     onToggle?.(true)
@@ -55,6 +63,7 @@ export function GpsTrackingToggle({
       return
     }
 
+    setPermissionError('')
     setPermissionOpen(true)
   }
 
@@ -104,8 +113,12 @@ export function GpsTrackingToggle({
       <GpsPermissionModal
         open={permissionOpen}
         requesting={requesting}
+        errorMessage={permissionError}
         onAllow={() => void enableTracking()}
-        onDismiss={() => setPermissionOpen(false)}
+        onDismiss={() => {
+          setPermissionOpen(false)
+          setPermissionError('')
+        }}
         footer={permissionOpen ? <GpsPermissionEmphasisNotice /> : null}
       />
     </>

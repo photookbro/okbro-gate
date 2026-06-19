@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { formatPassTimeSeconds, haversineDistanceMeters } from '@/lib/geo'
-import { PRECISE_GEOLOCATION_OPTIONS, requestPreciseGeolocation } from '@/lib/geolocation-request'
+import {
+  geolocationFailureMessage,
+  PRECISE_GEOLOCATION_OPTIONS,
+  queryGeolocationPermission,
+  requestPreciseGeolocation,
+} from '@/lib/geolocation-request'
 import { GpsPermissionModal } from '@/components/gps-permission-modal'
 import { GpsPermissionEmphasisNotice } from '@/components/gps-permission-emphasis-notice'
 import {
@@ -75,6 +80,7 @@ export function GpsDetector({
   const [toast, setToast] = useState<string | null>(null)
   const [permissionOpen, setPermissionOpen] = useState(false)
   const [requestingPermission, setRequestingPermission] = useState(false)
+  const [permissionError, setPermissionError] = useState('')
   const [currentLat, setCurrentLat] = useState<number | null>(null)
   const [currentLng, setCurrentLng] = useState<number | null>(null)
   const [distanceByLocation, setDistanceByLocation] = useState<Record<number, number>>({})
@@ -285,33 +291,53 @@ export function GpsDetector({
   }, [canUseGps, eventId, handlePosition, stopTracking, syncTodayPasses])
 
   const beginTrackingWithPermission = useCallback(async () => {
-    if (!canUseGps || tracking) return
+    if (!canUseGps) return
 
+    setPermissionError('')
     setRequestingPermission(true)
-    const granted = await requestPreciseGeolocation()
+    const result = await requestPreciseGeolocation()
     setRequestingPermission(false)
 
-    if (!granted) {
-      setErrorMsg('위치 권한이 필요해요. 정확한 위치를 허용해주세요.')
+    if (!result.granted) {
+      const message = geolocationFailureMessage(result.reason)
+      setPermissionError(message)
+      setErrorMsg(message)
       return
     }
 
     setPermissionOpen(false)
+    setPermissionError('')
     startTracking()
-  }, [canUseGps, startTracking, tracking])
+  }, [canUseGps, startTracking])
 
   useEffect(() => {
     if (!canUseGps || autoStartedRef.current || !isGpsTrackingEnabled(eventId)) return
     autoStartedRef.current = true
-    void beginTrackingWithPermission()
-  }, [canUseGps, eventId, beginTrackingWithPermission])
+
+    void (async () => {
+      const permission = await queryGeolocationPermission()
+      if (permission === 'granted') {
+        startTracking()
+        return
+      }
+
+      if (permission === 'denied') {
+        const message = geolocationFailureMessage('denied')
+        setErrorMsg(message)
+        setPermissionError(message)
+      }
+
+      setPermissionOpen(true)
+    })()
+  }, [canUseGps, eventId, startTracking])
 
   function handleToggle() {
     if (!canUseGps) return
-    if (tracking) {
+    if (tracking || storedEnabled) {
       stopTracking()
       return
     }
+    setPermissionError('')
     setPermissionOpen(true)
   }
 
@@ -410,8 +436,12 @@ export function GpsDetector({
       <GpsPermissionModal
         open={permissionOpen}
         requesting={requestingPermission}
+        errorMessage={permissionError}
         onAllow={() => void beginTrackingWithPermission()}
-        onDismiss={() => setPermissionOpen(false)}
+        onDismiss={() => {
+          setPermissionOpen(false)
+          setPermissionError('')
+        }}
         footer={permissionOpen ? <GpsPermissionEmphasisNotice /> : null}
       />
     </>
