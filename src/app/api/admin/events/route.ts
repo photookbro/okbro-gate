@@ -109,7 +109,8 @@ function buildLegacyEventRow(row: ReturnType<typeof buildEventRow>) {
   }
 }
 
-async function fetchEvents(admin: ReturnType<typeof supabaseAdmin>) {
+async function fetchEvents() {
+  const admin = supabaseAdmin()
   const primary = await admin.from('events').select(EVENT_FIELDS).order('date', { ascending: false })
   if (!primary.error) {
     return (primary.data ?? []).map(event => normalizeEventRow(event as EventRow))
@@ -130,7 +131,7 @@ async function fetchEvents(admin: ReturnType<typeof supabaseAdmin>) {
 export async function GET(req: NextRequest) {
   if (!verifyAdminToken(req)) return unauthorizedResponse()
 
-  const result = await fetchEvents(supabaseAdmin())
+  const result = await fetchEvents()
   if (!Array.isArray(result)) {
     return NextResponse.json({ error: '대회 목록 조회 실패' }, { status: 500 })
   }

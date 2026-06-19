@@ -58,14 +58,16 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   }, [])
 
   useEffect(() => {
-    supabase
-      .from('events')
-      .select(
-        'id, name, date, album_a_url, album_b_url, gps_enabled, is_loop_course, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_lat, gps_lng, gps_radius_meters'
-      )
-      .eq('id', id)
-      .single()
-      .then(({ data }) => setEvent(data))
+    fetch(`/api/events/${encodeURIComponent(id)}`)
+      .then(async res => {
+        const data = await res.json()
+        if (res.ok && data?.event) {
+          setEvent(data.event as Event)
+        }
+      })
+      .catch(() => {
+        // ignore
+      })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUserId(session?.user?.id ?? null)
@@ -112,10 +114,18 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     }
   }, [albumBranch])
 
-  if (!termsReady || !event) {
+  if (!termsReady) {
     return (
       <div className="page-shell flex items-center justify-center">
         <p className="text-muted">로딩 중...</p>
+      </div>
+    )
+  }
+
+  if (!event) {
+    return (
+      <div className="page-shell flex items-center justify-center">
+        <p className="text-muted">대회 정보를 불러오지 못했어요.</p>
       </div>
     )
   }
