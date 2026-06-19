@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { formatPassTimeSeconds, haversineDistanceMeters } from '@/lib/geo'
+import { PRECISE_GEOLOCATION_OPTIONS, requestPreciseGeolocation } from '@/lib/geolocation-request'
+import { GpsPermissionModal } from '@/components/gps-permission-modal'
 import {
   createInitialGpsPassZoneState,
   GPS_EXIT_RADIUS_METERS,
@@ -69,6 +71,8 @@ export function GpsDetector({
   const [tracking, setTracking] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [toast, setToast] = useState<string | null>(null)
+  const [permissionOpen, setPermissionOpen] = useState(false)
+  const [requestingPermission, setRequestingPermission] = useState(false)
   const [currentLat, setCurrentLat] = useState<number | null>(null)
   const [currentLng, setCurrentLng] = useState<number | null>(null)
   const [distanceByLocation, setDistanceByLocation] = useState<Record<number, number>>({})
@@ -269,22 +273,34 @@ export function GpsDetector({
         )
         stopTracking()
       },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 10000,
-        timeout: 15000,
-      }
+      PRECISE_GEOLOCATION_OPTIONS
     )
 
     setTracking(true)
     setGpsTrackingEnabled(eventId, true)
   }, [canUseGps, eventId, handlePosition, stopTracking, syncTodayPasses])
 
+  const beginTrackingWithPermission = useCallback(async () => {
+    if (!canUseGps || tracking) return
+
+    setRequestingPermission(true)
+    const granted = await requestPreciseGeolocation()
+    setRequestingPermission(false)
+    setPermissionOpen(false)
+
+    if (!granted) {
+      setErrorMsg('위치 권한이 필요해요. 정확한 위치를 허용해주세요.')
+      return
+    }
+
+    startTracking()
+  }, [canUseGps, startTracking, tracking])
+
   useEffect(() => {
     if (!canUseGps || autoStartedRef.current || !isGpsTrackingEnabled(eventId)) return
     autoStartedRef.current = true
-    startTracking()
-  }, [canUseGps, eventId, startTracking])
+    void beginTrackingWithPermission()
+  }, [canUseGps, eventId, beginTrackingWithPermission])
 
   function handleToggle() {
     if (!canUseGps) return
@@ -292,7 +308,7 @@ export function GpsDetector({
       stopTracking()
       return
     }
-    startTracking()
+    setPermissionOpen(true)
   }
 
   if (headless) {
@@ -322,6 +338,15 @@ export function GpsDetector({
           >
             <span className="toggle-switch-thumb" />
           </button>
+        </div>
+
+        <div className="gps-athlete-checklist">
+          <p className="gps-athlete-checklist-title">✓ 경기 시작 전 확인사항:</p>
+          <ul className="gps-athlete-checklist-list">
+            <li>- 핸드폰 GPS 설정에서 ON</li>
+            <li>- OKbroGATE 앱 GPS 권한 허용</li>
+            <li>- 경기 종료까지 앱 실행 유지</li>
+          </ul>
         </div>
 
         {verificationChecked && !purchaseVerified && (
@@ -377,6 +402,13 @@ export function GpsDetector({
           {toast}
         </div>
       )}
+
+      <GpsPermissionModal
+        open={permissionOpen}
+        requesting={requestingPermission}
+        onAllow={() => void beginTrackingWithPermission()}
+        onDismiss={() => setPermissionOpen(false)}
+      />
     </>
   )
 }

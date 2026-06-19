@@ -2,19 +2,9 @@
 
 import { useEffect } from 'react'
 import { markFirstAppLaunchDone, isFirstAppLaunchPending } from '@/lib/app-first-launch'
+import { requestPreciseGeolocation } from '@/lib/geolocation-request'
 import { isStandaloneDisplayMode } from '@/lib/pwa-install'
 import { ensurePushSubscription } from '@/lib/push-client'
-
-async function requestLocationPermission(): Promise<void> {
-  if (!('geolocation' in navigator)) return
-  await new Promise<void>(resolve => {
-    navigator.geolocation.getCurrentPosition(
-      () => resolve(),
-      () => resolve(),
-      { enableHighAccuracy: true, maximumAge: 60_000, timeout: 12_000 }
-    )
-  })
-}
 
 async function requestPushPermission(): Promise<void> {
   if (!('Notification' in window)) return
@@ -36,7 +26,7 @@ export function AppFirstLaunchPermissions() {
     if (!isFirstAppLaunchPending()) return
 
     void (async () => {
-      await requestLocationPermission()
+      await requestPreciseGeolocation()
       await requestPushPermission()
       markFirstAppLaunchDone()
     })()

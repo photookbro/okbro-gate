@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, use, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -9,8 +9,11 @@ import { AlbumAccessModal } from '@/components/album-access-modal'
 import { BAlbumView } from '@/components/b-album-view'
 import { AAlbumView } from '@/components/a-album-view'
 import { TermsAgreement } from '@/components/terms-agreement'
+import { GpsDetector } from '@/components/gps-detector'
+import { GpsTrackingBanner } from '@/components/gps-tracking-banner'
 import { hasTermsAgreed } from '@/lib/terms-agreement'
 import { resolveEventAlbumBranch } from '@/lib/event-album-branch'
+import { getEventGpsLocations, type EventGpsFields } from '@/lib/gps-locations'
 
 function formatEventDate(date: string): string {
   const d = new Date(`${date}T00:00:00`)
@@ -22,12 +25,14 @@ function formatEventDate(date: string): string {
   })
 }
 
-type Event = {
+type Event = EventGpsFields & {
   id: string
   name: string
   date: string
   album_a_url: string | null
   album_b_url: string | null
+  gps_enabled: boolean | null
+  is_loop_course: boolean | null
 }
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -42,6 +47,11 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [termsReady, setTermsReady] = useState(false)
   const [termsAgreed, setTermsAgreed] = useState(false)
 
+  const locations = useMemo(
+    () => (event ? getEventGpsLocations(event) : []),
+    [event]
+  )
+
   useEffect(() => {
     setTermsAgreed(hasTermsAgreed())
     setTermsReady(true)
@@ -50,7 +60,9 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     supabase
       .from('events')
-      .select('id, name, date, album_a_url, album_b_url')
+      .select(
+        'id, name, date, album_a_url, album_b_url, gps_enabled, is_loop_course, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_lat, gps_lng, gps_radius_meters'
+      )
       .eq('id', id)
       .single()
       .then(({ data }) => setEvent(data))
@@ -64,7 +76,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     })
 
     return () => subscription.unsubscribe()
-  }, [id])
+  }, [id, supabase.auth])
 
   useEffect(() => {
     if (!userId) {
@@ -92,6 +104,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   }, [userId, id])
 
   const albumBranch = verificationChecked ? resolveEventAlbumBranch(verification) : null
+  const purchaseVerified = verification.status === 'valid'
 
   useEffect(() => {
     if (albumBranch === 'purchase-modal') {
@@ -101,13 +114,11 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   if (!termsReady || !event) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: 'var(--text-muted)' }}>로딩 중...</p>
+      <div className="page-shell flex items-center justify-center">
+        <p className="text-muted">로딩 중...</p>
       </div>
     )
   }
-
-  const eventData = event
 
   if (!termsAgreed) {
     return (
@@ -125,11 +136,11 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       return <p className="text-sm text-muted">인증 정보 확인 중...</p>
     }
 
-    if (albumBranch === 'b-album' && eventData.album_b_url) {
-      return <BAlbumView albumBUrl={eventData.album_b_url} gpsTime={verification.gps_passed_at!} />
+    if (albumBranch === 'b-album' && event!.album_b_url) {
+      return <BAlbumView albumBUrl={event!.album_b_url} gpsTime={verification.gps_passed_at!} />
     }
 
-    if (albumBranch === 'purchase-modal' && eventData.album_b_url) {
+    if (albumBranch === 'purchase-modal' && event!.album_b_url) {
       return (
         <>
           {!showAlbumModal && (
@@ -145,8 +156,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             visible={showAlbumModal}
             onClose={() => setShowAlbumModal(false)}
             verification={verification}
-            albumBUrl={eventData.album_b_url}
-            albumAUrl={eventData.album_a_url}
+            albumBUrl={event!.album_b_url}
+            albumAUrl={event!.album_a_url}
           />
         </>
       )
@@ -154,29 +165,42 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
     return (
       <AAlbumView
-        albumAUrl={eventData.album_a_url}
+        albumAUrl={event!.album_a_url}
         incentive="고화질을 보려면 과일 구매!"
-        eventId={eventData.id}
+        eventId={event!.id}
       />
     )
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '2rem' }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        <Link href="/events" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textDecoration: 'none' }}>
-          ← 대회 목록
-        </Link>
+    <>
+      <GpsTrackingBanner eventId={id} />
+      <div className="page-shell event-detail-page">
+        <div className="page-container-wide">
+          <Link href="/events" className="text-sm text-muted no-underline">
+            ← 대회 목록
+          </Link>
 
-        <h1 style={{ fontSize: '1.4rem', fontWeight: 700, margin: '1rem 0 0.25rem' }}>
-          {event.name}
-        </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-          📅 {formatEventDate(event.date)}
-        </p>
+          <h1 className="page-title mt-3">{event.name}</h1>
+          <p className="page-subtitle mb-6">📅 {formatEventDate(event.date)}</p>
 
-        {renderAlbumSection()}
+          {event.gps_enabled !== false && locations.length > 0 ? (
+            <div className="mb-6">
+              <GpsDetector
+                eventId={event.id}
+                eventName={event.name}
+                locations={locations}
+                isLoopCourse={event.is_loop_course === true}
+                userId={userId}
+                purchaseVerified={purchaseVerified}
+                verificationChecked={verificationChecked}
+              />
+            </div>
+          ) : null}
+
+          {renderAlbumSection()}
+        </div>
       </div>
-    </div>
+    </>
   )
 }

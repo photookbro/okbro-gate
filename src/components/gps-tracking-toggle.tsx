@@ -1,5 +1,8 @@
 'use client'
 
+import { useState } from 'react'
+import { GpsPermissionModal } from '@/components/gps-permission-modal'
+import { requestPreciseGeolocation } from '@/lib/geolocation-request'
 import { useGpsTrackingEnabled } from '@/lib/gps-tracking-storage'
 
 type GpsTrackingToggleProps = {
@@ -18,19 +21,47 @@ export function GpsTrackingToggle({
   onToggle,
 }: GpsTrackingToggleProps) {
   const [enabled, setEnabled] = useGpsTrackingEnabled(eventId)
+  const [permissionOpen, setPermissionOpen] = useState(false)
+  const [requesting, setRequesting] = useState(false)
+
+  async function enableTracking() {
+    setRequesting(true)
+    const granted = await requestPreciseGeolocation()
+    setRequesting(false)
+    setPermissionOpen(false)
+
+    if (!granted) return
+
+    setEnabled(true)
+    onToggle?.(true)
+    void fetch('/api/gps-tracking-pref', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_id: eventId, enabled: true }),
+    }).catch(() => {})
+  }
+
+  function disableTracking() {
+    setEnabled(false)
+    onToggle?.(false)
+    void fetch('/api/gps-tracking-pref', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_id: eventId, enabled: false }),
+    }).catch(() => {})
+  }
 
   function handleClick(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
     if (disabled) return
-    const next = !enabled
-    setEnabled(next)
-    onToggle?.(next)
-    void fetch('/api/gps-tracking-pref', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_id: eventId, enabled: next }),
-    }).catch(() => {})
+
+    if (enabled) {
+      disableTracking()
+      return
+    }
+
+    setPermissionOpen(true)
   }
 
   const isEventsList = variant === 'events-list'
@@ -43,36 +74,45 @@ export function GpsTrackingToggle({
       : ''
 
   return (
-    <div
-      className={`flex items-center gap-1.5 ${compact || isEventsList ? '' : 'justify-between'} ${isEventsList ? 'events-gps-switch-row' : ''}`}
-      onClick={e => e.stopPropagation()}
-      onKeyDown={e => e.stopPropagation()}
-      role="presentation"
-    >
-      {!isEventsList ? (
-        <span className="text-xs text-muted" aria-hidden="true">
-          📍
-        </span>
-      ) : null}
-      <button
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        aria-disabled={disabled}
-        aria-label={isEventsList ? (enabled ? 'GPS 감지 중' : 'GPS 감지 OFF') : '촬영 감지 ON/OFF'}
-        disabled={disabled}
-        onClick={handleClick}
-        className={`toggle-switch toggle-switch-sm ${switchClass}`}
+    <>
+      <div
+        className={`flex items-center gap-1.5 ${compact || isEventsList ? '' : 'justify-between'} ${isEventsList ? 'events-gps-switch-row' : ''}`}
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
+        role="presentation"
       >
-        <span className="toggle-switch-thumb" />
-      </button>
-      {isEventsList ? (
-        <span className={enabled ? 'events-gps-switch-label-on' : 'events-gps-switch-label-off'}>
-          {enabled ? '감지중' : 'OFF'}
-        </span>
-      ) : (
-        <span className="text-xs font-medium text-[var(--text)]">{enabled ? 'ON' : 'OFF'}</span>
-      )}
-    </div>
+        {!isEventsList ? (
+          <span className="text-xs text-muted" aria-hidden="true">
+            📍
+          </span>
+        ) : null}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          aria-disabled={disabled}
+          aria-label={isEventsList ? (enabled ? 'GPS 감지 중' : 'GPS 감지 OFF') : '촬영 감지 ON/OFF'}
+          disabled={disabled}
+          onClick={handleClick}
+          className={`toggle-switch toggle-switch-sm ${switchClass}`}
+        >
+          <span className="toggle-switch-thumb" />
+        </button>
+        {isEventsList ? (
+          <span className={enabled ? 'events-gps-switch-label-on' : 'events-gps-switch-label-off'}>
+            {enabled ? '감지중' : 'OFF'}
+          </span>
+        ) : (
+          <span className="text-xs font-medium text-[var(--text)]">{enabled ? 'ON' : 'OFF'}</span>
+        )}
+      </div>
+
+      <GpsPermissionModal
+        open={permissionOpen}
+        requesting={requesting}
+        onAllow={() => void enableTracking()}
+        onDismiss={() => setPermissionOpen(false)}
+      />
+    </>
   )
 }

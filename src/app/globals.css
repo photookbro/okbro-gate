@@ -711,3 +711,96 @@ body {
   color: #ffffff;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
 }
+
+/* GPS permission + tracking */
+.gps-permission-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  padding: 0.875rem 1rem;
+}
+
+.gps-permission-choice-active {
+  border-color: #ff5500;
+  background: #fff4ed;
+}
+
+.gps-permission-radio {
+  display: inline-flex;
+  height: 1.125rem;
+  width: 1.125rem;
+  shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 2px solid #ff5500;
+  background: #ffffff;
+}
+
+.gps-permission-radio::after {
+  content: '';
+  display: block;
+  height: 0.5rem;
+  width: 0.5rem;
+  border-radius: 9999px;
+  background: #ff5500;
+}
+
+.gps-permission-choice-label {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.gps-tracking-banner {
+  position: sticky;
+  top: 0;
+  z-index: 45;
+  background-color: #ff5500;
+  padding: 16px;
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.gps-tracking-banner-title {
+  margin: 0 0 0.35rem;
+  font-weight: 800;
+}
+
+.gps-tracking-banner-text {
+  margin: 0;
+  font-weight: 500;
+}
+
+.event-detail-page {
+  @apply pt-4;
+}
+
+.gps-athlete-checklist {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: #f3f4f6;
+  border-radius: 0.75rem;
+  color: #1f2937;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.gps-athlete-checklist-title {
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+}
+
+.gps-athlete-checklist-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gps-athlete-checklist-list li {
+  margin: 0;
+}
