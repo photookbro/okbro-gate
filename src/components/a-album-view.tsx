@@ -4,7 +4,7 @@ import Link from 'next/link'
 
 const FRUIT_STORE_URL = 'https://smartstore.naver.com/daebakfresh'
 
-export const SAMPLE_ORDER_NUMBERS = ['20250608001', '20250608002', '20250609001'] as const
+export const SAMPLE_ORDER_NUMBERS = ['2025060800123456', '2025060800654321', '2025060900987654'] as const
 
 type AAlbumViewProps = {
   albumAUrl: string | null

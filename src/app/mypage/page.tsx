@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { formatOrderHistoryDate } from '@/lib/order-verification'
+import { NAVER_ORDER_PLACEHOLDER } from '@/lib/naver-order-number'
 
 type PhotoAccess = {
   hipass_days_remaining: number
@@ -215,7 +216,7 @@ export default function MyPage() {
                   type="text"
                   value={orderInput}
                   onChange={e => setOrderInput(e.target.value)}
-                  placeholder="2024-XXXXXXXX-XXXXXXXX"
+                  placeholder={NAVER_ORDER_PLACEHOLDER}
                   autoComplete="off"
                   className={`input-field ${extendError ? 'input-field-error' : ''}`}
                 />

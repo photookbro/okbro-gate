@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { formatVerificationDate, type VerificationInfo } from '@/lib/order-verification'
+import { NAVER_ORDER_PLACEHOLDER } from '@/lib/naver-order-number'
 import { AlbumAccessModal } from '@/components/album-access-modal'
 
 function VerifyOrderContent() {
@@ -261,7 +262,7 @@ function VerifyOrderContent() {
                 type="text"
                 value={orderInput}
                 onChange={e => setOrderInput(e.target.value)}
-                placeholder="2024-XXXXXXXX-XXXXXXXX"
+                placeholder={NAVER_ORDER_PLACEHOLDER}
                 autoComplete="off"
                 style={{
                   display: 'block',

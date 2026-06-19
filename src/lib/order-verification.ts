@@ -111,8 +111,13 @@ export function formatOrderHistoryDate(
   orderNumber: string,
   verifiedAt?: string | null
 ): string {
-  const fromOrder = orderNumber.match(/^(\d{4}-\d{2}-\d{2})/)
-  if (fromOrder) return fromOrder[1]
+  const compact = orderNumber.match(/^(\d{4})(\d{2})(\d{2})\d{8}$/)
+  if (compact) {
+    return `${compact[1]}-${compact[2]}-${compact[3]}`
+  }
+
+  const dashed = orderNumber.match(/^(\d{4}-\d{2}-\d{2})/)
+  if (dashed) return dashed[1]
 
   if (verifiedAt) {
     const d = new Date(verifiedAt)

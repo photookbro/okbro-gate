@@ -4,37 +4,11 @@ import { getAuthenticatedUser } from '@/lib/auth-server'
 import {
   addDays,
   calculateNewExpiresAt,
-  isOrderDateWithinVerifiedPeriod,
 } from '@/lib/order-verification'
+import { validateNaverOrderNumber } from '@/lib/naver-order-number'
 import { ORDER_DUPLICATE_ERROR } from '@/lib/order-duplicate'
 import { extendUserOrderVerification } from '@/lib/verify-order-extend'
 import { loadVerificationSettings } from '@/lib/verification-settings'
-
-const NAVER_ORDER_PATTERN = /^\d{4}-\d{8}-\d{8}$/
-
-function parseOrderDate(orderNumber: string | null | undefined): Date | null {
-  if (!orderNumber) return null
-
-  const match = orderNumber.match(/^(\d{4})-(\d{8})-(\d{8})$/)
-  if (!match) return null
-
-  const year = Number(match[1])
-  const month = Number(match[2].slice(0, 2))
-  const day = Number(match[2].slice(2, 4))
-
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null
-
-  const date = new Date(year, month - 1, day)
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
-    return null
-  }
-
-  return date
-}
 
 function formatDbError(error: { message?: string; code?: string; details?: string | null }) {
   return {
@@ -69,27 +43,13 @@ export async function POST(req: NextRequest) {
     : settings.verifiedPeriodDays
 
   if (!isHipassOrder) {
-    if (!NAVER_ORDER_PATTERN.test(trimmedOrderNumber)) {
-      return NextResponse.json(
-        { error: '네이버 주문번호 형식이 올바르지 않아요 (예: 2024-XXXXXXXX-XXXXXXXX)' },
-        { status: 400 }
-      )
+    const validation = validateNaverOrderNumber(trimmedOrderNumber)
+    if (!validation.ok) {
+      return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
     if (!Number.isFinite(settings.verifiedPeriodDays) || settings.verifiedPeriodDays <= 0) {
       return NextResponse.json({ error: '인증 기간 설정을 확인할 수 없어요' }, { status: 500 })
-    }
-
-    const orderDate = parseOrderDate(trimmedOrderNumber)
-    if (!orderDate) {
-      return NextResponse.json({ error: '주문번호에서 날짜를 확인할 수 없어요' }, { status: 400 })
-    }
-
-    if (!isOrderDateWithinVerifiedPeriod(orderDate, settings.verifiedPeriodDays)) {
-      return NextResponse.json(
-        { error: `최근 ${settings.verifiedPeriodDays}일 이내 주문만 인증할 수 있어요` },
-        { status: 400 }
-      )
     }
   }
 
