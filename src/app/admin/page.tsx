@@ -688,7 +688,7 @@ export default function AdminPage() {
                               disabled={notifyingGpsEventId === event.id}
                               className="btn-primary-inline"
                             >
-                              {notifyingGpsEventId === event.id ? '발송 중...' : 'GPS 알림'}
+                              {notifyingGpsEventId === event.id ? '발송 중...' : '사진 찾아가세요'}
                             </button>
                             <button
                               type="button"
@@ -808,7 +808,6 @@ export default function AdminPage() {
                         '가입일',
                         '약관 동의',
                         '하이패스 입력',
-                        '하이패스 유효',
                         '구매 인증',
                         'GPS 기록',
                         '구매 인증일',
@@ -833,7 +832,6 @@ export default function AdminPage() {
                         <td className="whitespace-nowrap text-muted">{player.joined_at_display}</td>
                         <td><OxBadge value={player.terms_agreed} /></td>
                         <td><OxBadge value={player.hipass_used} /></td>
-                        <td className="whitespace-nowrap text-sm">{player.hipass_validity_display}</td>
                         <td><OxBadge value={player.purchase_verified} /></td>
                         <td><OxBadge value={player.gps_record} /></td>
                         <td className="whitespace-nowrap text-muted">{player.verified_at_display}</td>
@@ -855,7 +853,7 @@ export default function AdminPage() {
                     ))}
                     {players.length === 0 && (
                       <tr>
-                        <td colSpan={13} className="py-8 text-center text-muted">
+                        <td colSpan={12} className="py-8 text-center text-muted">
                           등록된 선수가 없어요
                         </td>
                       </tr>

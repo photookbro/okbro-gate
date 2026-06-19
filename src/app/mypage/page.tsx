@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { formatOrderHistoryDate } from '@/lib/order-verification'
 import { NAVER_ORDER_PLACEHOLDER } from '@/lib/naver-order-number'
 
 type PhotoAccess = {
@@ -15,18 +14,6 @@ type PhotoAccess = {
   purchase_validity_label: string
   status: 'valid' | 'expired' | 'none'
   expiring_soon: boolean
-}
-
-type VerificationRow = {
-  id: string
-  order_number: string
-  event_name: string
-  verified_at: string | null
-  expires_at: string | null
-  status: string
-  is_duplicate: boolean
-  duplicate_count: number
-  duplicate_users: { user_id: string; email: string }[]
 }
 
 function formatPhotoAccessDday(daysRemaining: number, status: string): string {
@@ -47,7 +34,6 @@ export default function MyPage() {
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
   const [photoAccess, setPhotoAccess] = useState<PhotoAccess | null>(null)
-  const [verifications, setVerifications] = useState<VerificationRow[]>([])
   const [errorMsg, setErrorMsg] = useState('')
 
   const [orderInput, setOrderInput] = useState('')
@@ -64,7 +50,6 @@ export default function MyPage() {
     }
     setEmail(data.email ?? '')
     setPhotoAccess(data.photo_access ?? null)
-    setVerifications(data.verifications ?? [])
     setErrorMsg('')
     return true
   }, [])
@@ -139,6 +124,22 @@ export default function MyPage() {
   const isExpired = status === 'expired'
   const isExpiringSoon = photoAccess?.expiring_soon ?? false
   const hasAccess = status === 'valid' && totalDays > 0
+  const activeVerifications = [
+    photoAccess && photoAccess.hipass_days_remaining > 0
+      ? {
+          label: '하이패스',
+          daysRemaining: photoAccess.hipass_days_remaining,
+          validityLabel: photoAccess.hipass_validity_label,
+        }
+      : null,
+    photoAccess && photoAccess.purchase_days_remaining > 0
+      ? {
+          label: '구매 인증',
+          daysRemaining: photoAccess.purchase_days_remaining,
+          validityLabel: photoAccess.purchase_validity_label,
+        }
+      : null,
+  ].filter((item): item is NonNullable<typeof item> => item != null)
 
   return (
     <div className="page-shell">
@@ -166,25 +167,23 @@ export default function MyPage() {
                 {formatPhotoAccessDday(totalDays, status)}
               </p>
               <p className="mypage-status-sub">
-                {hasAccess
-                  ? `사진 열람 가능: ${totalDays}일`
-                  : '사진 열람 가능: 0일'}
+                {hasAccess ? `사진 열람 가능: ${totalDays}일` : '사진 열람 가능: 0일'}
               </p>
 
-              <div className="mt-4 space-y-2 text-left text-sm text-muted">
-                <p>
-                  하이패스: {photoAccess?.hipass_days_remaining ?? 0}일
-                  {photoAccess?.hipass_validity_label && photoAccess.hipass_validity_label !== '-'
-                    ? ` · ${photoAccess.hipass_validity_label}`
-                    : ''}
-                </p>
-                <p>
-                  구매 인증: {photoAccess?.purchase_days_remaining ?? 0}일
-                  {photoAccess?.purchase_validity_label && photoAccess.purchase_validity_label !== '-'
-                    ? ` · ${photoAccess.purchase_validity_label}`
-                    : ''}
-                </p>
-              </div>
+              {activeVerifications.length > 0 ? (
+                <div className="mt-4 space-y-2 text-left text-sm text-muted">
+                  {activeVerifications.map(item => (
+                    <p key={item.label}>
+                      {item.label}: {formatPhotoAccessDday(item.daysRemaining, 'valid')}
+                      {item.validityLabel && item.validityLabel !== '-'
+                        ? ` · ${item.validityLabel}`
+                        : ''}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-muted">현재 유효한 인증이 없어요</p>
+              )}
 
               {isExpiringSoon && hasAccess && (
                 <div className="alert-warning mt-4 mb-0">⚠️ 곧 만료</div>
@@ -230,26 +229,6 @@ export default function MyPage() {
             {extendSuccess && <p className="alert-success mt-3 mb-0">{extendSuccess}</p>}
           </form>
         </div>
-
-        {verifications.length > 0 && (
-          <div className="card">
-            <h2 className="section-title">과거 인증 이력</h2>
-            <ul className="mypage-history-list">
-              {verifications.map(verification => (
-                <li key={verification.id} className="mypage-history-item">
-                  <span>
-                    {formatOrderHistoryDate(verification.order_number, verification.verified_at)}
-                  </span>
-                  {verification.is_duplicate ? (
-                    <span className="mypage-history-duplicate" title="중복 사용">
-                      ⚠️
-                    </span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
     </div>
   )
