@@ -4,15 +4,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import {
-  formatOrderHistoryDate,
-  formatVerificationDate,
-} from '@/lib/order-verification'
+import { formatOrderHistoryDate } from '@/lib/order-verification'
 
-type LatestVerification = {
-  expires_at: string | null
-  days_remaining: number
-  status: string
+type PhotoAccess = {
+  hipass_days_remaining: number
+  purchase_days_remaining: number
+  photo_access_days_remaining: number
+  hipass_validity_label: string
+  purchase_validity_label: string
+  status: 'valid' | 'expired' | 'none'
   expiring_soon: boolean
 }
 
@@ -28,14 +28,14 @@ type VerificationRow = {
   duplicate_users: { user_id: string; email: string }[]
 }
 
-function formatDDay(daysRemaining: number, status: string): string {
-  if (status === 'expired' || daysRemaining < 0) return '만료됨'
+function formatPhotoAccessDday(daysRemaining: number, status: string): string {
+  if (status === 'none' || status === 'expired' || daysRemaining <= 0) return '만료됨'
   if (daysRemaining === 0) return 'D-Day'
   return `D-${daysRemaining}`
 }
 
 function ddayClass(status: string, expiringSoon: boolean): string {
-  if (status === 'expired') return 'mypage-dday mypage-dday-muted'
+  if (status === 'none' || status === 'expired') return 'mypage-dday mypage-dday-muted'
   if (expiringSoon) return 'mypage-dday mypage-dday-danger'
   return 'mypage-dday mypage-dday-success'
 }
@@ -45,7 +45,7 @@ export default function MyPage() {
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
-  const [latest, setLatest] = useState<LatestVerification | null>(null)
+  const [photoAccess, setPhotoAccess] = useState<PhotoAccess | null>(null)
   const [verifications, setVerifications] = useState<VerificationRow[]>([])
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -62,7 +62,7 @@ export default function MyPage() {
       return false
     }
     setEmail(data.email ?? '')
-    setLatest(data.latest_verification ?? null)
+    setPhotoAccess(data.photo_access ?? null)
     setVerifications(data.verifications ?? [])
     setErrorMsg('')
     return true
@@ -115,15 +115,7 @@ export default function MyPage() {
         return
       }
 
-      const newExpiresAt = data.expires_at as string | undefined
-      if (data.re_verified && newExpiresAt) {
-        setExtendSuccess(`✅ 동일 주문번호로 ${formatVerificationDate(newExpiresAt)}까지 연장됐어요!`)
-      } else if (newExpiresAt) {
-        setExtendSuccess(`✅ ${formatVerificationDate(newExpiresAt)}까지 연장됐어요!`)
-      } else {
-        setExtendSuccess('✅ 인증이 완료됐어요!')
-      }
-
+      setExtendSuccess('✅ 인증이 완료됐어요!')
       setOrderInput('')
       await loadMypage()
     } catch {
@@ -141,9 +133,11 @@ export default function MyPage() {
     )
   }
 
-  const isExpired = latest?.status === 'expired'
-  const isExpiringSoon = latest?.expiring_soon
-  const hasVerification = !!latest?.expires_at
+  const totalDays = photoAccess?.photo_access_days_remaining ?? 0
+  const status = photoAccess?.status ?? 'none'
+  const isExpired = status === 'expired'
+  const isExpiringSoon = photoAccess?.expiring_soon ?? false
+  const hasAccess = status === 'valid' && totalDays > 0
 
   return (
     <div className="page-shell">
@@ -156,7 +150,7 @@ export default function MyPage() {
         <div className="card mb-4 mypage-status-card">
           <h2 className="section-title">사진 열람 만기 현황</h2>
 
-          {!hasVerification ? (
+          {status === 'none' ? (
             <div>
               <p className="mypage-dday mypage-dday-muted mb-3 text-center">인증 없음</p>
               <p className="mb-4 text-center text-sm text-muted">인증 기록이 없어요</p>
@@ -166,26 +160,39 @@ export default function MyPage() {
             </div>
           ) : (
             <div className="text-center">
-              <p className="mypage-status-label">남은 기간</p>
-              <p className={ddayClass(latest?.status ?? 'expired', !!isExpiringSoon)}>
-                {formatDDay(latest?.days_remaining ?? 0, latest?.status ?? 'expired')}
+              <p className="mypage-status-label">사진 열람 가능</p>
+              <p className={ddayClass(status, isExpiringSoon)}>
+                {formatPhotoAccessDday(totalDays, status)}
               </p>
-              {!isExpired && (
-                <p className="mypage-status-sub">
-                  {latest?.days_remaining ?? 0}일 남음 · 만료{' '}
-                  {formatVerificationDate(latest?.expires_at)}
-                </p>
-              )}
-              {isExpired && (
-                <p className="mypage-status-sub">만료일 {formatVerificationDate(latest?.expires_at)}</p>
-              )}
+              <p className="mypage-status-sub">
+                {hasAccess
+                  ? `사진 열람 가능: ${totalDays}일`
+                  : '사진 열람 가능: 0일'}
+              </p>
 
-              {isExpiringSoon && !isExpired && (
+              <div className="mt-4 space-y-2 text-left text-sm text-muted">
+                <p>
+                  하이패스: {photoAccess?.hipass_days_remaining ?? 0}일
+                  {photoAccess?.hipass_validity_label && photoAccess.hipass_validity_label !== '-'
+                    ? ` · ${photoAccess.hipass_validity_label}`
+                    : ''}
+                </p>
+                <p>
+                  구매 인증: {photoAccess?.purchase_days_remaining ?? 0}일
+                  {photoAccess?.purchase_validity_label && photoAccess.purchase_validity_label !== '-'
+                    ? ` · ${photoAccess.purchase_validity_label}`
+                    : ''}
+                </p>
+              </div>
+
+              {isExpiringSoon && hasAccess && (
                 <div className="alert-warning mt-4 mb-0">⚠️ 곧 만료</div>
               )}
 
               {isExpired && (
-                <div className="alert-danger mt-4 mb-0">❌ 만료됨. 새 주문번호로 인증해주세요</div>
+                <div className="alert-danger mt-4 mb-0">
+                  ❌ 만료됨. 하이패스 또는 주문번호로 다시 인증해주세요
+                </div>
               )}
             </div>
           )}
@@ -194,14 +201,14 @@ export default function MyPage() {
         <div className="card mb-4">
           <h2 className="section-title">인증 연장</h2>
           <p className="mb-4 text-sm leading-relaxed text-muted">
-            추가 주문번호로 인증하면 만료일이 연장돼요
+            하이패스 또는 추가 주문번호로 인증하면 만료일이 연장돼요
           </p>
 
           <form onSubmit={handleExtend}>
             <div className="extend-form-row">
               <div className="flex-1">
                 <label htmlFor="extend-order-input" className="label-field">
-                  추가 주문번호
+                  하이패스 / 주문번호
                 </label>
                 <input
                   id="extend-order-input"

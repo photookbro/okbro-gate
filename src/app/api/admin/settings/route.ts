@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
 import {
+  loadVerificationSettings,
   parseVerificationSettings,
   VERIFICATION_SETTING_KEYS,
 } from '@/lib/verification-settings'
+import { extendActiveOrdersForPeriodChange } from '@/lib/verification-access'
 
 export async function GET(req: NextRequest) {
   if (!verifyAdminToken(req)) return unauthorizedResponse()
@@ -50,6 +52,8 @@ export async function PUT(req: NextRequest) {
   }
 
   const admin = supabaseAdmin()
+  const previousSettings = await loadVerificationSettings(admin)
+
   const rows = [
     { key: 'shared_order_number', value: shared_order_number.trim() },
     { key: 'verified_period_days', value: String(purchaseDays) },
@@ -62,9 +66,38 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: '설정 저장 실패' }, { status: 500 })
   }
 
+  const now = new Date()
+  let hipassOrdersExtended = 0
+  let purchaseOrdersExtended = 0
+
+  try {
+    if (previousSettings.sharedOrderPeriodDays !== sharedDays) {
+      hipassOrdersExtended = await extendActiveOrdersForPeriodChange(admin, {
+        sharedOrderNumber: shared_order_number.trim(),
+        periodDays: sharedDays,
+        kind: 'hipass',
+        now,
+      })
+    }
+
+    if (previousSettings.verifiedPeriodDays !== purchaseDays) {
+      purchaseOrdersExtended = await extendActiveOrdersForPeriodChange(admin, {
+        sharedOrderNumber: shared_order_number.trim(),
+        periodDays: purchaseDays,
+        kind: 'purchase',
+        now,
+      })
+    }
+  } catch (extendError) {
+    console.error('[admin/settings] extend active orders failed:', extendError)
+    return NextResponse.json({ error: '설정은 저장됐지만 만료일 연장에 실패했어요' }, { status: 500 })
+  }
+
   return NextResponse.json({
     shared_order_number: shared_order_number.trim(),
     shared_order_period_days: String(sharedDays),
     verified_period_days: String(purchaseDays),
+    hipass_orders_extended: hipassOrdersExtended,
+    purchase_orders_extended: purchaseOrdersExtended,
   })
 }

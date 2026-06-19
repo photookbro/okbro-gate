@@ -14,7 +14,7 @@ import {
 } from '@/lib/admin-players'
 import { getEventCourseLabel, getEventGpsLocations, type EventGpsFields } from '@/lib/gps-locations'
 import { getDaysRemaining, getMonitorStatus, resolveExpiresAt, formatVerificationDate } from '@/lib/order-verification'
-import { buildDuplicateInfoByOrderNumber } from '@/lib/order-duplicate'
+import { buildPhotoAccessSummary, isHipassOrderNumber } from '@/lib/verification-access'
 
 async function listAllAuthUsers(admin: ReturnType<typeof supabaseAdmin>): Promise<User[]> {
   const users: User[] = []
@@ -50,6 +50,8 @@ export async function GET(req: NextRequest) {
   ])
 
   const verifiedPeriodDays = settings.verifiedPeriodDays
+  const sharedOrderNumber = settings.sharedOrderNumber
+  const hipassPeriodDays = settings.sharedOrderPeriodDays
 
   if (userId) {
     const user = authUsers.find(u => u.id === userId)
@@ -317,7 +319,7 @@ export async function GET(req: NextRequest) {
   const [{ data: termsRows }, { data: orders }, { data: gpsLogs }, { data: prefRows }] =
     await Promise.all([
       admin.from('terms_agreements').select('user_id, agreed_at'),
-      admin.from('orders').select('user_id, used_at, created_at, expires_at'),
+      admin.from('orders').select('user_id, order_number, used_at, created_at, expires_at'),
       admin.from('gps_logs').select('user_id, passed_at'),
       admin.from('gps_tracking_prefs').select('user_id, updated_at'),
     ])
@@ -328,37 +330,68 @@ export async function GET(req: NextRequest) {
   }
 
   const purchaseValidByUser = new Set<string>()
-  const latestVerificationByUser = new Map<
+  const latestPurchaseByUser = new Map<
     string,
     { verified_at: string; expires_at: Date }
   >()
+  const ordersByUser = new Map<
+    string,
+    { order_number: string; used_at?: string | null; created_at?: string | null; expires_at?: string | null }[]
+  >()
+
+  for (const order of orders ?? []) {
+    if (!order.user_id || !order.order_number) continue
+    const list = ordersByUser.get(order.user_id) ?? []
+    list.push(order)
+    ordersByUser.set(order.user_id, list)
+  }
+
   if (Number.isFinite(verifiedPeriodDays) && verifiedPeriodDays > 0) {
     const now = new Date()
-    for (const order of orders ?? []) {
-      if (!order.user_id) continue
-      const verifiedAt = order.used_at ?? order.created_at
-      const expiresAt = resolveExpiresAt(
-        {
-          order_number: '',
-          used_at: order.used_at ?? '',
-          created_at: order.created_at,
-          expires_at: order.expires_at,
-        },
-        verifiedPeriodDays
+    for (const [userId, userOrders] of ordersByUser) {
+      const access = buildPhotoAccessSummary(
+        userOrders,
+        sharedOrderNumber,
+        hipassPeriodDays,
+        verifiedPeriodDays,
+        now
       )
-      if (!verifiedAt || !expiresAt) continue
+      if (access.purchase.days_remaining <= 0) continue
 
-      const existing = latestVerificationByUser.get(order.user_id)
-      if (!existing || expiresAt > existing.expires_at) {
-        latestVerificationByUser.set(order.user_id, {
-          verified_at: verifiedAt,
-          expires_at: expiresAt,
-        })
-      }
+      purchaseValidByUser.add(userId)
+      if (!access.purchase.expires_at) continue
 
-      if (getMonitorStatus(expiresAt, now) !== 'expired') {
-        purchaseValidByUser.add(order.user_id)
-      }
+      const expiresAt = new Date(access.purchase.expires_at)
+      const latestOrder = userOrders
+        .filter(order => !isHipassOrderNumber(order.order_number, sharedOrderNumber))
+        .sort((a, b) => {
+          const aExp = resolveExpiresAt(
+            {
+              order_number: a.order_number,
+              used_at: a.used_at ?? '',
+              created_at: a.created_at,
+              expires_at: a.expires_at,
+            },
+            verifiedPeriodDays
+          )
+          const bExp = resolveExpiresAt(
+            {
+              order_number: b.order_number,
+              used_at: b.used_at ?? '',
+              created_at: b.created_at,
+              expires_at: b.expires_at,
+            },
+            verifiedPeriodDays
+          )
+          return (bExp?.getTime() ?? 0) - (aExp?.getTime() ?? 0)
+        })[0]
+      const verifiedAt = latestOrder?.used_at ?? latestOrder?.created_at
+      if (!verifiedAt) continue
+
+      latestPurchaseByUser.set(userId, {
+        verified_at: verifiedAt,
+        expires_at: expiresAt,
+      })
     }
   }
 
@@ -404,7 +437,14 @@ export async function GET(req: NextRequest) {
       prefUpdatedByUser.get(user.id),
       user.last_sign_in_at
     )
-    const verification = latestVerificationByUser.get(user.id)
+    const verification = latestPurchaseByUser.get(user.id)
+    const access = buildPhotoAccessSummary(
+      ordersByUser.get(user.id) ?? [],
+      sharedOrderNumber,
+      hipassPeriodDays,
+      verifiedPeriodDays,
+      now
+    )
 
     return {
       id: user.id,
@@ -415,9 +455,12 @@ export async function GET(req: NextRequest) {
       terms_agreed: termsByUser.has(user.id),
       purchase_verified: purchaseValidByUser.has(user.id),
       gps_record: gpsByUser.has(user.id),
+      hipass_used: access.hipass.used,
+      hipass_validity_display: access.hipass.validity_label,
       verified_at_display: verification ? formatVerificationDate(verification.verified_at) : '-',
       expires_at_display: verification ? formatVerificationDate(verification.expires_at) : '-',
       days_remaining: verification ? getDaysRemaining(verification.expires_at, now) : null,
+      photo_access_days_remaining: access.photo_access_days_remaining,
       last_activity: lastActivity,
       last_activity_display: lastActivity ? formatAdminDateTime(lastActivity) : '-',
     }
@@ -427,6 +470,7 @@ export async function GET(req: NextRequest) {
     total_signups: players.length,
     terms_agreed: players.filter(player => player.terms_agreed).length,
     purchase_verified: players.filter(player => player.purchase_verified).length,
+    hipass_used: players.filter(player => player.hipass_used).length,
     gps_users: players.filter(player => player.gps_record).length,
   }
 

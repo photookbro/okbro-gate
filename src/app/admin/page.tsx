@@ -59,6 +59,7 @@ type PlayerSummary = {
   total_signups: number
   terms_agreed: number
   purchase_verified: number
+  hipass_used: number
   gps_users: number
 }
 
@@ -71,9 +72,12 @@ type PlayerRow = {
   terms_agreed: boolean
   purchase_verified: boolean
   gps_record: boolean
+  hipass_used: boolean
+  hipass_validity_display: string
   verified_at_display: string
   expires_at_display: string
   days_remaining: number | null
+  photo_access_days_remaining: number
   last_activity: string | null
   last_activity_display: string
 }
@@ -591,7 +595,19 @@ export default function AdminPage() {
     setSharedOrderNumber(data.shared_order_number ?? '')
     setSharedOrderPeriodDays(data.shared_order_period_days ?? '30')
     setVerifiedPeriodDays(data.verified_period_days ?? '')
-    setSettingsMsg('저장되었어요')
+
+    const extendParts: string[] = []
+    if (typeof data.hipass_orders_extended === 'number' && data.hipass_orders_extended > 0) {
+      extendParts.push(`하이패스 ${data.hipass_orders_extended}건`)
+    }
+    if (typeof data.purchase_orders_extended === 'number' && data.purchase_orders_extended > 0) {
+      extendParts.push(`구매인증 ${data.purchase_orders_extended}건`)
+    }
+    setSettingsMsg(
+      extendParts.length > 0
+        ? `저장되었어요. 유효 중인 ${extendParts.join(', ')} 만료일을 연장했어요.`
+        : '저장되었어요'
+    )
     setSavingSettings(false)
   }
 
@@ -771,6 +787,7 @@ export default function AdminPage() {
                   {[
                     { label: '웹앱 가입 수', value: playerSummary?.total_signups ?? 0 },
                     { label: '약관 동의', value: playerSummary?.terms_agreed ?? 0 },
+                    { label: '하이패스 사용', value: playerSummary?.hipass_used ?? 0 },
                     { label: '구매 인증', value: playerSummary?.purchase_verified ?? 0 },
                     { label: 'GPS 사용', value: playerSummary?.gps_users ?? 0 },
                   ].map(card => (
@@ -790,11 +807,14 @@ export default function AdminPage() {
                         '이메일',
                         '가입일',
                         '약관 동의',
+                        '하이패스 입력',
+                        '하이패스 유효',
                         '구매 인증',
                         'GPS 기록',
-                        '인증일',
-                        '만료일',
-                        '남은 기간',
+                        '구매 인증일',
+                        '구매 만료일',
+                        '구매 남은 기간',
+                        '열람 가능(합산)',
                         '마지막 활동',
                       ].map(col => (
                         <th key={col}>{col}</th>
@@ -812,6 +832,8 @@ export default function AdminPage() {
                         <td>{player.email}</td>
                         <td className="whitespace-nowrap text-muted">{player.joined_at_display}</td>
                         <td><OxBadge value={player.terms_agreed} /></td>
+                        <td><OxBadge value={player.hipass_used} /></td>
+                        <td className="whitespace-nowrap text-sm">{player.hipass_validity_display}</td>
                         <td><OxBadge value={player.purchase_verified} /></td>
                         <td><OxBadge value={player.gps_record} /></td>
                         <td className="whitespace-nowrap text-muted">{player.verified_at_display}</td>
@@ -823,12 +845,17 @@ export default function AdminPage() {
                               ? '만료'
                               : `${player.days_remaining}일`}
                         </td>
+                        <td className="whitespace-nowrap font-medium">
+                          {player.photo_access_days_remaining > 0
+                            ? `${player.photo_access_days_remaining}일`
+                            : '0일'}
+                        </td>
                         <td className="whitespace-nowrap text-muted">{player.last_activity_display}</td>
                       </tr>
                     ))}
                     {players.length === 0 && (
                       <tr>
-                        <td colSpan={10} className="py-8 text-center text-muted">
+                        <td colSpan={13} className="py-8 text-center text-muted">
                           등록된 선수가 없어요
                         </td>
                       </tr>

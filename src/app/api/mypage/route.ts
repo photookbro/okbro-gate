@@ -7,7 +7,9 @@ import {
   getMonitorStatus,
   isUserExpiringSoon,
   resolveExpiresAt,
+  USER_EXPIRY_WARNING_DAYS,
 } from '@/lib/order-verification'
+import { buildPhotoAccessSummary, isHipassOrderNumber } from '@/lib/verification-access'
 import { formatGpsPassDisplay } from '@/lib/gps-access'
 import { buildDuplicateInfoByOrderNumber } from '@/lib/order-duplicate'
 import { loadVerificationSettings } from '@/lib/verification-settings'
@@ -41,6 +43,8 @@ export async function GET() {
   ])
 
   const verifiedPeriodDays = settings.verifiedPeriodDays
+  const sharedOrderNumber = settings.sharedOrderNumber
+  const hipassPeriodDays = settings.sharedOrderPeriodDays
 
   const userOrders = (orders as OrderRow[] | null) ?? []
   const duplicateByOrderNumber = await buildDuplicateInfoByOrderNumber(
@@ -50,10 +54,20 @@ export async function GET() {
   )
 
   const now = new Date()
+  const photoAccess = buildPhotoAccessSummary(
+    userOrders,
+    sharedOrderNumber,
+    hipassPeriodDays,
+    verifiedPeriodDays,
+    now
+  )
+
   const verifications = userOrders.map(order => {
     const joinedEvent = Array.isArray(order.events) ? order.events[0] : order.events
     const verifiedAt = new Date(order.used_at || order.created_at || '')
-    const expiresAt = resolveExpiresAt(order, verifiedPeriodDays)
+    const isHipass = isHipassOrderNumber(order.order_number, sharedOrderNumber)
+    const periodDays = isHipass ? hipassPeriodDays : verifiedPeriodDays
+    const expiresAt = resolveExpiresAt(order, periodDays)
     const status = expiresAt ? getMonitorStatus(expiresAt, now) : 'expired'
 
     const duplicate = duplicateByOrderNumber.get(order.order_number.trim()) ?? {
@@ -80,7 +94,9 @@ export async function GET() {
   })
 
   const latest = verifications[0]
-  const hasExpiringSoon = verifications.some(v => v.expiring_soon)
+  const hasExpiringSoon =
+    photoAccess.photo_access_days_remaining > 0 &&
+    photoAccess.photo_access_days_remaining <= USER_EXPIRY_WARNING_DAYS
 
   const { data: downloads } = await admin
     .from('downloads')
@@ -211,6 +227,15 @@ export async function GET() {
 
   return NextResponse.json({
     email: user.email,
+    photo_access: {
+      hipass_days_remaining: photoAccess.hipass.days_remaining,
+      purchase_days_remaining: photoAccess.purchase.days_remaining,
+      photo_access_days_remaining: photoAccess.photo_access_days_remaining,
+      hipass_validity_label: photoAccess.hipass.validity_label,
+      purchase_validity_label: photoAccess.purchase.validity_label,
+      status: photoAccess.status,
+      expiring_soon: hasExpiringSoon,
+    },
     latest_verification: latest ?? null,
     verifications,
     has_expiring_soon: hasExpiringSoon,
