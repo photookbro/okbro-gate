@@ -9,6 +9,9 @@ export function GpsPermissionEmphasisNotice() {
         <li>✓ 레이스 종료 후에는 앱을 닫아도 됩니다</li>
       </ul>
       <p className="gps-permission-emphasis-warning">주의: 앱을 닫으면 위치 추적이 멈춥니다!</p>
+      <p className="gps-permission-emphasis-warning">
+        주의: 폰 설정에서 위치(GPS 사용)은 항상 켜있어야 합니다!
+      </p>
     </div>
   )
 }

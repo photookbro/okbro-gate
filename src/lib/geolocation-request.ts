@@ -54,6 +54,12 @@ export async function requestPreciseGeolocation(): Promise<GeolocationRequestRes
   })
 }
 
+export const GPS_PERMISSION_REQUIRED_MESSAGE =
+  '위치 권한이 필요해요. 정확한 위치를 허용해주세요.'
+
+export const GPS_DETECTION_FAILURE_MESSAGE =
+  '위치 감지가 안 됩니다. 폰 설정에서 위치(GPS 사용)을 켜세요'
+
 export function geolocationFailureMessage(
   reason: GeolocationRequestResult['reason']
 ): string {
@@ -61,10 +67,10 @@ export function geolocationFailureMessage(
     case 'unsupported':
       return '이 브라우저는 위치 서비스를 지원하지 않아요.'
     case 'denied':
-      return '위치 권한이 거부됐어요. 브라우저 설정에서 허용해주세요.'
+      return GPS_PERMISSION_REQUIRED_MESSAGE
     case 'timeout':
-      return '위치를 가져오지 못했어요. GPS가 켜져 있는지 확인해주세요.'
+    case 'unavailable':
     default:
-      return '위치를 가져오지 못했어요. 다시 시도해주세요.'
+      return GPS_DETECTION_FAILURE_MESSAGE
   }
 }

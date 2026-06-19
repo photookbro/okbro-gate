@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { formatPassTimeSeconds, haversineDistanceMeters } from '@/lib/geo'
 import {
   geolocationFailureMessage,
+  GPS_DETECTION_FAILURE_MESSAGE,
+  GPS_PERMISSION_REQUIRED_MESSAGE,
   PRECISE_GEOLOCATION_OPTIONS,
   queryGeolocationPermission,
   requestPreciseGeolocation,
@@ -277,8 +279,8 @@ export function GpsDetector({
       err => {
         setErrorMsg(
           err.code === err.PERMISSION_DENIED
-            ? '위치 권한이 거부됐어요. 설정에서 허용해주세요.'
-            : '위치를 가져오지 못했어요'
+            ? GPS_PERMISSION_REQUIRED_MESSAGE
+            : GPS_DETECTION_FAILURE_MESSAGE
         )
         stopTracking()
       },
