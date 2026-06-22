@@ -136,7 +136,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         visible
         mode="page"
         onComplete={() => setTermsAgreed(true)}
-        onClose={() => router.push('/events')}
+        onClose={() => router.push('/#events')}
       />
     )
   }
@@ -187,7 +187,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       <GpsTrackingBanner eventId={id} />
       <div className="page-shell event-detail-page">
         <div className="page-container-wide">
-          <Link href="/events" className="text-sm text-muted no-underline">
+          <Link href="/#events" className="text-sm text-muted no-underline">
             ← 대회 목록
           </Link>
 

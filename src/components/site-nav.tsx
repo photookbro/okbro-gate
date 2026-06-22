@@ -42,11 +42,16 @@ export function SiteNav() {
   return (
     <nav className="site-nav">
       <div className="site-nav-inner">
-        <Link href="/events" className="nav-brand">
+        <Link href="/" className="nav-brand">
           <span className="nav-brand-accent">OKbro</span>GATE
         </Link>
         <div className="nav-links">
-          <Link href="/events" className={navLinkClass(pathname === '/events' || pathname.startsWith('/events/'))}>
+          <Link
+            href="/#events"
+            className={navLinkClass(
+              pathname === '/' || pathname === '/events' || pathname.startsWith('/events/')
+            )}
+          >
             대회 목록
           </Link>
           {userId ? (

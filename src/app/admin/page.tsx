@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAdminToken } from './admin-auth-context'
 import { AdminDateInput } from '@/components/admin-date-input'
+import { HomeBackgroundAdminPanel } from '@/components/admin/home-background-admin-panel'
 import { isCompleteIsoDate } from '@/lib/date-input'
 import { formatTimeInputValue, isCompleteTime } from '@/lib/time-input'
 
@@ -151,6 +152,7 @@ type EventMonitorRow = {
 const TAB_LABELS = {
   events: '대회 관리',
   settings: '설정 관리',
+  home_background: '홈 배경 이미지',
   players: '선수 관리',
   event_monitoring: '대회별 모니터링',
 } as const
@@ -184,7 +186,7 @@ function OxBadge({ value }: { value: boolean }) {
 export default function AdminPage() {
   const token = useAdminToken()
   const [tab, setTab] = useState<
-    'events' | 'settings' | 'players' | 'event_monitoring'
+    'events' | 'settings' | 'home_background' | 'players' | 'event_monitoring'
   >('events')
   const [events, setEvents] = useState<Event[]>([])
   const [loadingEvents, setLoadingEvents] = useState(true)
@@ -767,6 +769,13 @@ export default function AdminPage() {
                 </button>
               </form>
             )}
+          </>
+        )}
+
+        {tab === 'home_background' && (
+          <>
+            <h2 className="section-title">홈 배경 이미지</h2>
+            <HomeBackgroundAdminPanel token={token} />
           </>
         )}
 

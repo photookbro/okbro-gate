@@ -7,16 +7,9 @@ type PwaInstallButtonProps = {
 }
 
 export function PwaInstallButton({ className = 'landing-install-btn' }: PwaInstallButtonProps) {
-  const { canInstall, isInstalled, installing, promptInstall } = usePwaInstall()
+  const { canInstall, installing, promptInstall } = usePwaInstall()
 
   if (!canInstall) {
-    if (isInstalled) {
-      return (
-        <p className="landing-install-installed" role="status">
-          ✅ 앱이 설치되어 있어요
-        </p>
-      )
-    }
     return null
   }
 
