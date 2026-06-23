@@ -188,7 +188,7 @@ export function HomeBackgroundAdminPanel({ token }: HomeBackgroundAdminPanelProp
     formData.append('file', selectedFile)
 
     try {
-      const res = await fetch('/api/admin/home-background', {
+      const res = await fetch('/api/admin/home-background/upload', {
         method: 'POST',
         headers: { 'x-admin-token': token },
         body: formData,
