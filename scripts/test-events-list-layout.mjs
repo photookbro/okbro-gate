@@ -54,21 +54,21 @@ const parsed = parseEventsListResponse({
       name: '강릉자전거',
       date: '2026-06-08',
       has_album: true,
-      shoot_record: { username: 'kospilee', time: '14:32' },
+      gps_logs: [{ username: 'kospilee', time: '14:32' }],
     },
     {
       id: 'p2',
       name: '무효',
       date: '2026-06-09',
       has_album: true,
-      shoot_record: { username: '', time: '14:32' },
+      gps_logs: [{ username: '', time: '14:32' }],
     },
     {
       id: 'p3',
       name: '어제대회',
       date: '2026-06-15',
       has_album: false,
-      shoot_record: null,
+      gps_logs: [{ username: 'runner', time: '09:10' }],
     },
   ],
   upcoming: [
@@ -90,9 +90,11 @@ const parsed = parseEventsListResponse({
 })
 
 assert.equal(parsed.past.length, 3)
-assert.deepEqual(parsed.past[0]?.shoot_record, { username: 'kospilee', time: '14:32' })
-assert.equal(parsed.past[1]?.shoot_record, null)
+assert.equal(parsed.past[0]?.gps_logs.length, 1)
+assert.deepEqual(parsed.past[0]?.gps_logs[0], { username: 'kospilee', time: '14:32' })
+assert.equal(parsed.past[1]?.gps_logs.length, 0)
 assert.equal(parsed.past[2]?.has_album, false)
+assert.equal(parsed.past[2]?.gps_logs.length, 1)
 
 const classified = classifyEventsForList(
   [

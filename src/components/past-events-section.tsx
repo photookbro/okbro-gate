@@ -13,25 +13,26 @@ import {
 } from '@/lib/events-list-client'
 
 function PastEventItem({ event }: { event: EventsListPastEvent }) {
-  const record = event.shoot_record
-  const hasRecord = record !== null
   const displayName = formatPastEventDisplayName(event.name, event.has_album)
+  const hasLogs = event.gps_logs.length > 0
 
   const content = (
     <>
       <div className="events-past-heading">
         <span className="events-past-icon" aria-hidden="true">
-          {!event.has_album ? '⏳' : hasRecord ? '📸' : '⏳'}
+          {!event.has_album ? '⏳' : hasLogs ? '📸' : '⏳'}
         </span>
         <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
         <span className="events-event-name">{displayName}</span>
       </div>
-      {record ? (
+      {hasLogs ? (
         <div className="events-past-meta">
-          <p className="events-shoot-record">
-            <strong>{record.username}</strong>님은 <strong>{record.time}</strong>경에 오켱 카메라
-            앞을 지나갔습니다
-          </p>
+          {event.gps_logs.map((record, index) => (
+            <p key={`${record.time}-${index}`} className="events-shoot-record">
+              <strong>{record.username}</strong>님은 <strong>{record.time}</strong>경에 오켱 카메라
+              앞을 지나갔습니다
+            </p>
+          ))}
           <p className="events-shoot-record-note">{GPS_SHOOT_RECORD_DISCLAIMER}</p>
         </div>
       ) : null}

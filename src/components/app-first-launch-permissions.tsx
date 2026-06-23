@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { GpsPermissionModal } from '@/components/gps-permission-modal'
-import { PushPermissionPrompt } from '@/components/push-permission-prompt'
 import { VerificationModal } from '@/components/verification-modal'
 import { markFirstAppLaunchDone, isFirstAppLaunchPending } from '@/lib/app-first-launch'
 import {
@@ -15,9 +14,8 @@ import {
   queryGeolocationPermission,
   requestPreciseGeolocation,
 } from '@/lib/geolocation-request'
-import { dismissPushPrompt } from '@/lib/push-permission'
 
-type OnboardingStep = 'gps' | 'push' | 'verification' | null
+type OnboardingStep = 'gps' | 'verification' | null
 
 export function AppFirstLaunchPermissions() {
   const [step, setStep] = useState<OnboardingStep>(null)
@@ -31,7 +29,6 @@ export function AppFirstLaunchPermissions() {
   }, [])
 
   function finishOnboarding() {
-    dismissPushPrompt()
     markFirstAppLaunchDone()
     setStep(null)
   }
@@ -45,8 +42,8 @@ export function AppFirstLaunchPermissions() {
       const snapshot = await getPermissionSnapshot()
 
       if (result.granted || snapshot.gps === 'granted') {
-        setPermissionAck('gps', true)
-        setStep('push')
+        setPermissionAck(true)
+        setStep('verification')
         return
       }
 
@@ -61,18 +58,7 @@ export function AppFirstLaunchPermissions() {
   }
 
   function handleGpsSkip() {
-    setPermissionAck('gps', false)
-    setStep('push')
-  }
-
-  function handlePushComplete() {
-    const granted = typeof Notification !== 'undefined' && Notification.permission === 'granted'
-    setPermissionAck('notification', granted)
-    setStep('verification')
-  }
-
-  function handlePushSkip() {
-    setPermissionAck('notification', false)
+    setPermissionAck(false)
     setStep('verification')
   }
 
@@ -97,14 +83,6 @@ export function AppFirstLaunchPermissions() {
         onDismiss={handleGpsSkip}
         showEmphasisNotice
         showBackgroundNotice
-      />
-
-      <PushPermissionPrompt
-        open={step === 'push'}
-        mode="onboarding"
-        showBackgroundNotice
-        onComplete={handlePushComplete}
-        onSkip={handlePushSkip}
       />
 
       <VerificationModal

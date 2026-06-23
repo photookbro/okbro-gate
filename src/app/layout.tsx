@@ -3,9 +3,7 @@ import './globals.css'
 import { SiteNav } from '@/components/site-nav'
 import { InappBrowserWarning } from '@/components/inapp-browser-warning'
 import { AppFirstLaunchPermissions } from '@/components/app-first-launch-permissions'
-import { PushRegister } from '@/components/push-register'
 import { FixedFruitCta } from '@/components/fixed-fruit-cta'
-import { PushPermissionModal } from '@/components/push-permission-modal'
 import { VerificationExpiryModal } from '@/components/verification-expiry-modal'
 
 export const metadata: Metadata = {
@@ -48,9 +46,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body>
-        <PushRegister />
         <AppFirstLaunchPermissions />
-        <PushPermissionModal />
         <VerificationExpiryModal />
         <InappBrowserWarning />
         <SiteNav />

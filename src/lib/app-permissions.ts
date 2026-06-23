@@ -2,24 +2,20 @@ import {
   queryGeolocationPermission,
   type GeolocationPermissionState,
 } from '@/lib/geolocation-request'
-import { detectMobilePlatform, type MobilePlatform } from '@/lib/push-permission'
 
 export const PERMISSION_GPS_ACK_KEY = 'okbro_permission_gps_ack'
-export const PERMISSION_NOTIFICATION_ACK_KEY = 'okbro_permission_notification_ack'
 export const EVENT_DETAIL_PERMISSION_RECHECK_KEY = 'okbro_event_detail_permission_recheck_done'
 export const ONBOARDING_VERIFICATION_SKIPPED_KEY = 'okbro_onboarding_verification_skipped'
 
-export type PermissionKind = 'gps' | 'notification'
-
 export type PermissionSnapshot = {
   gps: GeolocationPermissionState
-  notification: 'granted' | 'denied' | 'default' | 'unsupported'
 }
 
 export type StoredPermissionAck = {
   gps: boolean
-  notification: boolean
 }
+
+export type MobilePlatform = 'ios' | 'android' | 'other'
 
 function readFlag(key: string): boolean {
   if (typeof window === 'undefined') return false
@@ -45,64 +41,31 @@ function writeFlag(key: string, value: boolean) {
 export function getStoredPermissionAck(): StoredPermissionAck {
   return {
     gps: readFlag(PERMISSION_GPS_ACK_KEY),
-    notification: readFlag(PERMISSION_NOTIFICATION_ACK_KEY),
   }
 }
 
-export function setPermissionAck(kind: PermissionKind, acknowledged: boolean) {
-  writeFlag(
-    kind === 'gps' ? PERMISSION_GPS_ACK_KEY : PERMISSION_NOTIFICATION_ACK_KEY,
-    acknowledged
-  )
+export function setPermissionAck(acknowledged: boolean) {
+  writeFlag(PERMISSION_GPS_ACK_KEY, acknowledged)
 }
 
 export function syncPermissionAckFromSnapshot(snapshot: PermissionSnapshot) {
-  if (snapshot.gps === 'granted') setPermissionAck('gps', true)
-  if (snapshot.notification === 'granted') setPermissionAck('notification', true)
+  if (snapshot.gps === 'granted') setPermissionAck(true)
 }
 
 export async function getPermissionSnapshot(): Promise<PermissionSnapshot> {
   const gps = await queryGeolocationPermission()
-  let notification: PermissionSnapshot['notification'] = 'unsupported'
-
-  if (typeof window !== 'undefined' && 'Notification' in window) {
-    notification = Notification.permission
-  }
-
-  return { gps, notification }
+  return { gps }
 }
 
-export function isPermissionGranted(
-  snapshot: PermissionSnapshot,
-  kind: PermissionKind
-): boolean {
-  if (kind === 'gps') return snapshot.gps === 'granted'
-  return snapshot.notification === 'granted'
+export function isGpsPermissionGranted(snapshot: PermissionSnapshot): boolean {
+  return snapshot.gps === 'granted'
 }
 
-/** 저장된 ack와 실제 권한을 비교해 부족한 항목 반환 */
 export function findPermissionGaps(
   snapshot: PermissionSnapshot,
   stored: StoredPermissionAck = getStoredPermissionAck()
-): PermissionKind[] {
-  const gaps: PermissionKind[] = []
-
-  if (stored.gps && !isPermissionGranted(snapshot, 'gps')) {
-    gaps.push('gps')
-  }
-  if (stored.notification && !isPermissionGranted(snapshot, 'notification')) {
-    gaps.push('notification')
-  }
-
-  return gaps
-}
-
-/** 대회 상세에서 필요한 권한이 실제로 없는지 (ack 여부와 무관) */
-export function findMissingRuntimePermissions(snapshot: PermissionSnapshot): PermissionKind[] {
-  const missing: PermissionKind[] = []
-  if (!isPermissionGranted(snapshot, 'gps')) missing.push('gps')
-  if (!isPermissionGranted(snapshot, 'notification')) missing.push('notification')
-  return missing
+): boolean {
+  return stored.gps && !isGpsPermissionGranted(snapshot)
 }
 
 export function isEventDetailRecheckDone(): boolean {
@@ -119,6 +82,14 @@ export function isOnboardingVerificationSkipped(): boolean {
 
 export function markOnboardingVerificationSkipped() {
   writeFlag(ONBOARDING_VERIFICATION_SKIPPED_KEY, true)
+}
+
+export function detectPlatform(): MobilePlatform {
+  if (typeof navigator === 'undefined') return 'other'
+  const ua = navigator.userAgent
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'ios'
+  if (/Android/i.test(ua)) return 'android'
+  return 'other'
 }
 
 export function getGeolocationSettingsGuide(platform: MobilePlatform): {
@@ -157,11 +128,6 @@ export function getGeolocationSettingsGuide(platform: MobilePlatform): {
       '「정확한 위치」가 있으면 켜주세요',
     ],
   }
-}
-
-export function detectPlatform(): MobilePlatform {
-  if (typeof navigator === 'undefined') return 'other'
-  return detectMobilePlatform(navigator.userAgent)
 }
 
 export const BACKGROUND_GPS_UNSUPPORTED_MESSAGE =

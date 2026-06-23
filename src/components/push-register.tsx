@@ -1,12 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
-import { registerServiceWorker } from '@/lib/push-client'
-
+/** @deprecated Push notifications disabled */
 export function PushRegister() {
-  useEffect(() => {
-    void registerServiceWorker()
-  }, [])
-
   return null
 }

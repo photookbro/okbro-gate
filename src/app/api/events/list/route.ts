@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { fetchEventsList, hasEventAlbum } from '@/lib/event-query'
 import { getAuthenticatedUser } from '@/lib/auth-server'
 import { getEventGpsLocations } from '@/lib/gps-locations'
+import { MAX_EVENT_LIST_GPS_LOGS } from '@/lib/event-gps-logs'
 import { buildPastGpsPassDisplay } from '@/lib/shoot-record'
 
 export async function GET() {
@@ -13,17 +14,12 @@ export async function GET() {
     return NextResponse.json({ error: '대회 목록 조회 실패' }, { status: 500 })
   }
 
-  const pastWithAlbum = pastEvents.filter(event => hasEventAlbum(event))
-
-  const shootRecordByEvent: Record<
-    string,
-    { username: string; time: string } | null
-  > = {}
+  const gpsLogsByEvent: Record<string, { username: string; time: string }[]> = {}
   const user = await getAuthenticatedUser()
 
-  if (user && pastWithAlbum.length) {
+  if (user && pastEvents.length > 0) {
     const admin = supabaseAdmin()
-    const eventIds = pastWithAlbum.map(e => e.id)
+    const eventIds = pastEvents.map(e => e.id)
     const { data: logs } = await admin
       .from('gps_logs')
       .select('event_id, passed_at')
@@ -34,11 +30,15 @@ export async function GET() {
     const email = user.email ?? '회원'
 
     for (const log of logs ?? []) {
-      if (!log.event_id || !log.passed_at || shootRecordByEvent[log.event_id]) continue
-      const record = buildPastGpsPassDisplay(email, log.passed_at)
-      if (record) {
-        shootRecordByEvent[log.event_id] = record
-      }
+      if (!log.event_id || !log.passed_at) continue
+      const display = buildPastGpsPassDisplay(email, log.passed_at)
+      if (!display) continue
+
+      const bucket = gpsLogsByEvent[log.event_id] ?? []
+      if (bucket.length >= MAX_EVENT_LIST_GPS_LOGS) continue
+
+      bucket.push(display)
+      gpsLogsByEvent[log.event_id] = bucket
     }
   }
 
@@ -51,7 +51,7 @@ export async function GET() {
         date: event.date,
         gps_enabled: event.gps_enabled,
         has_album: hasAlbum,
-        shoot_record: hasAlbum ? (shootRecordByEvent[event.id] ?? null) : null,
+        gps_logs: gpsLogsByEvent[event.id] ?? [],
       }
     }),
     upcoming: upcomingEvents.map(event => ({

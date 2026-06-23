@@ -23,7 +23,7 @@ export type EventsListPastEvent = {
   name: string
   date: string
   has_album: boolean
-  shoot_record: EventsListShootRecord | null
+  gps_logs: EventsListShootRecord[]
 }
 
 export type EventsListUpcomingEvent = {
@@ -45,6 +45,13 @@ export function parseShootRecord(value: unknown): EventsListShootRecord | null {
   return { username, time }
 }
 
+export function parseShootRecords(value: unknown): EventsListShootRecord[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map(parseShootRecord)
+    .filter((record): record is EventsListShootRecord => record !== null)
+}
+
 export function parsePastEvent(value: unknown): EventsListPastEvent | null {
   if (!value || typeof value !== 'object') return null
 
@@ -60,7 +67,9 @@ export function parsePastEvent(value: unknown): EventsListPastEvent | null {
     name,
     date,
     has_album: row.has_album === true,
-    shoot_record: parseShootRecord(row.shoot_record),
+    gps_logs: parseShootRecords(
+      row.gps_logs ?? (row.shoot_record != null ? [row.shoot_record] : [])
+    ),
   }
 }
 

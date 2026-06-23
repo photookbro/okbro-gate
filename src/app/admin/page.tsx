@@ -205,8 +205,6 @@ export default function AdminPage() {
   const [form, setForm] = useState<EventForm>(emptyForm)
   const [savingEvent, setSavingEvent] = useState(false)
 
-  const [gpsNotifyMsg, setGpsNotifyMsg] = useState('')
-  const [notifyingGpsEventId, setNotifyingGpsEventId] = useState<string | null>(null)
 
   const [gpsLogsModalEvent, setGpsLogsModalEvent] = useState<{ id: string; name: string } | null>(null)
   const [gpsLogs, setGpsLogs] = useState<
@@ -345,28 +343,6 @@ export default function AdminPage() {
     setPlayerDetail(null)
     setPlayerDetailError('')
     setExpandedGpsEventId(null)
-  }
-
-  async function handleGpsNotify(eventId: string) {
-    setGpsNotifyMsg('')
-    setNotifyingGpsEventId(eventId)
-
-    const res = await adminFetch('/api/gps-notify', {
-      method: 'POST',
-      body: JSON.stringify({ event_id: eventId }),
-    })
-    const data = await res.json()
-
-    setNotifyingGpsEventId(null)
-
-    if (!res.ok) {
-      setEventError(data.error ?? 'GPS 알림 발송 실패')
-      return
-    }
-
-    setGpsNotifyMsg(
-      `✅ ${data.event_name ?? '대회'}: ${data.notified ?? 0}명 알림 발송 (대기 ${data.pending ?? 0}건)`
-    )
   }
 
   async function openGpsLogsModal(event: Event) {
@@ -641,7 +617,6 @@ export default function AdminPage() {
             </div>
 
             {eventError && <p className="alert-danger">{eventError}</p>}
-            {gpsNotifyMsg && <p className="alert-success">{gpsNotifyMsg}</p>}
 
             {loadingEvents ? (
               <p className="text-muted">로딩 중...</p>
@@ -683,14 +658,6 @@ export default function AdminPage() {
                               className="btn-secondary-inline"
                             >
                               GPS 로그 추가
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleGpsNotify(event.id)}
-                              disabled={notifyingGpsEventId === event.id}
-                              className="btn-primary-inline"
-                            >
-                              {notifyingGpsEventId === event.id ? '발송 중...' : '사진 찾아가세요'}
                             </button>
                             <button
                               type="button"
