@@ -22,6 +22,7 @@ export type EventsListPastEvent = {
   id: string
   name: string
   date: string
+  has_album: boolean
   shoot_record: EventsListShootRecord | null
 }
 
@@ -58,6 +59,7 @@ export function parsePastEvent(value: unknown): EventsListPastEvent | null {
     id,
     name,
     date,
+    has_album: row.has_album === true,
     shoot_record: parseShootRecord(row.shoot_record),
   }
 }
@@ -117,16 +119,21 @@ export const EVENTS_UPCOMING_SECTION_TITLE = '📅 오켱 출사 예정'
 export const EVENTS_UPCOMING_ON_PROMPT = '참가 예정이면 ON으로 해주세요'
 export const EVENTS_UPCOMING_ON_DETAIL =
   'ON으로 해주시면 이후 앨범을 찾으실 때 오켱 카메라 앞에 언제 지나갔는지 알려드려요'
-export const EVENTS_PAST_SECTION_SUB_MAIN = '고화소 사진 UPLOAD 완료된 대회'
+export const EVENTS_PAST_SECTION_SUB_MAIN = '지난 대회 및 사진 업로드 현황'
 export const EVENTS_PAST_SECTION_SUB_TAIL = '최근 12개월'
+
+export function formatPastEventDisplayName(name: string, hasAlbum: boolean): string {
+  return hasAlbum ? name : `${name} (업로드중)`
+}
 
 export function formatPastEventHeading(
   name: string,
   date: string,
-  hasRecord: boolean
+  hasRecord: boolean,
+  hasAlbum = true
 ): string {
-  const icon = hasRecord ? '📸' : '⏳'
-  return `${icon} ${formatEventDateDisplay(date)} ${name}`
+  const icon = !hasAlbum ? '⏳' : hasRecord ? '📸' : '⏳'
+  return `${icon} ${formatEventDateDisplay(date)} ${formatPastEventDisplayName(name, hasAlbum)}`
 }
 
 export function formatPastShootRecordLine(record: EventsListShootRecord): string {

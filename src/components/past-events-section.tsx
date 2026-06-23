@@ -6,6 +6,7 @@ import {
   EVENTS_PAST_SECTION_SUB_MAIN,
   EVENTS_PAST_SECTION_SUB_TAIL,
   formatEventDateDisplay,
+  formatPastEventDisplayName,
   GPS_SHOOT_RECORD_DISCLAIMER,
   parseEventsListResponse,
   type EventsListPastEvent,
@@ -14,27 +15,38 @@ import {
 function PastEventItem({ event }: { event: EventsListPastEvent }) {
   const record = event.shoot_record
   const hasRecord = record !== null
+  const displayName = formatPastEventDisplayName(event.name, event.has_album)
+
+  const content = (
+    <>
+      <div className="events-past-heading">
+        <span className="events-past-icon" aria-hidden="true">
+          {!event.has_album ? '⏳' : hasRecord ? '📸' : '⏳'}
+        </span>
+        <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
+        <span className="events-event-name">{displayName}</span>
+      </div>
+      {record ? (
+        <div className="events-past-meta">
+          <p className="events-shoot-record">
+            <strong>{record.username}</strong>님은 <strong>{record.time}</strong>경에 오켱 카메라
+            앞을 지나갔습니다
+          </p>
+          <p className="events-shoot-record-note">{GPS_SHOOT_RECORD_DISCLAIMER}</p>
+        </div>
+      ) : null}
+    </>
+  )
 
   return (
     <li className="events-list-item">
-      <Link href={`/events/${event.id}`} className="events-card events-card-past">
-        <div className="events-past-heading">
-          <span className="events-past-icon" aria-hidden="true">
-            {hasRecord ? '📸' : '⏳'}
-          </span>
-          <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
-          <span className="events-event-name">{event.name}</span>
-        </div>
-        {record ? (
-          <div className="events-past-meta">
-            <p className="events-shoot-record">
-              <strong>{record.username}</strong>님은 <strong>{record.time}</strong>경에 오켱 카메라
-              앞을 지나갔습니다
-            </p>
-            <p className="events-shoot-record-note">{GPS_SHOOT_RECORD_DISCLAIMER}</p>
-          </div>
-        ) : null}
-      </Link>
+      {event.has_album ? (
+        <Link href={`/events/${event.id}`} className="events-card events-card-past">
+          {content}
+        </Link>
+      ) : (
+        <article className="events-card events-card-past events-card-past-uploading">{content}</article>
+      )}
     </li>
   )
 }
@@ -64,7 +76,7 @@ export function PastEventsSection() {
 
   return (
     <section className="events-section landing-events-section">
-      <h2 className="events-section-title">🎬 오켱 출사 대회</h2>
+      <h2 className="events-section-title">🎬 오켱 출사</h2>
       <p className="events-section-sub events-past-section-sub">
         <span>{EVENTS_PAST_SECTION_SUB_MAIN}</span>
         <span className="events-past-section-sub-tail">{EVENTS_PAST_SECTION_SUB_TAIL}</span>

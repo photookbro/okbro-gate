@@ -1,4 +1,11 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import {
+  classifyEventsForList,
+  hasEventAlbum,
+  twelveMonthsAgoDateString,
+} from '@/lib/events-list-classify'
+
+export { hasEventAlbum } from '@/lib/events-list-classify'
 
 export const EVENT_DETAIL_FIELDS =
   'id, name, date, album_a_url, album_b_url, gps_enabled, is_loop_course, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_lat, gps_lng, gps_radius_meters'
@@ -7,6 +14,12 @@ export const EVENT_DETAIL_FIELDS_LEGACY =
   'id, name, date, album_a_url, album_b_url, gps_enabled, is_loop_course, gps_lat, gps_lng, gps_radius_meters'
 
 export const EVENT_LIST_PAST_FIELDS = 'id, name, date, gps_enabled, album_b_url'
+
+export const EVENT_LIST_FIELDS =
+  'id, name, date, gps_enabled, album_b_url, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_lat, gps_lng, gps_radius_meters, is_loop_course'
+
+export const EVENT_LIST_FIELDS_LEGACY =
+  'id, name, date, gps_enabled, album_b_url, gps_lat, gps_lng, gps_radius_meters, is_loop_course'
 
 export const EVENT_LIST_UPCOMING_FIELDS =
   'id, name, date, gps_enabled, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_lat, gps_lng, gps_radius_meters, is_loop_course'
@@ -70,6 +83,7 @@ export async function fetchEventById(eventId: string): Promise<{
   return { data: (fallback.data as EventRow | null) ?? null, error: null }
 }
 
+
 export async function fetchEventsList(): Promise<{
   past: EventRow[]
   upcoming: EventRow[]
@@ -78,48 +92,29 @@ export async function fetchEventsList(): Promise<{
   const admin = supabaseAdmin()
   const cutoff = twelveMonthsAgoDateString()
 
-  const pastResult = await admin
+  let result = await admin
     .from('events')
-    .select(EVENT_LIST_PAST_FIELDS)
-    .not('album_b_url', 'is', null)
-    .neq('album_b_url', '')
+    .select(EVENT_LIST_FIELDS)
     .gte('date', cutoff)
     .order('date', { ascending: false })
 
-  if (pastResult.error) {
-    return { past: [], upcoming: [], error: new Error(pastResult.error.message) }
-  }
-
-  let upcomingResult = await admin
-    .from('events')
-    .select(EVENT_LIST_UPCOMING_FIELDS)
-    .or('album_b_url.is.null,album_b_url.eq.')
-    .order('date', { ascending: true })
-
-  if (upcomingResult.error && isMissingColumnError(upcomingResult.error.message)) {
-    upcomingResult = await admin
+  if (result.error && isMissingColumnError(result.error.message)) {
+    result = await admin
       .from('events')
-      .select(EVENT_LIST_UPCOMING_FIELDS_LEGACY)
-      .or('album_b_url.is.null,album_b_url.eq.')
-      .order('date', { ascending: true })
+      .select(EVENT_LIST_FIELDS_LEGACY)
+      .gte('date', cutoff)
+      .order('date', { ascending: false })
   }
 
-  if (upcomingResult.error) {
-    return { past: [], upcoming: [], error: new Error(upcomingResult.error.message) }
+  if (result.error) {
+    return { past: [], upcoming: [], error: new Error(result.error.message) }
   }
+
+  const classified = classifyEventsForList((result.data ?? []) as EventRow[], { cutoff })
 
   return {
-    past: (pastResult.data ?? []) as EventRow[],
-    upcoming: (upcomingResult.data ?? []) as EventRow[],
+    past: classified.past as EventRow[],
+    upcoming: classified.upcoming as EventRow[],
     error: null,
   }
-}
-
-function twelveMonthsAgoDateString(): string {
-  const d = new Date()
-  d.setMonth(d.getMonth() - 12)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
 }

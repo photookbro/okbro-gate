@@ -413,6 +413,10 @@ body {
   @apply block no-underline transition-colors hover:border-primary/25;
 }
 
+.events-card-past-uploading {
+  @apply cursor-default opacity-90 hover:border-[var(--border)];
+}
+
 .events-past-heading {
   @apply flex flex-wrap items-baseline gap-x-2 gap-y-1;
 }
