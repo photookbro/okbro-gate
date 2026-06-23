@@ -41,6 +41,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const router = useRouter()
   const supabase = createClient()
   const [event, setEvent] = useState<Event | null>(null)
+  const [eventLoading, setEventLoading] = useState(true)
+  const [eventError, setEventError] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
   const [verification, setVerification] = useState<VerificationInfo>({ status: 'none' })
   const [verificationChecked, setVerificationChecked] = useState(false)
@@ -58,15 +60,26 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   }, [])
 
   useEffect(() => {
+    setEventLoading(true)
+    setEventError('')
+    setEvent(null)
+
     fetch(`/api/events/${encodeURIComponent(id)}`)
       .then(async res => {
         const data = await res.json()
         if (res.ok && data?.event) {
           setEvent(data.event as Event)
+          return
         }
+        setEventError(
+          typeof data?.error === 'string' ? data.error : '대회 정보를 불러오지 못했어요.'
+        )
       })
       .catch(() => {
-        // ignore
+        setEventError('대회 정보를 불러오지 못했어요.')
+      })
+      .finally(() => {
+        setEventLoading(false)
       })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -108,18 +121,18 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const albumBranch = verificationChecked ? resolveEventAlbumBranch(verification) : null
   const purchaseVerified = verification.status === 'valid'
 
-  if (!termsReady) {
+  if (!termsReady || eventLoading) {
     return (
       <div className="page-shell flex items-center justify-center">
-        <p className="text-muted">로딩 중...</p>
+        <p className="text-muted">잠시만 기다리세요. 대회 정보를 불러오고 있습니다.</p>
       </div>
     )
   }
 
-  if (!event) {
+  if (eventError || !event) {
     return (
       <div className="page-shell flex items-center justify-center">
-        <p className="text-muted">대회 정보를 불러오지 못했어요.</p>
+        <p className="text-muted">{eventError || '대회 정보를 불러오지 못했어요.'}</p>
       </div>
     )
   }
