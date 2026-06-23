@@ -11,6 +11,7 @@ import { AAlbumView } from '@/components/a-album-view'
 import { TermsAgreement } from '@/components/terms-agreement'
 import { GpsDetector } from '@/components/gps-detector'
 import { GpsTrackingBanner } from '@/components/gps-tracking-banner'
+import { EventPermissionGate } from '@/components/missing-permissions-modal'
 import { hasTermsAgreed } from '@/lib/terms-agreement'
 import { resolveEventAlbumBranch } from '@/lib/event-album-branch'
 import { getEventGpsLocations, type EventGpsFields } from '@/lib/gps-locations'
@@ -196,15 +197,17 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
           {event.gps_enabled !== false && locations.length > 0 ? (
             <div className="mb-6">
-              <GpsDetector
-                eventId={event.id}
-                eventName={event.name}
-                locations={locations}
-                isLoopCourse={event.is_loop_course === true}
-                userId={userId}
-                purchaseVerified={purchaseVerified}
-                verificationChecked={verificationChecked}
-              />
+              <EventPermissionGate enabled={termsAgreed && !!userId}>
+                <GpsDetector
+                  eventId={event.id}
+                  eventName={event.name}
+                  locations={locations}
+                  isLoopCourse={event.is_loop_course === true}
+                  userId={userId}
+                  purchaseVerified={purchaseVerified}
+                  verificationChecked={verificationChecked}
+                />
+              </EventPermissionGate>
             </div>
           ) : null}
 

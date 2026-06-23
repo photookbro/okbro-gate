@@ -1,15 +1,17 @@
+import { BackgroundGpsNotice } from '@/components/background-gps-notice'
+
 export function GpsPermissionEmphasisNotice() {
   return (
     <div className="gps-permission-emphasis">
       <p className="gps-permission-emphasis-title">⚠️ 중요 안내</p>
       <ul className="gps-permission-emphasis-list">
-        <li>✓ &apos;사이트에 있는 동안 허용&apos;을 선택하세요</li>
+        <li>✓ &apos;사이트에 있는 동안 허용&apos; 또는 &apos;허용&apos;을 선택하세요</li>
         <li>✓ 레이스 중 앱을 종료하지 마세요</li>
         <li>✓ 화면만 꺼진 것은 괜찮습니다</li>
         <li>✓ 레이스 종료 후에는 앱을 닫아도 됩니다</li>
       </ul>
-      <p className="gps-permission-emphasis-warning">주의: 앱을 닫으면 위치 추적이 멈춥니다!</p>
-      <p className="gps-permission-emphasis-warning">
+      <BackgroundGpsNotice />
+      <p className="gps-permission-emphasis-warning mt-3">
         주의: 폰 설정에서 위치(GPS 사용)은 항상 켜있어야 합니다!
       </p>
     </div>

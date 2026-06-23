@@ -444,6 +444,7 @@ export function GpsDetector({
           setPermissionOpen(false)
           setPermissionError('')
         }}
+        showBackgroundNotice
         footer={permissionOpen ? <GpsPermissionEmphasisNotice /> : null}
       />
     </>

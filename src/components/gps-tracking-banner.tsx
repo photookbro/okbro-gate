@@ -1,6 +1,7 @@
 'use client'
 
 import { useGpsTrackingEnabled } from '@/lib/gps-tracking-storage'
+import { BackgroundGpsNotice } from '@/components/background-gps-notice'
 
 type GpsTrackingBannerProps = {
   eventId: string
@@ -21,6 +22,9 @@ export function GpsTrackingBanner({ eventId }: GpsTrackingBannerProps) {
         <br />
         화면이 꺼져도 괜찮습니다.
       </p>
+      <div className="mt-2 px-3">
+        <BackgroundGpsNotice compact />
+      </div>
     </div>
   )
 }
