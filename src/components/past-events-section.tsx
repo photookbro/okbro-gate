@@ -41,13 +41,9 @@ function PastEventItem({ event }: { event: EventsListPastEvent }) {
 
   return (
     <li className="events-list-item">
-      {event.has_album ? (
-        <Link href={`/events/${event.id}`} className="events-card events-card-past">
-          {content}
-        </Link>
-      ) : (
-        <article className="events-card events-card-past events-card-past-uploading">{content}</article>
-      )}
+      <Link href={`/events/${event.id}`} className="events-card events-card-past">
+        {content}
+      </Link>
     </li>
   )
 }

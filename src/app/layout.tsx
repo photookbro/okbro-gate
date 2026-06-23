@@ -4,7 +4,6 @@ import { SiteNav } from '@/components/site-nav'
 import { InappBrowserWarning } from '@/components/inapp-browser-warning'
 import { AppFirstLaunchPermissions } from '@/components/app-first-launch-permissions'
 import { FixedFruitCta } from '@/components/fixed-fruit-cta'
-import { VerificationExpiryModal } from '@/components/verification-expiry-modal'
 
 export const metadata: Metadata = {
   title: 'OKbroGATE',
@@ -47,7 +46,6 @@ export default function RootLayout({
       </head>
       <body>
         <AppFirstLaunchPermissions />
-        <VerificationExpiryModal />
         <InappBrowserWarning />
         <SiteNav />
         <div className="page-with-bottom-cta">{children}</div>

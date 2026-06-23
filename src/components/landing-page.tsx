@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { LandingGuideContent } from '@/components/landing-guide-content'
+import { HomeNotificationBanner } from '@/components/home-notification-banner'
 import { PastEventsSection } from '@/components/past-events-section'
 import { UpcomingEventsSection } from '@/components/upcoming-events-section'
+import { VerificationExpiryBanner } from '@/components/verification-expiry-banner'
 import { usePwaInstall } from '@/hooks/use-pwa-install'
 import {
   buildHomeBackgroundPositionCSSValue,
@@ -90,6 +92,9 @@ export function LandingPage() {
           <LandingInstallCta />
         </div>
       </section>
+
+      <VerificationExpiryBanner />
+      <HomeNotificationBanner />
 
       <div className="landing-events" id="events">
         <div className="page-container-wide landing-events-wrap events-page">

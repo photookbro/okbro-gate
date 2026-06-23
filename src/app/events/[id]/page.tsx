@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { VerificationInfo } from '@/lib/order-verification'
-import { AlbumAccessModal } from '@/components/album-access-modal'
+import { AlbumAccessSection } from '@/components/album-access-section'
 import { BAlbumView } from '@/components/b-album-view'
 import { AAlbumView } from '@/components/a-album-view'
 import { TermsAgreement } from '@/components/terms-agreement'
@@ -44,7 +44,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [userId, setUserId] = useState<string | null>(null)
   const [verification, setVerification] = useState<VerificationInfo>({ status: 'none' })
   const [verificationChecked, setVerificationChecked] = useState(false)
-  const [showAlbumModal, setShowAlbumModal] = useState(false)
   const [termsReady, setTermsReady] = useState(false)
   const [termsAgreed, setTermsAgreed] = useState(false)
 
@@ -109,12 +108,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const albumBranch = verificationChecked ? resolveEventAlbumBranch(verification) : null
   const purchaseVerified = verification.status === 'valid'
 
-  useEffect(() => {
-    if (albumBranch === 'purchase-modal') {
-      setShowAlbumModal(true)
-    }
-  }, [albumBranch])
-
   if (!termsReady) {
     return (
       <div className="page-shell flex items-center justify-center">
@@ -153,24 +146,11 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
     if (albumBranch === 'purchase-modal' && event!.album_b_url) {
       return (
-        <>
-          {!showAlbumModal && (
-            <button
-              type="button"
-              className="btn-primary w-full"
-              onClick={() => setShowAlbumModal(true)}
-            >
-              ⬇️ 고화질 다운로드
-            </button>
-          )}
-          <AlbumAccessModal
-            visible={showAlbumModal}
-            onClose={() => setShowAlbumModal(false)}
-            verification={verification}
-            albumBUrl={event!.album_b_url}
-            albumAUrl={event!.album_a_url}
-          />
-        </>
+        <AlbumAccessSection
+          verification={verification}
+          albumBUrl={event!.album_b_url}
+          albumAUrl={event!.album_a_url}
+        />
       )
     }
 

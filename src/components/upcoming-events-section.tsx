@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { GpsTrackingToggle } from '@/components/gps-tracking-toggle'
 import {
   EVENTS_UPCOMING_ON_DETAIL,
@@ -14,13 +15,13 @@ import {
 function UpcomingEventItem({ event }: { event: EventsListUpcomingEvent }) {
   return (
     <li className="events-list-item">
-      <article className="events-card events-card-upcoming">
+      <Link href={`/events/${event.id}`} className="events-card events-card-upcoming">
         <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
         <span className="events-event-name">{event.name}</span>
         {event.show_gps_toggle ? (
           <GpsTrackingToggle eventId={event.id} variant="events-list" />
         ) : null}
-      </article>
+      </Link>
     </li>
   )
 }
