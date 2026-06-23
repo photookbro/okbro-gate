@@ -11,8 +11,8 @@ import {
   loadHomeBackgroundSettings,
   saveHomeBackgroundImageUrl,
   saveHomeBackgroundPosition,
-  uploadHomeBackgroundImage,
-} from '@/lib/home-background-server'
+} from '@/lib/home-background-settings-server'
+import { uploadHomeBackgroundImage } from '@/lib/home-background-server'
 
 export async function GET(req: NextRequest) {
   if (!verifyAdminToken(req)) return unauthorizedResponse()

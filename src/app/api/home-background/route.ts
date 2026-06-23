@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveHomeBackgroundImageUrl } from '@/lib/home-background'
-import { loadHomeBackgroundSettings } from '@/lib/home-background-server'
+import { loadHomeBackgroundSettings } from '@/lib/home-background-settings-server'
 
 export async function GET() {
   try {
