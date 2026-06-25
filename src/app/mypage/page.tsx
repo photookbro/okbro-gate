@@ -42,7 +42,7 @@ export default function MyPage() {
   const [extendSuccess, setExtendSuccess] = useState('')
 
   const loadMypage = useCallback(async () => {
-    const res = await fetch('/api/mypage')
+    const res = await fetch('/api/mypage', { credentials: 'same-origin' })
     const data = await res.json()
     if (!res.ok) {
       setErrorMsg(data.error ?? '정보를 불러오지 못했어요')
@@ -55,15 +55,49 @@ export default function MyPage() {
   }, [])
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session?.user?.id) {
-        router.replace('/login')
+    let cancelled = false
+
+    async function bootstrap() {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser()
+
+      if (cancelled) return
+
+      if (error || !user) {
+        router.replace('/login?next=/mypage')
         return
       }
-      await loadMypage()
+
+      const ok = await loadMypage()
+      if (cancelled) return
+
+      if (!ok) {
+        const retry = await supabase.auth.refreshSession()
+        if (!cancelled && retry.data.session) {
+          await loadMypage()
+        }
+      }
+
       setLoading(false)
+    }
+
+    void bootstrap()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
+        router.replace('/login?next=/mypage')
+      }
     })
-  }, [router, loadMypage])
+
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
+  }, [router, loadMypage, supabase.auth])
 
   async function handleExtend(e: React.FormEvent) {
     e.preventDefault()

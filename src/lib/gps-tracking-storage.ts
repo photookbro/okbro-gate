@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { fetchGpsTrackingPref } from '@/lib/gps-tracking-pref-client'
 
 const STORAGE_KEY = 'okbro-gps-tracking'
 const CHANGE_EVENT = 'okbro-gps-tracking-change'
@@ -20,8 +21,13 @@ function readMap(): GpsTrackingMap {
 }
 
 function writeMap(map: GpsTrackingMap) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
-  window.dispatchEvent(new CustomEvent(CHANGE_EVENT))
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
+    window.dispatchEvent(new CustomEvent(CHANGE_EVENT))
+  } catch {
+    // ignore quota / private mode errors
+  }
 }
 
 export function isGpsTrackingEnabled(eventId: string): boolean {
@@ -39,10 +45,25 @@ export function setGpsTrackingEnabled(eventId: string, enabled: boolean) {
 }
 
 export function useGpsTrackingEnabled(eventId: string): [boolean, (enabled: boolean) => void] {
-  const [enabled, setEnabled] = useState(false)
+  const [enabled, setEnabled] = useState(() => isGpsTrackingEnabled(eventId))
 
   useEffect(() => {
-    setEnabled(isGpsTrackingEnabled(eventId))
+    let cancelled = false
+
+    async function hydrate() {
+      const localEnabled = isGpsTrackingEnabled(eventId)
+      setEnabled(localEnabled)
+
+      const serverEnabled = await fetchGpsTrackingPref(eventId)
+      if (cancelled) return
+
+      if (!localEnabled && serverEnabled) {
+        setGpsTrackingEnabled(eventId, true)
+        setEnabled(true)
+      }
+    }
+
+    void hydrate()
 
     function sync() {
       setEnabled(isGpsTrackingEnabled(eventId))
@@ -50,7 +71,9 @@ export function useGpsTrackingEnabled(eventId: string): [boolean, (enabled: bool
 
     window.addEventListener(CHANGE_EVENT, sync)
     window.addEventListener('storage', sync)
+
     return () => {
+      cancelled = true
       window.removeEventListener(CHANGE_EVENT, sync)
       window.removeEventListener('storage', sync)
     }
