@@ -5,6 +5,10 @@ import { useAdminToken } from './admin-auth-context'
 import { AdminDateInput } from '@/components/admin-date-input'
 import { HomeBackgroundAdminPanel } from '@/components/admin/home-background-admin-panel'
 import { NotificationsAdminPanel } from '@/components/admin/notifications-admin-panel'
+import {
+  AdminGpsLocationMap,
+  type GpsMapSlot,
+} from '@/components/admin/admin-gps-location-map'
 import { isCompleteIsoDate } from '@/lib/date-input'
 import { formatTimeInputValue, isCompleteTime } from '@/lib/time-input'
 
@@ -206,6 +210,10 @@ export default function AdminPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<EventForm>(emptyForm)
   const [savingEvent, setSavingEvent] = useState(false)
+  const [gpsMapSlot, setGpsMapSlot] = useState<GpsMapSlot>(1)
+  const [gpsMapSaving, setGpsMapSaving] = useState(false)
+  const [gpsMapMessage, setGpsMapMessage] = useState('')
+  const [gpsMapError, setGpsMapError] = useState('')
 
 
   const [gpsLogsModalEvent, setGpsLogsModalEvent] = useState<{ id: string; name: string } | null>(null)
@@ -459,11 +467,17 @@ export default function AdminPage() {
   function openAddModal() {
     setEditingId(null)
     setForm(emptyForm)
+    setGpsMapSlot(1)
+    setGpsMapMessage('')
+    setGpsMapError('')
     setModalOpen(true)
   }
 
   function openEditModal(event: Event) {
     setEditingId(event.id)
+    setGpsMapSlot(1)
+    setGpsMapMessage('')
+    setGpsMapError('')
     setForm({
       name: event.name,
       date: event.date,
@@ -497,6 +511,62 @@ export default function AdminPage() {
     setModalOpen(true)
   }
 
+  function buildEventPayloadFromForm(
+    sourceForm: EventForm = form,
+    overrides?: Partial<Record<string, unknown>>
+  ) {
+    return {
+      name: sourceForm.name,
+      date: sourceForm.date,
+      album_a_url: sourceForm.album_a_url,
+      album_b_url: sourceForm.album_b_url,
+      gps_enabled: sourceForm.gps_enabled,
+      is_loop_course: sourceForm.is_loop_course,
+      gps_1_lat: sourceForm.gps_1_lat || null,
+      gps_1_lng: sourceForm.gps_1_lng || null,
+      gps_1_radius_meters: sourceForm.gps_1_radius_meters || 50,
+      gps_2_lat: sourceForm.gps_2_lat || null,
+      gps_2_lng: sourceForm.gps_2_lng || null,
+      gps_2_radius_meters: sourceForm.gps_2_radius_meters || 50,
+      ...overrides,
+    }
+  }
+
+  async function handleApplyGpsLocation(slot: GpsMapSlot, lat: string, lng: string) {
+    setGpsMapSaving(true)
+    setGpsMapMessage('')
+    setGpsMapError('')
+
+    const nextForm: EventForm =
+      slot === 1
+        ? { ...form, gps_1_lat: lat, gps_1_lng: lng }
+        : { ...form, gps_2_lat: lat, gps_2_lng: lng }
+
+    setForm(nextForm)
+
+    if (!editingId) {
+      setGpsMapMessage(`${slot}차 촬영 위치가 폼에 반영됐어요. 대회 저장을 눌러주세요.`)
+      setGpsMapSaving(false)
+      return
+    }
+
+    const res = await adminFetch(`/api/admin/events?id=${editingId}`, {
+      method: 'PUT',
+      body: JSON.stringify(buildEventPayloadFromForm(nextForm)),
+    })
+
+    const data = await res.json()
+    if (!res.ok) {
+      setGpsMapError(typeof data.error === 'string' ? data.error : '위치 저장에 실패했어요')
+      setGpsMapSaving(false)
+      return
+    }
+
+    setGpsMapMessage(`${slot}차 촬영 위치가 저장됐어요.`)
+    setGpsMapSaving(false)
+    await loadEvents()
+  }
+
   async function handleSaveEvent(e: React.FormEvent) {
     e.preventDefault()
     if (!isCompleteIsoDate(form.date)) {
@@ -507,20 +577,7 @@ export default function AdminPage() {
     setSavingEvent(true)
     setEventError('')
 
-    const body = JSON.stringify({
-      name: form.name,
-      date: form.date,
-      album_a_url: form.album_a_url,
-      album_b_url: form.album_b_url,
-      gps_enabled: form.gps_enabled,
-      is_loop_course: form.is_loop_course,
-      gps_1_lat: form.gps_1_lat || null,
-      gps_1_lng: form.gps_1_lng || null,
-      gps_1_radius_meters: form.gps_1_radius_meters || 50,
-      gps_2_lat: form.gps_2_lat || null,
-      gps_2_lng: form.gps_2_lng || null,
-      gps_2_radius_meters: form.gps_2_radius_meters || 50,
-    })
+    const body = JSON.stringify(buildEventPayloadFromForm())
 
     const res = editingId
       ? await adminFetch(`/api/admin/events?id=${editingId}`, { method: 'PUT', body })
@@ -999,6 +1056,20 @@ export default function AdminPage() {
                 />
                 <span className="text-sm font-semibold text-[var(--text)]">순환 코스</span>
               </label>
+
+              <AdminGpsLocationMap
+                visible={modalOpen}
+                activeSlot={gpsMapSlot}
+                onActiveSlotChange={setGpsMapSlot}
+                slot1Lat={form.gps_1_lat}
+                slot1Lng={form.gps_1_lng}
+                slot2Lat={form.gps_2_lat}
+                slot2Lng={form.gps_2_lng}
+                onApply={handleApplyGpsLocation}
+                applying={gpsMapSaving}
+                statusMessage={gpsMapMessage}
+                statusError={gpsMapError}
+              />
 
               <div className="admin-gps-location-grid">
                 <div className="admin-gps-location-card">

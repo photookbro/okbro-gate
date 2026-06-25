@@ -363,11 +363,66 @@ body {
 }
 
 .admin-event-modal {
-  @apply w-full min-w-[40rem] max-w-3xl;
+  @apply w-full max-w-3xl min-w-0 sm:min-w-[40rem];
+}
+
+.admin-gps-map-section {
+  @apply mb-4 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4;
+}
+
+.admin-gps-map-header {
+  @apply mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between;
+}
+
+.admin-gps-map-title {
+  @apply text-sm font-semibold text-[var(--text)];
+}
+
+.admin-gps-map-subtitle {
+  @apply mt-1 text-xs text-[var(--text-muted)];
+}
+
+.admin-gps-map-slot-tabs {
+  @apply flex shrink-0 gap-2;
+}
+
+.admin-gps-map-slot-tab,
+.admin-gps-map-slot-tab-active {
+  @apply rounded-lg px-3 py-2 text-xs font-semibold transition-colors;
+}
+
+.admin-gps-map-slot-tab {
+  @apply border border-[var(--border)] bg-[var(--bg)] text-[var(--text)];
+}
+
+.admin-gps-map-slot-tab-active {
+  @apply border-[#1e3a5f] bg-[#1e3a5f] text-white;
+}
+
+.admin-gps-map-container {
+  height: min(50vh, 28rem);
+  min-height: 16rem;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  z-index: 0;
+}
+
+.admin-gps-map-coords {
+  @apply mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2;
+}
+
+.admin-gps-map-coord-field {
+  @apply block;
+}
+
+.admin-gps-map-actions {
+  @apply mt-3 flex flex-col gap-2 sm:flex-row;
 }
 
 .admin-gps-location-grid {
-  @apply grid grid-cols-2 gap-4;
+  @apply grid grid-cols-1 gap-4 md:grid-cols-2;
 }
 
 .admin-gps-location-card {
