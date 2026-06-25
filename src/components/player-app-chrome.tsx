@@ -11,7 +11,7 @@ export function PlayerAppChrome({ children }: { children: React.ReactNode }) {
   const isAdminRoute = pathname?.startsWith('/admin')
 
   if (isAdminRoute) {
-    return <div className={isAdminRoute ? 'admin-route-root' : undefined}>{children}</div>
+    return <>{children}</>
   }
 
   return (

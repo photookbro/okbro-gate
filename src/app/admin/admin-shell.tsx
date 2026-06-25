@@ -1,14 +1,25 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AdminAuthProvider } from './admin-auth-context'
-import { AdminHeader } from '@/components/admin/admin-header'
+import { AdminAuthProvider, useAdminAuth } from './admin-auth-context'
 import {
   readAdminToken,
   saveAdminToken,
   validateAdminToken,
   clearAdminSession,
 } from '@/lib/admin-auth-client'
+
+function AdminLogoutBar() {
+  const { logout } = useAdminAuth()
+
+  return (
+    <div className="mx-auto flex w-full max-w-[1400px] justify-end px-4 pt-4">
+      <button type="button" onClick={logout} className="btn-secondary-inline text-sm">
+        로그아웃
+      </button>
+    </div>
+  )
+}
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null)
@@ -72,7 +83,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   if (!checked) {
     return (
-      <div className="admin-auth-screen">
+      <div className="flex min-h-screen items-center justify-center bg-[#f3f4f6]">
         <p className="text-muted">잠시만 기다리세요. 관리자 인증을 확인하고 있습니다.</p>
       </div>
     )
@@ -80,11 +91,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   if (!token) {
     return (
-      <div className="admin-auth-screen">
-        <form onSubmit={handleLogin} className="admin-auth-card">
-          <p className="admin-auth-badge">오켱 ADMIN</p>
-          <h1 className="admin-auth-title">관리자 로그인</h1>
-          <p className="admin-auth-subtitle">관리자 비밀번호를 입력해주세요</p>
+      <div className="flex min-h-screen items-center justify-center bg-[#f3f4f6] p-4">
+        <form onSubmit={handleLogin} className="modal-card w-full max-w-sm">
+          <h1 className="section-title mb-2 text-center">🔐 관리자 로그인</h1>
+          <p className="mb-4 text-center text-sm text-muted">관리자 비밀번호를 입력해주세요</p>
           <input
             type="password"
             value={password}
@@ -105,8 +115,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AdminAuthProvider token={token}>
-      <div className="admin-app-shell">
-        <AdminHeader />
+      <div className="min-h-screen bg-[#f3f4f6]">
+        <AdminLogoutBar />
         {children}
       </div>
     </AdminAuthProvider>

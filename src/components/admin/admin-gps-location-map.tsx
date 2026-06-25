@@ -5,10 +5,11 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
   DEFAULT_MAP_ZOOM,
-  SEOUL_CENTER,
+  defaultMapCenterStrings,
   formatCoordinate,
   hasValidCoordinates,
   parseCoordinate,
+  resolveMapCenter,
 } from '@/lib/gps-map-defaults'
 
 const defaultIcon = L.icon({
@@ -66,21 +67,18 @@ export function AdminGpsLocationMap({
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<L.Map | null>(null)
   const markerRef = useRef<L.Marker | null>(null)
-  const [draftLat, setDraftLat] = useState('')
-  const [draftLng, setDraftLng] = useState('')
+  const autoLocatedSlotsRef = useRef<Set<GpsMapSlot>>(new Set())
+  const [draftLat, setDraftLat] = useState(() => defaultMapCenterStrings().lat)
+  const [draftLng, setDraftLng] = useState(() => defaultMapCenterStrings().lng)
   const [locating, setLocating] = useState(false)
   const [locationError, setLocationError] = useState('')
 
   const syncDraftFromSlot = useCallback(
     (slot: GpsMapSlot) => {
       const { lat, lng } = getSlotCoordinates(slot, slot1Lat, slot1Lng, slot2Lat, slot2Lng)
-      if (hasValidCoordinates(lat, lng)) {
-        setDraftLat(lat)
-        setDraftLng(lng)
-        return
-      }
-      setDraftLat(formatCoordinate(SEOUL_CENTER.lat))
-      setDraftLng(formatCoordinate(SEOUL_CENTER.lng))
+      const center = resolveMapCenter(lat, lng)
+      setDraftLat(formatCoordinate(center.lat))
+      setDraftLng(formatCoordinate(center.lng))
     },
     [slot1Lat, slot1Lng, slot2Lat, slot2Lng]
   )
@@ -107,8 +105,11 @@ export function AdminGpsLocationMap({
   useEffect(() => {
     if (!visible || !mapContainerRef.current || mapRef.current) return
 
+    const { lat, lng } = getSlotCoordinates(activeSlot, slot1Lat, slot1Lng, slot2Lat, slot2Lng)
+    const center = resolveMapCenter(lat, lng)
+
     const map = L.map(mapContainerRef.current, {
-      center: [SEOUL_CENTER.lat, SEOUL_CENTER.lng],
+      center: [center.lat, center.lng],
       zoom: DEFAULT_MAP_ZOOM,
     })
 
@@ -116,6 +117,8 @@ export function AdminGpsLocationMap({
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 19,
     }).addTo(map)
+
+    markerRef.current = L.marker([center.lat, center.lng], { icon: defaultIcon }).addTo(map)
 
     map.on('click', event => {
       const lat = formatCoordinate(event.latlng.lat)
@@ -128,12 +131,52 @@ export function AdminGpsLocationMap({
 
     mapRef.current = map
 
+    const timer = window.setTimeout(() => {
+      map.invalidateSize()
+      map.setView([center.lat, center.lng], DEFAULT_MAP_ZOOM)
+    }, 150)
+
     return () => {
+      window.clearTimeout(timer)
       map.remove()
       mapRef.current = null
       markerRef.current = null
     }
-  }, [visible, placeMarker])
+  }, [visible, activeSlot, slot1Lat, slot1Lng, slot2Lat, slot2Lng, placeMarker])
+
+  useEffect(() => {
+    if (!visible) {
+      autoLocatedSlotsRef.current = new Set()
+      return
+    }
+
+    const { lat, lng } = getSlotCoordinates(activeSlot, slot1Lat, slot1Lng, slot2Lat, slot2Lng)
+    if (hasValidCoordinates(lat, lng) || autoLocatedSlotsRef.current.has(activeSlot)) return
+    if (!navigator.geolocation) return
+
+    autoLocatedSlotsRef.current.add(activeSlot)
+    setLocating(true)
+
+    let cancelled = false
+
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        if (cancelled) return
+        setDraftLat(formatCoordinate(position.coords.latitude))
+        setDraftLng(formatCoordinate(position.coords.longitude))
+        setLocating(false)
+      },
+      () => {
+        if (cancelled) return
+        setLocating(false)
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60_000 }
+    )
+
+    return () => {
+      cancelled = true
+    }
+  }, [visible, activeSlot, slot1Lat, slot1Lng, slot2Lat, slot2Lng])
 
   useEffect(() => {
     if (!visible || !mapRef.current) return
@@ -144,21 +187,6 @@ export function AdminGpsLocationMap({
 
     placeMarker(lat, lng, true)
   }, [draftLat, draftLng, visible, placeMarker])
-
-  useEffect(() => {
-    if (!visible || !mapRef.current) return
-
-    const timer = window.setTimeout(() => {
-      mapRef.current?.invalidateSize()
-      const lat = parseCoordinate(draftLat)
-      const lng = parseCoordinate(draftLng)
-      if (lat != null && lng != null) {
-        mapRef.current?.setView([lat, lng], mapRef.current.getZoom())
-      }
-    }, 150)
-
-    return () => window.clearTimeout(timer)
-  }, [visible, draftLat, draftLng])
 
   function handleUseCurrentLocation() {
     if (!navigator.geolocation) {
