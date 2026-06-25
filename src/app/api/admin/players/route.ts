@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
         .eq('user_id', userId)
         .order('passed_at', { ascending: true }),
       admin
-        .from('gps_tracking_prefs')
+        .from('user_gps_tracking_prefs')
         .select('event_id, enabled, events(name, date)')
         .eq('user_id', userId),
       admin
@@ -321,7 +321,7 @@ export async function GET(req: NextRequest) {
       admin.from('terms_agreements').select('user_id, agreed_at'),
       admin.from('orders').select('user_id, order_number, used_at, created_at, expires_at'),
       admin.from('gps_logs').select('user_id, passed_at'),
-      admin.from('gps_tracking_prefs').select('user_id, updated_at'),
+      admin.from('user_gps_tracking_prefs').select('user_id, updated_at'),
     ])
 
   const termsByUser = new Map<string, string>()

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getAuthenticatedUser } from '@/lib/auth-server'
+import { USER_GPS_TRACKING_PREFS_TABLE } from '@/lib/user-gps-tracking-prefs-server'
 
 export async function GET(req: NextRequest) {
   const user = await getAuthenticatedUser()
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { data, error } = await supabaseAdmin()
-    .from('gps_tracking_prefs')
+    .from(USER_GPS_TRACKING_PREFS_TABLE)
     .select('enabled')
     .eq('user_id', user.id)
     .eq('event_id', eventId)
@@ -39,27 +40,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'event_id, enabled가 필요해요' }, { status: 400 })
   }
 
-  const admin = supabaseAdmin()
-
-  if (!enabled) {
-    await admin.from('gps_tracking_prefs').delete().eq('user_id', user.id).eq('event_id', event_id)
-    return NextResponse.json({ success: true, enabled: false })
-  }
-
-  const { error } = await admin.from('gps_tracking_prefs').upsert(
-    {
-      user_id: user.id,
-      event_id,
-      enabled: true,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id,event_id' }
-  )
+  const { error } = await supabaseAdmin()
+    .from(USER_GPS_TRACKING_PREFS_TABLE)
+    .upsert(
+      {
+        user_id: user.id,
+        event_id,
+        enabled,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,event_id' }
+    )
 
   if (error) {
     console.error('[gps-tracking-pref]', error)
     return NextResponse.json({ error: '설정 저장 실패' }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true, enabled: true })
+  return NextResponse.json({ success: true, enabled })
 }

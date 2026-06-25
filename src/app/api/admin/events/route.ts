@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
+import { disableAllUserGpsTrackingPrefsForEvent } from '@/lib/user-gps-tracking-prefs-server'
 
 const EVENT_FIELDS =
   'id, name, date, album_a_url, album_b_url, gps_lat, gps_lng, gps_radius_meters, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_enabled, is_loop_course'
@@ -195,7 +196,22 @@ export async function PUT(req: NextRequest) {
     if (legacy.error) {
       return NextResponse.json({ error: '대회 수정 실패' }, { status: 500 })
     }
+
+    if (!row.gps_enabled) {
+      const { error: prefsError } = await disableAllUserGpsTrackingPrefsForEvent(admin, id)
+      if (prefsError) {
+        console.error('[admin/events] disable user gps prefs', prefsError)
+      }
+    }
+
     return NextResponse.json({ event: normalizeEventRow(legacy.data as EventRow) })
+  }
+
+  if (!row.gps_enabled) {
+    const { error: prefsError } = await disableAllUserGpsTrackingPrefsForEvent(admin, id)
+    if (prefsError) {
+      console.error('[admin/events] disable user gps prefs', prefsError)
+    }
   }
 
   return NextResponse.json({ event: normalizeEventRow(data as EventRow) })

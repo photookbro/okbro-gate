@@ -51,16 +51,11 @@ export function useGpsTrackingEnabled(eventId: string): [boolean, (enabled: bool
     let cancelled = false
 
     async function hydrate() {
-      const localEnabled = isGpsTrackingEnabled(eventId)
-      setEnabled(localEnabled)
-
       const serverEnabled = await fetchGpsTrackingPref(eventId)
       if (cancelled) return
 
-      if (!localEnabled && serverEnabled) {
-        setGpsTrackingEnabled(eventId, true)
-        setEnabled(true)
-      }
+      setGpsTrackingEnabled(eventId, serverEnabled)
+      setEnabled(serverEnabled)
     }
 
     void hydrate()
