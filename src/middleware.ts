@@ -3,8 +3,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 function shouldSkipMiddleware(pathname: string): boolean {
   return (
-    pathname.startsWith('/api') ||
     pathname.startsWith('/admin') ||
+    pathname.startsWith('/api/admin') ||
+    pathname.startsWith('/api/auth') ||
     pathname.startsWith('/_next') ||
     pathname === '/favicon.ico' ||
     /\.[^/]+$/.test(pathname)

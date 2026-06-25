@@ -4,7 +4,7 @@ import { getAuthenticatedUser } from '@/lib/auth-server'
 import { USER_GPS_TRACKING_PREFS_TABLE } from '@/lib/user-gps-tracking-prefs-server'
 
 export async function GET(req: NextRequest) {
-  const user = await getAuthenticatedUser()
+  const user = await getAuthenticatedUser(req)
   if (!user) {
     return NextResponse.json({ enabled: false })
   }
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getAuthenticatedUser()
+  const user = await getAuthenticatedUser(req)
   if (!user) {
     return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
   }
