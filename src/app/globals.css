@@ -87,6 +87,106 @@ body {
   @apply mx-auto w-full max-w-[1400px] px-4 py-8;
 }
 
+.admin-route-root {
+  min-height: 100vh;
+  background-color: #f3f4f6;
+}
+
+.admin-app-shell {
+  min-height: 100vh;
+  background-color: #f3f4f6;
+}
+
+.admin-app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid #cbd5e1;
+  background: linear-gradient(180deg, #1e3a5f 0%, #0f172a 100%);
+  color: #ffffff;
+}
+
+.admin-app-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.875rem 1rem;
+}
+
+.admin-app-header-label {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.admin-app-header-desc {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: #bfdbfe;
+}
+
+.admin-logout-btn {
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 0.625rem;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.admin-logout-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.admin-auth-screen {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%);
+  padding: 1rem;
+}
+
+.admin-auth-card {
+  width: 100%;
+  max-width: 22rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 1rem;
+  background: #ffffff;
+  padding: 1.75rem;
+  box-shadow: var(--shadow-modal);
+}
+
+.admin-auth-badge {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  border-radius: 9999px;
+  background: #1e3a5f;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.admin-auth-title {
+  margin: 0 0 0.375rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.admin-auth-subtitle {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
 /* Card */
 .card {
   @apply rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)];

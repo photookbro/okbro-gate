@@ -1,9 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
-import { SiteNav } from '@/components/site-nav'
-import { InappBrowserWarning } from '@/components/inapp-browser-warning'
-import { AppFirstLaunchPermissions } from '@/components/app-first-launch-permissions'
-import { FixedFruitCta } from '@/components/fixed-fruit-cta'
+import { PlayerAppChrome } from '@/components/player-app-chrome'
 
 export const metadata: Metadata = {
   title: 'OKbroGATE',
@@ -38,18 +35,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <head>
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#FF5500" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-      </head>
       <body>
-        <AppFirstLaunchPermissions />
-        <InappBrowserWarning />
-        <SiteNav />
-        <div className="page-with-bottom-cta">{children}</div>
-        <FixedFruitCta />
+        <PlayerAppChrome>{children}</PlayerAppChrome>
       </body>
     </html>
   )

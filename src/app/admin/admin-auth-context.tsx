@@ -1,8 +1,9 @@
 'use client'
 
 import { createContext, useContext } from 'react'
+import { clearAdminSession } from '@/lib/admin-auth-client'
 
-const AdminAuthContext = createContext<string | null>(null)
+const AdminAuthContext = createContext<{ token: string; logout: () => void } | null>(null)
 
 export function AdminAuthProvider({
   token,
@@ -11,15 +12,30 @@ export function AdminAuthProvider({
   token: string
   children: React.ReactNode
 }) {
-  return <AdminAuthContext.Provider value={token}>{children}</AdminAuthContext.Provider>
+  function logout() {
+    clearAdminSession()
+    window.location.href = '/admin'
+  }
+
+  return (
+    <AdminAuthContext.Provider value={{ token, logout }}>{children}</AdminAuthContext.Provider>
+  )
 }
 
 export function useAdminToken() {
-  const token = useContext(AdminAuthContext)
-  if (!token) {
+  const ctx = useContext(AdminAuthContext)
+  if (!ctx?.token) {
     throw new Error('useAdminToken must be used within AdminAuthProvider')
   }
-  return token
+  return ctx.token
 }
 
-export const ADMIN_TOKEN_KEY = 'admin_token'
+export function useAdminAuth() {
+  const ctx = useContext(AdminAuthContext)
+  if (!ctx) {
+    throw new Error('useAdminAuth must be used within AdminAuthProvider')
+  }
+  return ctx
+}
+
+export { ADMIN_TOKEN_KEY } from '@/lib/admin-auth-client'
