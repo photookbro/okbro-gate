@@ -15,13 +15,15 @@ import {
 function UpcomingEventItem({ event }: { event: EventsListUpcomingEvent }) {
   return (
     <li className="events-list-item">
-      <Link href={`/events/${event.id}`} className="events-card events-card-upcoming">
-        <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
-        <span className="events-event-name">{event.name}</span>
+      <div className="events-card events-card-upcoming">
+        <Link href={`/events/${event.id}`} className="events-card-upcoming-link">
+          <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
+          <span className="events-event-name">{event.name}</span>
+        </Link>
         {event.show_gps_toggle ? (
           <GpsTrackingToggle eventId={event.id} variant="events-list" />
         ) : null}
-      </Link>
+      </div>
     </li>
   )
 }

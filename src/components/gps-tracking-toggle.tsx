@@ -53,9 +53,13 @@ export function GpsTrackingToggle({
     void syncGpsTrackingPref(eventId, false)
   }
 
-  function handleClick(e: React.MouseEvent) {
+  function stopNavigation(e: React.SyntheticEvent) {
     e.preventDefault()
     e.stopPropagation()
+  }
+
+  function handleClick(e: React.MouseEvent) {
+    stopNavigation(e)
     if (disabled) return
 
     if (enabled) {
@@ -80,7 +84,8 @@ export function GpsTrackingToggle({
     <>
       <div
         className={`flex items-center gap-1.5 ${compact || isEventsList ? '' : 'justify-between'} ${isEventsList ? 'events-gps-switch-row' : ''}`}
-        onClick={e => e.stopPropagation()}
+        onClick={stopNavigation}
+        onPointerDown={stopNavigation}
         onKeyDown={e => e.stopPropagation()}
         role="presentation"
       >
@@ -97,6 +102,7 @@ export function GpsTrackingToggle({
           aria-label={isEventsList ? (enabled ? 'GPS 감지 중' : 'GPS 감지 OFF') : '촬영 감지 ON/OFF'}
           disabled={disabled}
           onClick={handleClick}
+          onPointerDown={stopNavigation}
           className={`toggle-switch toggle-switch-sm ${switchClass}`}
         >
           <span className="toggle-switch-thumb" />
