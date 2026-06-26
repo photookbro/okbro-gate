@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
+import { buildAuthCallbackUrl } from '@/lib/app-origin'
 import {
   getExternalBrowserInstructions,
   isInAppBrowser,
@@ -9,6 +10,7 @@ import {
 } from '@/lib/in-app-browser'
 
 export default function SignupPage() {
+  const supabase = createClient()
   const [inAppBrowser, setInAppBrowser] = useState(false)
 
   useEffect(() => {
@@ -25,7 +27,9 @@ export default function SignupPage() {
 
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        redirectTo: buildAuthCallbackUrl('/'),
+      },
     })
   }
 

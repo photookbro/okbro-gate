@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { resolveClientUser } from '@/lib/supabase/auth-client'
 
 function navLinkClass(active: boolean) {
   return active ? 'nav-link nav-link-active' : 'nav-link'
@@ -21,9 +22,7 @@ export function SiteNav() {
     let cancelled = false
 
     async function loadAuth() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      const user = await resolveClientUser(supabase)
 
       if (cancelled) return
       setUserId(user?.id ?? null)

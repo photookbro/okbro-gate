@@ -1,6 +1,7 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
+import { buildAuthCallbackUrl } from '@/lib/app-origin'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 
@@ -12,7 +13,7 @@ export default function AuthSection({ user }: { user: User | null }) {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: buildAuthCallbackUrl('/'),
       },
     })
   }

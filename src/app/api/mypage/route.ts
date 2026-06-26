@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getAuthenticatedUser } from '@/lib/auth-server'
 import {
@@ -25,8 +25,8 @@ type OrderRow = {
   events?: { name: string | null } | { name: string | null }[] | null
 }
 
-export async function GET() {
-  const user = await getAuthenticatedUser()
+export async function GET(req: NextRequest) {
+  const user = await getAuthenticatedUser(req)
   if (!user) {
     return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
   }

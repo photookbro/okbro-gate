@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { authFetch, resolveClientUser } from '@/lib/supabase/auth-client'
 import { NAVER_ORDER_PLACEHOLDER } from '@/lib/naver-order-number'
 
 type PhotoAccess = {
@@ -42,7 +43,7 @@ export default function MyPage() {
   const [extendSuccess, setExtendSuccess] = useState('')
 
   const loadMypage = useCallback(async () => {
-    const res = await fetch('/api/mypage', { credentials: 'same-origin' })
+    const res = await authFetch('/api/mypage')
     const data = await res.json()
     if (!res.ok) {
       setErrorMsg(data.error ?? '정보를 불러오지 못했어요')
@@ -58,14 +59,11 @@ export default function MyPage() {
     let cancelled = false
 
     async function bootstrap() {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser()
+      const user = await resolveClientUser(supabase)
 
       if (cancelled) return
 
-      if (error || !user) {
+      if (!user) {
         router.replace('/login?next=/mypage')
         return
       }
@@ -74,8 +72,8 @@ export default function MyPage() {
       if (cancelled) return
 
       if (!ok) {
-        const retry = await supabase.auth.refreshSession()
-        if (!cancelled && retry.data.session) {
+        const refreshedUser = await resolveClientUser(supabase)
+        if (!cancelled && refreshedUser) {
           await loadMypage()
         }
       }
@@ -87,8 +85,8 @@ export default function MyPage() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) {
+    } = supabase.auth.onAuthStateChange(event => {
+      if (event === 'SIGNED_OUT') {
         router.replace('/login?next=/mypage')
       }
     })
