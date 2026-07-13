@@ -4,7 +4,8 @@ import { fetchEventsList, hasEventAlbum } from '@/lib/event-query'
 import { getAuthenticatedUser } from '@/lib/auth-server'
 import { getEventGpsLocations } from '@/lib/gps-locations'
 import { MAX_EVENT_LIST_GPS_LOGS } from '@/lib/event-gps-logs'
-import { buildPastGpsPassDisplay } from '@/lib/shoot-record'
+import { buildPastGpsPassDisplay, emailToUsername } from '@/lib/shoot-record'
+import { formatGpsPassDisplay, groupGpsLogsByLocation, type GpsLocationPassGroup } from '@/lib/gps-access'
 
 export async function GET() {
   const { past: pastEvents, upcoming: upcomingEvents, error } = await fetchEventsList()
@@ -15,6 +16,8 @@ export async function GET() {
   }
 
   const gpsLogsByEvent: Record<string, { username: string; time: string }[]> = {}
+  const upcomingShootRecordByEvent: Record<string, { username: string; time: string }> = {}
+  const upcomingPassGroupsByEvent: Record<string, GpsLocationPassGroup[]> = {}
   const user = await getAuthenticatedUser()
 
   if (user && pastEvents.length > 0) {
@@ -39,6 +42,50 @@ export async function GET() {
 
       bucket.push(display)
       gpsLogsByEvent[log.event_id] = bucket
+    }
+  }
+
+  if (user && upcomingEvents.length > 0) {
+    const admin = supabaseAdmin()
+    const eventIds = upcomingEvents.map(e => e.id)
+    const { data: logs } = await admin
+      .from('gps_logs')
+      .select('event_id, passed_at, pass_count, location_number')
+      .eq('user_id', user.id)
+      .in('event_id', eventIds)
+      .order('passed_at', { ascending: true })
+
+    const email = user.email ?? '회원'
+    const logsByEvent = new Map<
+      string,
+      { location_number: number | null; pass_count: number | null; passed_at: string | null }[]
+    >()
+
+    for (const log of logs ?? []) {
+      if (!log.event_id || !log.passed_at) continue
+      const bucket = logsByEvent.get(log.event_id) ?? []
+      bucket.push({
+        location_number: log.location_number,
+        pass_count: log.pass_count,
+        passed_at: log.passed_at,
+      })
+      logsByEvent.set(log.event_id, bucket)
+    }
+
+    for (const [eventId, eventLogs] of logsByEvent) {
+      upcomingPassGroupsByEvent[eventId] = groupGpsLogsByLocation(eventLogs)
+
+      const latestPassedAt = eventLogs.reduce(
+        (latest, log) => (log.passed_at && log.passed_at > latest ? log.passed_at : latest),
+        ''
+      )
+      // 실시간 대체 표시라 과거 대회 목록(분 단위)보다 정밀한 초 단위로 표시
+      if (latestPassedAt) {
+        upcomingShootRecordByEvent[eventId] = {
+          username: emailToUsername(email),
+          time: formatGpsPassDisplay(latestPassedAt),
+        }
+      }
     }
   }
 
@@ -69,6 +116,8 @@ export async function GET() {
       gps_lat: event.gps_1_lat ?? event.gps_lat,
       gps_lng: event.gps_1_lng ?? event.gps_lng,
       gps_radius_meters: event.gps_1_radius_meters ?? event.gps_radius_meters,
+      shoot_record: upcomingShootRecordByEvent[event.id] ?? null,
+      gps_pass_groups: upcomingPassGroupsByEvent[event.id] ?? [],
     })),
   })
 }

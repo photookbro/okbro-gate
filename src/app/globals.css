@@ -480,6 +480,20 @@ body {
   @apply flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 no-underline;
 }
 
+.events-location-preview-toggle {
+  @apply mt-1 cursor-pointer border-0 bg-transparent p-0 text-xs font-medium text-primary underline;
+}
+
+.player-location-preview-map {
+  width: 100%;
+  height: 220px;
+  margin-top: 0.5rem;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  z-index: 0;
+}
+
 .events-card-past {
   @apply block no-underline transition-colors hover:border-primary/25;
 }

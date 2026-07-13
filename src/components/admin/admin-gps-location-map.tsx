@@ -279,6 +279,9 @@ export function AdminGpsLocationMap({
         <div>
           <p className="admin-gps-map-title">촬영 위치 지도</p>
           <p className="admin-gps-map-subtitle">지도를 클릭해 위치를 고른 뒤 저장하세요.</p>
+          <p className="admin-gps-map-subtitle">
+            정확도를 위해 최대한 확대해서 클릭하거나 &apos;현재 내 위치&apos; 버튼을 이용하세요.
+          </p>
         </div>
         <div className="admin-gps-map-slot-tabs" role="tablist" aria-label="촬영 위치 선택">
           {([1, 2] as const).map(slot => (

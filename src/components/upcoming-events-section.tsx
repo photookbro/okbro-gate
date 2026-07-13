@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { GpsTrackingToggle } from '@/components/gps-tracking-toggle'
+import { useGpsTrackingEnabled } from '@/lib/gps-tracking-storage'
 import {
   EVENTS_UPCOMING_ON_DETAIL,
   EVENTS_UPCOMING_ON_PROMPT,
@@ -12,21 +14,71 @@ import {
   type EventsListUpcomingEvent,
 } from '@/lib/events-list-client'
 
+const PlayerLocationPreviewMap = dynamic(
+  () => import('@/components/player-location-preview-map').then(mod => mod.PlayerLocationPreviewMap),
+  { ssr: false }
+)
+
 function UpcomingEventItem({ event }: { event: EventsListUpcomingEvent }) {
+  const [mapOpen, setMapOpen] = useState(false)
+  const [trackingEnabled] = useGpsTrackingEnabled(event.id)
+
+  const isMultiMode = event.is_loop_course || event.locations.length > 1
+  const hasPassData = isMultiMode ? event.gps_pass_groups.length > 0 : !!event.shoot_record
+
   return (
     <li className="events-list-item">
-      <div className="events-card events-card-upcoming">
-        <Link href={`/events/${event.id}`} className="events-card-upcoming-link">
-          <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
-          <span className="events-event-name">{event.name}</span>
-        </Link>
-        {event.show_gps_toggle ? (
-          <GpsTrackingToggle eventId={event.id} variant="events-list" />
-        ) : null}
+      <div className="events-card">
+        <div className="events-card-upcoming">
+          <Link href={`/events/${event.id}`} className="events-card-upcoming-link">
+            <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
+            <span className="events-event-name">{event.name}</span>
+          </Link>
+          {event.show_gps_toggle ? (
+            <GpsTrackingToggle eventId={event.id} variant="events-list" />
+          ) : null}
+        </div>
+
+        {trackingEnabled && hasPassData && (
+          <div className="w-full events-past-meta">
+            {isMultiMode
+              ? event.gps_pass_groups.map(group => (
+                  <p key={group.location_number} className="events-shoot-record">
+                    {event.gps_pass_groups.length > 1 && (
+                      <strong>{group.location_number}차 위치 </strong>
+                    )}
+                    {group.passes
+                      .map(pass => `${pass.pass_count}차 통과: ${pass.display_time}`)
+                      .join(' · ')}
+                  </p>
+                ))
+              : event.shoot_record && (
+                  <p className="events-shoot-record">
+                    <strong>{event.shoot_record.username}</strong>님은{' '}
+                    <strong>{event.shoot_record.time}</strong>경에 오켱 카메라 앞을 지나갔습니다
+                  </p>
+                )}
+          </div>
+        )}
+
+        {event.locations.length > 0 && (
+          <div className="w-full">
+            <button
+              type="button"
+              className="events-location-preview-toggle"
+              onClick={() => setMapOpen(open => !open)}
+            >
+              {mapOpen ? '📍 촬영 위치 닫기' : '📍 촬영 위치 보기'}
+            </button>
+            {mapOpen && <PlayerLocationPreviewMap locations={event.locations} />}
+          </div>
+        )}
       </div>
     </li>
   )
 }
+
+const UPCOMING_POLL_INTERVAL_MS = 15000
 
 export function UpcomingEventsSection() {
   const [upcoming, setUpcoming] = useState<EventsListUpcomingEvent[]>([])
@@ -34,21 +86,43 @@ export function UpcomingEventsSection() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    setLoading(true)
-    setError('')
+    let cancelled = false
 
-    fetch('/api/events/list')
-      .then(async res => {
-        const data = await res.json()
-        if (!res.ok) {
-          setError(typeof data.error === 'string' ? data.error : '목록을 불러오지 못했어요')
-          return
-        }
-        const parsed = parseEventsListResponse(data)
-        setUpcoming(parsed.upcoming)
-      })
-      .catch(() => setError('목록을 불러오지 못했어요'))
-      .finally(() => setLoading(false))
+    function load(showSpinner: boolean) {
+      if (showSpinner) {
+        setLoading(true)
+        setError('')
+      }
+
+      fetch('/api/events/list')
+        .then(async res => {
+          const data = await res.json()
+          if (cancelled) return
+          if (!res.ok) {
+            if (showSpinner) {
+              setError(typeof data.error === 'string' ? data.error : '목록을 불러오지 못했어요')
+            }
+            return
+          }
+          const parsed = parseEventsListResponse(data)
+          setUpcoming(parsed.upcoming)
+        })
+        .catch(() => {
+          if (!cancelled && showSpinner) setError('목록을 불러오지 못했어요')
+        })
+        .finally(() => {
+          if (!cancelled && showSpinner) setLoading(false)
+        })
+    }
+
+    load(true)
+    // 통과 시각 텍스트가 새로고침 없이도 반영되도록 주기적으로 조용히 재조회
+    const interval = window.setInterval(() => load(false), UPCOMING_POLL_INTERVAL_MS)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
   }, [])
 
   return (

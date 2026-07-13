@@ -21,8 +21,7 @@
     "next-auth": "^4.24.14",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "sharp": "^0.35.1",
-    "web-push": "^3.6.7"
+    "sharp": "^0.35.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -31,7 +30,6 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "15.5.19",
     "rimraf": "^6.1.3",

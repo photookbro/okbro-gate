@@ -10,7 +10,7 @@ import {
   USER_EXPIRY_WARNING_DAYS,
 } from '@/lib/order-verification'
 import { buildPhotoAccessSummary } from '@/lib/verification-access'
-import { formatGpsPassDisplay } from '@/lib/gps-access'
+import { groupGpsLogsByLocation, formatGpsPassDisplay } from '@/lib/gps-access'
 import { buildDuplicateInfoByOrderNumber } from '@/lib/order-duplicate'
 import { loadVerificationSettings } from '@/lib/verification-settings'
 
@@ -143,13 +143,11 @@ export async function GET(req: NextRequest) {
     .eq('user_id', user.id)
     .order('passed_at', { ascending: true })
 
-  type GpsPassEntry = { pass_count: number; display_time: string; passed_at: string }
-  type GpsLocationGroup = { location_number: number; passes: GpsPassEntry[] }
   type GpsEventPassGroup = {
     event_id: string
     event_name: string
     is_loop_course: boolean
-    locations: Map<number, GpsLocationGroup>
+    logs: { location_number: number | null; pass_count: number | null; passed_at: string | null }[]
   }
 
   const gpsEventPassMap = new Map<string, GpsEventPassGroup>()
@@ -160,43 +158,29 @@ export async function GET(req: NextRequest) {
       | { name: string | null; is_loop_course: boolean | null }[]
       | null
     const eventMeta = Array.isArray(joined) ? joined[0] : joined
-    const eventName = eventMeta?.name ?? '알 수 없는 대회'
     if (!log.event_id || !log.passed_at) continue
 
     let group = gpsEventPassMap.get(log.event_id)
     if (!group) {
       group = {
         event_id: log.event_id,
-        event_name: eventName,
+        event_name: eventMeta?.name ?? '알 수 없는 대회',
         is_loop_course: eventMeta?.is_loop_course === true,
-        locations: new Map(),
+        logs: [],
       }
       gpsEventPassMap.set(log.event_id, group)
     }
 
-    const locationNumber = log.location_number ?? 1
-    let locationGroup = group.locations.get(locationNumber)
-    if (!locationGroup) {
-      locationGroup = { location_number: locationNumber, passes: [] }
-      group.locations.set(locationNumber, locationGroup)
-    }
-
-    locationGroup.passes.push({
-      pass_count: log.pass_count ?? locationGroup.passes.length + 1,
-      display_time: formatGpsPassDisplay(log.passed_at),
+    group.logs.push({
+      location_number: log.location_number,
+      pass_count: log.pass_count,
       passed_at: log.passed_at,
     })
   }
 
   const gps_event_passes = [...gpsEventPassMap.values()]
     .map(group => {
-      const locations = [...group.locations.values()]
-        .map(location => ({
-          ...location,
-          passes: [...location.passes].sort((a, b) => a.pass_count - b.pass_count),
-        }))
-        .sort((a, b) => a.location_number - b.location_number)
-
+      const locations = groupGpsLogsByLocation(group.logs)
       const latestPassedAt = locations
         .flatMap(location => location.passes)
         .reduce((latest, pass) => (pass.passed_at > latest ? pass.passed_at : latest), '')

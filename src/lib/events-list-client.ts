@@ -26,12 +26,33 @@ export type EventsListPastEvent = {
   gps_logs: EventsListShootRecord[]
 }
 
+export type EventsListLocation = {
+  location_number: number
+  lat: number
+  lng: number
+  radius_meters: number
+}
+
+export type EventsListGpsPassEntry = {
+  pass_count: number
+  display_time: string
+}
+
+export type EventsListGpsPassGroup = {
+  location_number: number
+  passes: EventsListGpsPassEntry[]
+}
+
 export type EventsListUpcomingEvent = {
   id: string
   name: string
   date: string
   gps_enabled: boolean
   show_gps_toggle: boolean
+  is_loop_course: boolean
+  locations: EventsListLocation[]
+  shoot_record: EventsListShootRecord | null
+  gps_pass_groups: EventsListGpsPassGroup[]
 }
 
 export function parseShootRecord(value: unknown): EventsListShootRecord | null {
@@ -84,8 +105,49 @@ export function parseUpcomingEvent(value: unknown): EventsListUpcomingEvent | nu
   if (!id || !name || !date) return null
 
   const gps_enabled = row.gps_enabled === true
-  const locations = Array.isArray(row.locations) ? row.locations : []
+  const rawLocations = Array.isArray(row.locations) ? row.locations : []
+  const locations = rawLocations
+    .map((raw): EventsListLocation | null => {
+      if (!raw || typeof raw !== 'object') return null
+      const loc = raw as Record<string, unknown>
+      const lat = Number(loc.lat)
+      const lng = Number(loc.lng)
+      const locationNumber = Number(loc.location_number)
+      const radiusMeters = Number(loc.radius_meters)
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+      return {
+        location_number: Number.isFinite(locationNumber) ? locationNumber : 1,
+        lat,
+        lng,
+        radius_meters: Number.isFinite(radiusMeters) ? radiusMeters : 50,
+      }
+    })
+    .filter((location): location is EventsListLocation => location !== null)
   const hasGpsLocations = locations.length > 0
+
+  const rawPassGroups = Array.isArray(row.gps_pass_groups) ? row.gps_pass_groups : []
+  const gps_pass_groups = rawPassGroups
+    .map((raw): EventsListGpsPassGroup | null => {
+      if (!raw || typeof raw !== 'object') return null
+      const group = raw as Record<string, unknown>
+      const locationNumber = Number(group.location_number)
+      const rawPasses = Array.isArray(group.passes) ? group.passes : []
+      const passes = rawPasses
+        .map((rawPass): EventsListGpsPassEntry | null => {
+          if (!rawPass || typeof rawPass !== 'object') return null
+          const pass = rawPass as Record<string, unknown>
+          const passCount = Number(pass.pass_count)
+          const displayTime = typeof pass.display_time === 'string' ? pass.display_time : ''
+          if (!displayTime) return null
+          return { pass_count: Number.isFinite(passCount) ? passCount : 1, display_time: displayTime }
+        })
+        .filter((pass): pass is EventsListGpsPassEntry => pass !== null)
+      if (!Number.isFinite(locationNumber) || passes.length === 0) return null
+      return { location_number: locationNumber, passes }
+    })
+    .filter((group): group is EventsListGpsPassGroup => group !== null)
+
+  const shoot_record = parseShootRecord(row.shoot_record)
 
   return {
     id,
@@ -93,6 +155,10 @@ export function parseUpcomingEvent(value: unknown): EventsListUpcomingEvent | nu
     date,
     gps_enabled,
     show_gps_toggle: gps_enabled || hasGpsLocations,
+    is_loop_course: row.is_loop_course === true,
+    locations,
+    shoot_record,
+    gps_pass_groups,
   }
 }
 

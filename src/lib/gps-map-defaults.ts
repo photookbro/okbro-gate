@@ -3,7 +3,8 @@ export const SEOUL_CENTER = {
   lng: 126.978,
 } as const
 
-export const DEFAULT_MAP_ZOOM = 15
+/** 줌 15는 픽셀당 지상거리가 커서 클릭 오차가 수십 m까지 남을 수 있음 — 건물 단위로 보이는 18로 고정 */
+export const DEFAULT_MAP_ZOOM = 18
 
 export type MapCenter = {
   lat: number

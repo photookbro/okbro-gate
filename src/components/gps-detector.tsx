@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { formatPassTimeSeconds, haversineDistanceMeters } from '@/lib/geo'
+import { haversineDistanceMeters } from '@/lib/geo'
 import {
   geolocationFailureMessage,
   GPS_DETECTION_FAILURE_MESSAGE,
@@ -40,7 +40,7 @@ type GpsDetectorProps = {
 }
 
 function formatCoord(value: number): string {
-  return value.toFixed(4)
+  return value.toFixed(6)
 }
 
 function createZoneStateMap(locations: EventGpsLocation[], maxPasses: number) {
@@ -51,13 +51,8 @@ function createZoneStateMap(locations: EventGpsLocation[], maxPasses: number) {
   return map
 }
 
-function createEarlyAlertMap(locations: EventGpsLocation[]) {
-  const map = new Map<GpsLocationNumber, boolean>()
-  for (const location of locations) {
-    map.set(location.locationNumber, false)
-  }
-  return map
-}
+/** 근접 구역(반경×3) 안에서 위치를 더 자주 확인하는 보조 폴링 주기 */
+const NEAR_ZONE_POLL_INTERVAL_MS = 3000
 
 export function GpsDetector({
   eventId,
@@ -75,11 +70,11 @@ export function GpsDetector({
   )
   const recordingRef = useRef<Set<string>>(new Set())
   const autoStartedRef = useRef(false)
-  const earlyAlertedRef = useRef<Map<GpsLocationNumber, boolean>>(createEarlyAlertMap(locations))
+  const nearZoneIntervalRef = useRef<number | null>(null)
+  const handlePositionRef = useRef<(position: GeolocationPosition) => void>(() => {})
   const [storedEnabled] = useGpsTrackingEnabled(eventId)
   const [tracking, setTracking] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
-  const [toast, setToast] = useState<string | null>(null)
   const [permissionOpen, setPermissionOpen] = useState(false)
   const [requestingPermission, setRequestingPermission] = useState(false)
   const [permissionError, setPermissionError] = useState('')
@@ -93,12 +88,33 @@ export function GpsDetector({
     [locations]
   )
 
+  const stopNearZonePolling = useCallback(() => {
+    if (nearZoneIntervalRef.current !== null) {
+      window.clearInterval(nearZoneIntervalRef.current)
+      nearZoneIntervalRef.current = null
+    }
+  }, [])
+
+  const startNearZonePolling = useCallback(() => {
+    if (nearZoneIntervalRef.current !== null) return
+    nearZoneIntervalRef.current = window.setInterval(() => {
+      navigator.geolocation.getCurrentPosition(
+        pos => handlePositionRef.current(pos),
+        () => {
+          // 보조 폴링 실패는 조용히 무시 — watchPosition이 기본 추적을 계속 담당
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 }
+      )
+    }, NEAR_ZONE_POLL_INTERVAL_MS)
+  }, [])
+
   const clearWatchOnly = useCallback(() => {
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current)
       watchIdRef.current = null
     }
-  }, [])
+    stopNearZonePolling()
+  }, [stopNearZonePolling])
 
   const stopTracking = useCallback(() => {
     clearWatchOnly()
@@ -106,14 +122,12 @@ export function GpsDetector({
     setCurrentLat(null)
     setCurrentLng(null)
     setDistanceByLocation({})
-    earlyAlertedRef.current = createEarlyAlertMap(activeLocations)
     setGpsTrackingEnabled(eventId, false)
     void syncGpsTrackingPref(eventId, false)
-  }, [activeLocations, clearWatchOnly, eventId])
+  }, [clearWatchOnly, eventId])
 
   useEffect(() => {
     zoneStateRef.current = createZoneStateMap(activeLocations, maxPasses)
-    earlyAlertedRef.current = createEarlyAlertMap(activeLocations)
   }, [activeLocations, maxPasses])
 
   // 페이지 이탈 시 watch만 정리. 토글 OFF로 저장하면 재진입 시 자동 추적이 풀림.
@@ -128,12 +142,6 @@ export function GpsDetector({
   }, [purchaseVerified, tracking, stopTracking])
 
   const canUseGps = verificationChecked && !!userId && purchaseVerified && activeLocations.length > 0
-
-  useEffect(() => {
-    if (!toast) return
-    const timer = setTimeout(() => setToast(null), 5000)
-    return () => clearTimeout(timer)
-  }, [toast])
 
   const syncTodayPasses = useCallback(async () => {
     try {
@@ -192,15 +200,7 @@ export function GpsDetector({
           return
         }
 
-        const passedAt = data.passed_at ? new Date(data.passed_at) : new Date()
-        const timeLabel = formatPassTimeSeconds(passedAt)
-        const recordedPass = data.pass_count ?? passCount
-        const locationLabel = activeLocations.length > 1 ? `${locationNumber}차 위치 ` : ''
-        const arrivalMessage = isLoopCourse
-          ? `🎬 ${locationLabel}촬영 지점 도착! ${timeLabel} (${recordedPass}차)`
-          : `🎬 ${locationLabel}촬영 지점 도착! ${timeLabel}`
         setPassCountToday(prev => prev + 1)
-        setToast(arrivalMessage)
       } catch {
         const state = zoneStateRef.current.get(locationNumber)
         if (state) {
@@ -216,13 +216,14 @@ export function GpsDetector({
         recordingRef.current.delete(key)
       }
     },
-    [activeLocations.length, eventId, isLoopCourse]
+    [eventId]
   )
 
   const handlePosition = useCallback(
     (position: GeolocationPosition) => {
       const { latitude, longitude } = position.coords
       const nextDistances: Record<number, number> = {}
+      let isNearAnyZone = false
 
       setCurrentLat(latitude)
       setCurrentLng(longitude)
@@ -230,16 +231,11 @@ export function GpsDetector({
       for (const location of activeLocations) {
         const distance = haversineDistanceMeters(latitude, longitude, location.lat, location.lng)
         nextDistances[location.locationNumber] = Math.round(distance)
-        const alertDistanceMeters = location.radiusMeters * 3
+        const precisionZoneRadiusMeters = location.radiusMeters * 3
         const exitRadius = Math.max(GPS_EXIT_RADIUS_METERS, location.radiusMeters * 2)
 
-        if (
-          !earlyAlertedRef.current.get(location.locationNumber) &&
-          distance <= alertDistanceMeters &&
-          distance > location.radiusMeters
-        ) {
-          earlyAlertedRef.current.set(location.locationNumber, true)
-          setToast('🎬 오켱이 기다리고 있어요')
+        if (distance <= precisionZoneRadiusMeters) {
+          isNearAnyZone = true
         }
 
         const currentState =
@@ -258,9 +254,21 @@ export function GpsDetector({
       }
 
       setDistanceByLocation(nextDistances)
+
+      // 근접 구역 안에서는 위치를 더 자주 확인해 통과 판정 정밀도를 높이고,
+      // 벗어나면 배터리 절약을 위해 보조 폴링을 멈춤 (watchPosition은 계속 유지)
+      if (isNearAnyZone) {
+        startNearZonePolling()
+      } else {
+        stopNearZonePolling()
+      }
     },
-    [activeLocations, eventId, maxPasses, recordPass]
+    [activeLocations, maxPasses, recordPass, startNearZonePolling, stopNearZonePolling]
   )
+
+  useEffect(() => {
+    handlePositionRef.current = handlePosition
+  }, [handlePosition])
 
   const startTracking = useCallback(() => {
     if (!canUseGps) return
@@ -404,7 +412,6 @@ export function GpsDetector({
             {activeLocations.map(location => {
               const distance = distanceByLocation[location.locationNumber]
               const exitRadius = Math.max(GPS_EXIT_RADIUS_METERS, location.radiusMeters * 2)
-              const alertDistance = location.radiusMeters * 3
               return (
                 <p
                   key={location.locationNumber}
@@ -417,8 +424,7 @@ export function GpsDetector({
                   }
                 >
                   {activeLocations.length > 1 ? `${location.locationNumber}차 위치` : '촬영 위치'}:{' '}
-                  {distance != null ? `${distance}m` : '-'} (조기 알림 {alertDistance}m · 도착{' '}
-                  {location.radiusMeters}m)
+                  {distance != null ? `${distance}m` : '-'} (도착 {location.radiusMeters}m)
                 </p>
               )
             })}
@@ -427,12 +433,6 @@ export function GpsDetector({
 
         {errorMsg && <p className="mt-3 text-xs text-danger">{errorMsg}</p>}
       </div>
-
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 z-[100] w-[360px] max-w-[90vw] -translate-x-1/2 rounded-lg bg-gray-900 px-4 py-3.5 text-sm leading-relaxed text-white shadow-lg">
-          {toast}
-        </div>
-      )}
 
       <GpsPermissionModal
         open={permissionOpen}
