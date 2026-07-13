@@ -30,6 +30,7 @@ export function haversineDistance(
 
 export function formatPassTime(date: Date = new Date()): string {
   return date.toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -39,6 +40,7 @@ export function formatPassTime(date: Date = new Date()): string {
 
 export function formatPassTimeSeconds(date: Date = new Date()): string {
   return date.toLocaleTimeString('ko-KR', {
+    timeZone: 'Asia/Seoul',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',

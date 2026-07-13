@@ -80,6 +80,7 @@ export function formatAdminDate(date: string | Date | null | undefined): string 
   const d = typeof date === 'string' ? new Date(date) : date
   if (Number.isNaN(d.getTime())) return '-'
   return d.toLocaleDateString('ko-KR', {
+    timeZone: 'Asia/Seoul',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -91,6 +92,7 @@ export function formatAdminDateTime(date: string | Date | null | undefined): str
   const d = typeof date === 'string' ? new Date(date) : date
   if (Number.isNaN(d.getTime())) return '-'
   return d.toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

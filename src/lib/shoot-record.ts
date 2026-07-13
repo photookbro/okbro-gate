@@ -11,6 +11,7 @@ export function formatPassTimeMinutes(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date
   if (Number.isNaN(d.getTime())) return ''
   return d.toLocaleTimeString('ko-KR', {
+    timeZone: 'Asia/Seoul',
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,

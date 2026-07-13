@@ -101,6 +101,7 @@ export function formatVerificationDate(date: string | Date | null | undefined): 
   if (Number.isNaN(d.getTime())) return '-'
 
   return d.toLocaleDateString('ko-KR', {
+    timeZone: 'Asia/Seoul',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
