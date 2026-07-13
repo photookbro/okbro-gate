@@ -20,7 +20,8 @@ export async function supabaseRestFetch(
   path: string,
   init?: RequestInit
 ): Promise<Response> {
-  assertSupabaseEnv()  const headers = {
+  assertSupabaseEnv()
+  const headers = {
     ...supabaseAnonRestHeaders(),
     Accept: 'application/json',
     ...(init?.headers as Record<string, string> | undefined),

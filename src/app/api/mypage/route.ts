@@ -9,7 +9,7 @@ import {
   resolveExpiresAt,
   USER_EXPIRY_WARNING_DAYS,
 } from '@/lib/order-verification'
-import { buildPhotoAccessSummary, isHipassOrderNumber } from '@/lib/verification-access'
+import { buildPhotoAccessSummary } from '@/lib/verification-access'
 import { formatGpsPassDisplay } from '@/lib/gps-access'
 import { buildDuplicateInfoByOrderNumber } from '@/lib/order-duplicate'
 import { loadVerificationSettings } from '@/lib/verification-settings'
@@ -43,8 +43,6 @@ export async function GET(req: NextRequest) {
   ])
 
   const verifiedPeriodDays = settings.verifiedPeriodDays
-  const sharedOrderNumber = settings.sharedOrderNumber
-  const hipassPeriodDays = settings.sharedOrderPeriodDays
 
   const userOrders = (orders as OrderRow[] | null) ?? []
   const duplicateByOrderNumber = await buildDuplicateInfoByOrderNumber(
@@ -54,20 +52,12 @@ export async function GET(req: NextRequest) {
   )
 
   const now = new Date()
-  const photoAccess = buildPhotoAccessSummary(
-    userOrders,
-    sharedOrderNumber,
-    hipassPeriodDays,
-    verifiedPeriodDays,
-    now
-  )
+  const photoAccess = buildPhotoAccessSummary(userOrders, verifiedPeriodDays, now)
 
   const verifications = userOrders.map(order => {
     const joinedEvent = Array.isArray(order.events) ? order.events[0] : order.events
     const verifiedAt = new Date(order.used_at || order.created_at || '')
-    const isHipass = isHipassOrderNumber(order.order_number, sharedOrderNumber)
-    const periodDays = isHipass ? hipassPeriodDays : verifiedPeriodDays
-    const expiresAt = resolveExpiresAt(order, periodDays)
+    const expiresAt = resolveExpiresAt(order, verifiedPeriodDays)
     const status = expiresAt ? getMonitorStatus(expiresAt, now) : 'expired'
 
     const duplicate = duplicateByOrderNumber.get(order.order_number.trim()) ?? {
@@ -149,21 +139,28 @@ export async function GET(req: NextRequest) {
 
   const { data: gpsLogs } = await admin
     .from('gps_logs')
-    .select('id, event_id, passed_at, pass_count, notified, events(name)')
+    .select('id, event_id, passed_at, pass_count, location_number, notified, events(name, is_loop_course)')
     .eq('user_id', user.id)
     .order('passed_at', { ascending: true })
 
+  type GpsPassEntry = { pass_count: number; display_time: string; passed_at: string }
+  type GpsLocationGroup = { location_number: number; passes: GpsPassEntry[] }
   type GpsEventPassGroup = {
     event_id: string
     event_name: string
-    passes: { pass_count: number; display_time: string; passed_at: string }[]
+    is_loop_course: boolean
+    locations: Map<number, GpsLocationGroup>
   }
 
   const gpsEventPassMap = new Map<string, GpsEventPassGroup>()
 
   for (const log of gpsLogs ?? []) {
-    const joined = log.events as { name: string | null } | { name: string | null }[] | null
-    const eventName = (Array.isArray(joined) ? joined[0]?.name : joined?.name) ?? '알 수 없는 대회'
+    const joined = log.events as
+      | { name: string | null; is_loop_course: boolean | null }
+      | { name: string | null; is_loop_course: boolean | null }[]
+      | null
+    const eventMeta = Array.isArray(joined) ? joined[0] : joined
+    const eventName = eventMeta?.name ?? '알 수 없는 대회'
     if (!log.event_id || !log.passed_at) continue
 
     let group = gpsEventPassMap.get(log.event_id)
@@ -171,28 +168,51 @@ export async function GET(req: NextRequest) {
       group = {
         event_id: log.event_id,
         event_name: eventName,
-        passes: [],
+        is_loop_course: eventMeta?.is_loop_course === true,
+        locations: new Map(),
       }
+      gpsEventPassMap.set(log.event_id, group)
     }
 
-    group.passes.push({
-      pass_count: log.pass_count ?? group.passes.length + 1,
+    const locationNumber = log.location_number ?? 1
+    let locationGroup = group.locations.get(locationNumber)
+    if (!locationGroup) {
+      locationGroup = { location_number: locationNumber, passes: [] }
+      group.locations.set(locationNumber, locationGroup)
+    }
+
+    locationGroup.passes.push({
+      pass_count: log.pass_count ?? locationGroup.passes.length + 1,
       display_time: formatGpsPassDisplay(log.passed_at),
       passed_at: log.passed_at,
     })
-    gpsEventPassMap.set(log.event_id, group)
   }
 
   const gps_event_passes = [...gpsEventPassMap.values()]
-    .map(group => ({
-      ...group,
-      passes: [...group.passes].sort((a, b) => a.pass_count - b.pass_count),
-    }))
-    .sort(
-      (a, b) =>
-        new Date(b.passes[b.passes.length - 1]?.passed_at ?? 0).getTime() -
-        new Date(a.passes[a.passes.length - 1]?.passed_at ?? 0).getTime()
-    )
+    .map(group => {
+      const locations = [...group.locations.values()]
+        .map(location => ({
+          ...location,
+          passes: [...location.passes].sort((a, b) => a.pass_count - b.pass_count),
+        }))
+        .sort((a, b) => a.location_number - b.location_number)
+
+      const latestPassedAt = locations
+        .flatMap(location => location.passes)
+        .reduce((latest, pass) => (pass.passed_at > latest ? pass.passed_at : latest), '')
+
+      return {
+        event: {
+          event_id: group.event_id,
+          event_name: group.event_name,
+          is_loop_course: group.is_loop_course,
+          locations,
+        },
+        latestPassedAt,
+      }
+    })
+    .sort((a, b) => new Date(b.latestPassedAt).getTime() - new Date(a.latestPassedAt).getTime())
+    .map(({ event }) => event)
 
   type ShootRecord = {
     type: 'purchase'
@@ -228,10 +248,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     email: user.email,
     photo_access: {
-      hipass_days_remaining: photoAccess.hipass.days_remaining,
       purchase_days_remaining: photoAccess.purchase.days_remaining,
       photo_access_days_remaining: photoAccess.photo_access_days_remaining,
-      hipass_validity_label: photoAccess.hipass.validity_label,
       purchase_validity_label: photoAccess.purchase.validity_label,
       status: photoAccess.status,
       expiring_soon: hasExpiringSoon,

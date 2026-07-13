@@ -15,14 +15,6 @@ export type OrderExpiryRow = Pick<
   user_id?: string
 }
 
-export function isHipassOrderNumber(
-  orderNumber: string | null | undefined,
-  sharedOrderNumber: string
-): boolean {
-  if (!sharedOrderNumber.trim() || !orderNumber?.trim()) return false
-  return orderNumber.trim().toLowerCase() === sharedOrderNumber.trim().toLowerCase()
-}
-
 export function getNonNegativeDaysRemaining(
   expiresAt: Date | null | undefined,
   now: Date = new Date()
@@ -39,7 +31,6 @@ export type VerificationBucket = {
 }
 
 export type PhotoAccessSummary = {
-  hipass: VerificationBucket
   purchase: VerificationBucket
   photo_access_days_remaining: number
   status: 'valid' | 'expired' | 'none'
@@ -63,22 +54,15 @@ function buildBucket(expiresAt: Date | null, used: boolean, now: Date): Verifica
 
 export function buildPhotoAccessSummary(
   orders: OrderExpiryRow[],
-  sharedOrderNumber: string,
-  hipassPeriodDays: number,
   purchasePeriodDays: number,
   now: Date = new Date()
 ): PhotoAccessSummary {
-  let hipassExpires: Date | null = null
   let purchaseExpires: Date | null = null
-  let hipassUsed = false
   let purchaseUsed = false
 
   for (const order of orders) {
     if (!order.order_number?.trim()) continue
-
-    const hipass = isHipassOrderNumber(order.order_number, sharedOrderNumber)
-    const periodDays = hipass ? hipassPeriodDays : purchasePeriodDays
-    if (!Number.isFinite(periodDays) || periodDays <= 0) continue
+    if (!Number.isFinite(purchasePeriodDays) || purchasePeriodDays <= 0) continue
 
     const expiresAt = resolveExpiresAt(
       {
@@ -87,37 +71,27 @@ export function buildPhotoAccessSummary(
         created_at: order.created_at,
         expires_at: order.expires_at,
       },
-      periodDays
+      purchasePeriodDays
     )
     if (!expiresAt) continue
 
-    if (hipass) {
-      hipassUsed = true
-      if (!hipassExpires || expiresAt > hipassExpires) hipassExpires = expiresAt
-    } else {
-      purchaseUsed = true
-      if (!purchaseExpires || expiresAt > purchaseExpires) purchaseExpires = expiresAt
-    }
+    purchaseUsed = true
+    if (!purchaseExpires || expiresAt > purchaseExpires) purchaseExpires = expiresAt
   }
 
-  const hipass = buildBucket(hipassExpires, hipassUsed, now)
   const purchase = buildBucket(purchaseExpires, purchaseUsed, now)
-  const totalDays = hipass.days_remaining + purchase.days_remaining
 
   return {
-    hipass,
     purchase,
-    photo_access_days_remaining: totalDays,
-    status: totalDays > 0 ? 'valid' : hipassUsed || purchaseUsed ? 'expired' : 'none',
+    photo_access_days_remaining: purchase.days_remaining,
+    status: purchase.days_remaining > 0 ? 'valid' : purchaseUsed ? 'expired' : 'none',
   }
 }
 
 export async function extendActiveOrdersForPeriodChange(
   admin: SupabaseClient,
   options: {
-    sharedOrderNumber: string
     periodDays: number
-    kind: 'hipass' | 'purchase'
     now?: Date
   }
 ): Promise<number> {
@@ -136,8 +110,7 @@ export async function extendActiveOrdersForPeriodChange(
     .filter(order => {
       if (!order.expires_at) return false
       if (new Date(order.expires_at) <= now) return false
-      const hipass = isHipassOrderNumber(order.order_number, options.sharedOrderNumber)
-      return options.kind === 'hipass' ? hipass : !hipass
+      return true
     })
     .map(order => order.id)
 

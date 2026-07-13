@@ -14,3 +14,22 @@ export function isStandaloneDisplayMode(): boolean {
 export function isBeforeInstallPromptEvent(event: Event): event is BeforeInstallPromptEvent {
   return 'prompt' in event && typeof (event as BeforeInstallPromptEvent).prompt === 'function'
 }
+
+export const PWA_INSTALL_DISMISSED_KEY = 'okbro_pwa_install_dismissed'
+
+export function isPwaInstallDismissed(): boolean {
+  if (typeof window === 'undefined') return true
+  try {
+    return localStorage.getItem(PWA_INSTALL_DISMISSED_KEY) === '1'
+  } catch {
+    return true
+  }
+}
+
+export function dismissPwaInstall(): void {
+  try {
+    localStorage.setItem(PWA_INSTALL_DISMISSED_KEY, '1')
+  } catch {
+    // ignore
+  }
+}

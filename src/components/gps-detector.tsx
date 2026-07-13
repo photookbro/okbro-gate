@@ -26,6 +26,7 @@ import {
   useGpsTrackingEnabled,
 } from '@/lib/gps-tracking-storage'
 import { syncGpsTrackingPref } from '@/lib/gps-tracking-pref-client'
+import { authFetch } from '@/lib/supabase/auth-client'
 
 type GpsDetectorProps = {
   eventId: string
@@ -92,11 +93,15 @@ export function GpsDetector({
     [locations]
   )
 
-  const stopTracking = useCallback(() => {
+  const clearWatchOnly = useCallback(() => {
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current)
       watchIdRef.current = null
     }
+  }, [])
+
+  const stopTracking = useCallback(() => {
+    clearWatchOnly()
     setTracking(false)
     setCurrentLat(null)
     setCurrentLng(null)
@@ -104,16 +109,17 @@ export function GpsDetector({
     earlyAlertedRef.current = createEarlyAlertMap(activeLocations)
     setGpsTrackingEnabled(eventId, false)
     void syncGpsTrackingPref(eventId, false)
-  }, [activeLocations, eventId])
+  }, [activeLocations, clearWatchOnly, eventId])
 
   useEffect(() => {
     zoneStateRef.current = createZoneStateMap(activeLocations, maxPasses)
     earlyAlertedRef.current = createEarlyAlertMap(activeLocations)
   }, [activeLocations, maxPasses])
 
+  // 페이지 이탈 시 watch만 정리. 토글 OFF로 저장하면 재진입 시 자동 추적이 풀림.
   useEffect(() => {
-    return () => stopTracking()
-  }, [stopTracking])
+    return () => clearWatchOnly()
+  }, [clearWatchOnly])
 
   useEffect(() => {
     if (!purchaseVerified && tracking) {
@@ -131,7 +137,7 @@ export function GpsDetector({
 
   const syncTodayPasses = useCallback(async () => {
     try {
-      const res = await fetch(`/api/gps-log?event_id=${encodeURIComponent(eventId)}`)
+      const res = await authFetch(`/api/gps-log?event_id=${encodeURIComponent(eventId)}`)
       const data = await res.json()
       if (!res.ok) return
 
@@ -160,7 +166,7 @@ export function GpsDetector({
 
       recordingRef.current.add(key)
       try {
-        const res = await fetch('/api/gps-log', {
+        const res = await authFetch('/api/gps-log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

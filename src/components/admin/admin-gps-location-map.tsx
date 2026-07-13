@@ -72,6 +72,12 @@ export function AdminGpsLocationMap({
   const [draftLng, setDraftLng] = useState(() => defaultMapCenterStrings().lng)
   const [locating, setLocating] = useState(false)
   const [locationError, setLocationError] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
+  const [searchResults, setSearchResults] = useState<
+    { label: string; lat: number; lng: number }[]
+  >([])
 
   const syncDraftFromSlot = useCallback(
     (slot: GpsMapSlot) => {
@@ -213,6 +219,49 @@ export function AdminGpsLocationMap({
     )
   }
 
+  async function handleSearch() {
+    const query = searchQuery.trim()
+    if (!query) return
+
+    setSearching(true)
+    setSearchError('')
+    setSearchResults([])
+
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(query)}`
+      )
+      if (!res.ok) {
+        setSearchError('검색에 실패했어요')
+        return
+      }
+      const data = (await res.json()) as { display_name: string; lat: string; lon: string }[]
+      if (data.length === 0) {
+        setSearchError('검색 결과가 없어요')
+        return
+      }
+      setSearchResults(
+        data.map(item => ({
+          label: item.display_name,
+          lat: Number(item.lat),
+          lng: Number(item.lon),
+        }))
+      )
+    } catch {
+      setSearchError('검색 중 오류가 발생했어요')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  function handleSelectSearchResult(lat: number, lng: number) {
+    setDraftLat(formatCoordinate(lat))
+    setDraftLng(formatCoordinate(lng))
+    setSearchResults([])
+    setSearchQuery('')
+    setLocationError('')
+  }
+
   async function handleApply() {
     const lat = parseCoordinate(draftLat)
     const lng = parseCoordinate(draftLng)
@@ -246,6 +295,47 @@ export function AdminGpsLocationMap({
           ))}
         </div>
       </div>
+
+      <div className="admin-gps-map-search">
+        <input
+          className="input-field"
+          type="text"
+          placeholder="주소 또는 장소명 검색 (예: 잠실종합운동장)"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void handleSearch()
+            }
+          }}
+        />
+        <button
+          type="button"
+          className="btn-secondary-inline"
+          onClick={() => void handleSearch()}
+          disabled={searching || !searchQuery.trim()}
+        >
+          {searching ? '검색 중...' : '검색'}
+        </button>
+      </div>
+
+      {searchError ? <p className="alert-danger">{searchError}</p> : null}
+
+      {searchResults.length > 0 && (
+        <ul className="admin-gps-map-search-results">
+          {searchResults.map((result, index) => (
+            <li key={index}>
+              <button
+                type="button"
+                onClick={() => handleSelectSearchResult(result.lat, result.lng)}
+              >
+                {result.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div ref={mapContainerRef} className="admin-gps-map-container" aria-label="촬영 위치 지도" />
 

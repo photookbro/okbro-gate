@@ -14,7 +14,8 @@ import {
 } from '@/lib/admin-players'
 import { getEventCourseLabel, getEventGpsLocations, type EventGpsFields } from '@/lib/gps-locations'
 import { getDaysRemaining, getMonitorStatus, resolveExpiresAt, formatVerificationDate } from '@/lib/order-verification'
-import { buildPhotoAccessSummary, isHipassOrderNumber } from '@/lib/verification-access'
+import { buildPhotoAccessSummary } from '@/lib/verification-access'
+import { buildDuplicateInfoByOrderNumber } from '@/lib/order-duplicate'
 
 async function listAllAuthUsers(admin: ReturnType<typeof supabaseAdmin>): Promise<User[]> {
   const users: User[] = []
@@ -50,8 +51,6 @@ export async function GET(req: NextRequest) {
   ])
 
   const verifiedPeriodDays = settings.verifiedPeriodDays
-  const sharedOrderNumber = settings.sharedOrderNumber
-  const hipassPeriodDays = settings.sharedOrderPeriodDays
 
   if (userId) {
     const user = authUsers.find(u => u.id === userId)
@@ -349,13 +348,7 @@ export async function GET(req: NextRequest) {
   if (Number.isFinite(verifiedPeriodDays) && verifiedPeriodDays > 0) {
     const now = new Date()
     for (const [userId, userOrders] of ordersByUser) {
-      const access = buildPhotoAccessSummary(
-        userOrders,
-        sharedOrderNumber,
-        hipassPeriodDays,
-        verifiedPeriodDays,
-        now
-      )
+      const access = buildPhotoAccessSummary(userOrders, verifiedPeriodDays, now)
       if (access.purchase.days_remaining <= 0) continue
 
       purchaseValidByUser.add(userId)
@@ -363,7 +356,6 @@ export async function GET(req: NextRequest) {
 
       const expiresAt = new Date(access.purchase.expires_at)
       const latestOrder = userOrders
-        .filter(order => !isHipassOrderNumber(order.order_number, sharedOrderNumber))
         .sort((a, b) => {
           const aExp = resolveExpiresAt(
             {
@@ -438,13 +430,7 @@ export async function GET(req: NextRequest) {
       user.last_sign_in_at
     )
     const verification = latestPurchaseByUser.get(user.id)
-    const access = buildPhotoAccessSummary(
-      ordersByUser.get(user.id) ?? [],
-      sharedOrderNumber,
-      hipassPeriodDays,
-      verifiedPeriodDays,
-      now
-    )
+    const access = buildPhotoAccessSummary(ordersByUser.get(user.id) ?? [], verifiedPeriodDays, now)
 
     return {
       id: user.id,
@@ -455,8 +441,6 @@ export async function GET(req: NextRequest) {
       terms_agreed: termsByUser.has(user.id),
       purchase_verified: purchaseValidByUser.has(user.id),
       gps_record: gpsByUser.has(user.id),
-      hipass_used: access.hipass.used,
-      hipass_validity_display: access.hipass.validity_label,
       verified_at_display: verification ? formatVerificationDate(verification.verified_at) : '-',
       expires_at_display: verification ? formatVerificationDate(verification.expires_at) : '-',
       days_remaining: verification ? getDaysRemaining(verification.expires_at, now) : null,
@@ -470,7 +454,6 @@ export async function GET(req: NextRequest) {
     total_signups: players.length,
     terms_agreed: players.filter(player => player.terms_agreed).length,
     purchase_verified: players.filter(player => player.purchase_verified).length,
-    hipass_used: players.filter(player => player.hipass_used).length,
     gps_users: players.filter(player => player.gps_record).length,
   }
 

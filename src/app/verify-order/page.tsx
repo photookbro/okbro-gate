@@ -64,7 +64,7 @@ function VerifyOrderContent() {
     e.preventDefault()
 
     if (!orderInput.trim()) {
-      setErrorMsg('주문번호 또는 하이패스를 입력해주세요')
+      setErrorMsg('주문번호를 입력해주세요')
       return
     }
     if (!eventId) {
@@ -217,7 +217,7 @@ function VerifyOrderContent() {
             </h1>
             {showForm && (
               <p style={{ color: '#6b7280', fontSize: '0.85rem', margin: 0, lineHeight: 1.5 }}>
-                네이버 주문번호 또는 하이패스를 입력해주세요
+                네이버 주문번호를 입력해주세요
               </p>
             )}
           </div>
@@ -255,7 +255,7 @@ function VerifyOrderContent() {
                   marginBottom: '0.5rem',
                 }}
               >
-                네이버 주문번호 / 하이패스
+                네이버 주문번호
               </label>
               <input
                 id="order-input"

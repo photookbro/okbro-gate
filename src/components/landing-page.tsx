@@ -7,6 +7,8 @@ import { PastEventsSection } from '@/components/past-events-section'
 import { UpcomingEventsSection } from '@/components/upcoming-events-section'
 import { VerificationExpiryBanner } from '@/components/verification-expiry-banner'
 import { usePwaInstall } from '@/hooks/use-pwa-install'
+import { PwaInstallGuideModal } from '@/components/pwa-install-guide-modal'
+import { detectMobilePlatform, type MobilePlatform } from '@/lib/push-permission'
 import {
   buildHomeBackgroundPositionCSSValue,
   DEFAULT_HOME_BACKGROUND_IMAGE,
@@ -22,29 +24,44 @@ type HomeBackgroundResponse = {
 }
 
 function LandingInstallCta() {
-  const { canInstall, isInstalled, installing, promptInstall } = usePwaInstall()
+  const { canInstall, isInstalled, installing, promptInstall, dismissed, dismiss } = usePwaInstall()
+  const [guideOpen, setGuideOpen] = useState(false)
+  const [platform, setPlatform] = useState<MobilePlatform>('other')
 
-  if (isInstalled) {
+  useEffect(() => {
+    setPlatform(detectMobilePlatform(navigator.userAgent))
+  }, [])
+
+  if (isInstalled || dismissed) {
     return null
   }
 
+  function handleClick() {
+    if (canInstall) {
+      void promptInstall()
+      return
+    }
+    setGuideOpen(true)
+  }
+
   return (
-    <div className="landing-guide-cta">
-      {canInstall ? (
+    <>
+      <div className="landing-guide-cta">
         <button
           type="button"
           className="landing-install-btn landing-install-btn-block"
           disabled={installing}
-          onClick={() => void promptInstall()}
+          onClick={handleClick}
         >
           {installing ? '설치 준비 중...' : '📥 앱 설치하기'}
         </button>
-      ) : (
-        <p className="landing-install-fallback">
-          브라우저 메뉴에서 &apos;홈 화면에 추가&apos;를 선택하면 앱처럼 이용할 수 있어요
-        </p>
-      )}
-    </div>
+        <button type="button" className="landing-install-dismiss" onClick={dismiss}>
+          나중에
+        </button>
+      </div>
+
+      <PwaInstallGuideModal open={guideOpen} platform={platform} onClose={() => setGuideOpen(false)} />
+    </>
   )
 }
 

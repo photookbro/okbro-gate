@@ -32,7 +32,7 @@ export function VerificationModal({ open, onComplete, onSkip }: VerificationModa
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!orderInput.trim()) {
-      setErrorMsg('주문번호 또는 하이패스를 입력해주세요')
+      setErrorMsg('주문번호를 입력해주세요')
       return
     }
     if (!userId) {
@@ -85,7 +85,7 @@ export function VerificationModal({ open, onComplete, onSkip }: VerificationModa
           🎫 인증번호 입력 (선택)
         </h2>
         <p className="mb-4 text-sm leading-relaxed text-muted">
-          하이패스 또는 네이버 구매 주문번호를 입력하면 고화질 사진 열람 기간이 연결돼요. 지금
+          네이버 구매 주문번호를 입력하면 고화질 사진 열람 기간이 연결돼요. 지금
           건너뛰어도 나중에 마이페이지에서 입력할 수 있어요.
         </p>
 
@@ -99,7 +99,7 @@ export function VerificationModal({ open, onComplete, onSkip }: VerificationModa
           <form onSubmit={e => void handleSubmit(e)} className="space-y-3">
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-muted">
-                하이패스 / 주문번호
+                주문번호
               </span>
               <input
                 type="text"

@@ -6,15 +6,32 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { authFetch, resolveClientUser } from '@/lib/supabase/auth-client'
 import { NAVER_ORDER_PLACEHOLDER } from '@/lib/naver-order-number'
+import { getGpsLocationLabel } from '@/lib/gps-locations'
 
 type PhotoAccess = {
-  hipass_days_remaining: number
   purchase_days_remaining: number
   photo_access_days_remaining: number
-  hipass_validity_label: string
   purchase_validity_label: string
   status: 'valid' | 'expired' | 'none'
   expiring_soon: boolean
+}
+
+type GpsPassEntry = {
+  pass_count: number
+  display_time: string
+  passed_at: string
+}
+
+type GpsLocationGroup = {
+  location_number: number
+  passes: GpsPassEntry[]
+}
+
+type GpsEventPasses = {
+  event_id: string
+  event_name: string
+  is_loop_course: boolean
+  locations: GpsLocationGroup[]
 }
 
 function formatPhotoAccessDday(daysRemaining: number, status: string): string {
@@ -35,6 +52,7 @@ export default function MyPage() {
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
   const [photoAccess, setPhotoAccess] = useState<PhotoAccess | null>(null)
+  const [gpsEventPasses, setGpsEventPasses] = useState<GpsEventPasses[]>([])
   const [errorMsg, setErrorMsg] = useState('')
 
   const [orderInput, setOrderInput] = useState('')
@@ -51,6 +69,7 @@ export default function MyPage() {
     }
     setEmail(data.email ?? '')
     setPhotoAccess(data.photo_access ?? null)
+    setGpsEventPasses(data.gps_event_passes ?? [])
     setErrorMsg('')
     return true
   }, [])
@@ -103,7 +122,7 @@ export default function MyPage() {
     setExtendSuccess('')
 
     if (!orderInput.trim()) {
-      setExtendError('주문번호 또는 하이패스를 입력해주세요')
+      setExtendError('주문번호를 입력해주세요')
       return
     }
 
@@ -157,13 +176,6 @@ export default function MyPage() {
   const isExpiringSoon = photoAccess?.expiring_soon ?? false
   const hasAccess = status === 'valid' && totalDays > 0
   const activeVerifications = [
-    photoAccess && photoAccess.hipass_days_remaining > 0
-      ? {
-          label: '하이패스',
-          daysRemaining: photoAccess.hipass_days_remaining,
-          validityLabel: photoAccess.hipass_validity_label,
-        }
-      : null,
     photoAccess && photoAccess.purchase_days_remaining > 0
       ? {
           label: '구매 인증',
@@ -223,7 +235,7 @@ export default function MyPage() {
 
               {isExpired && (
                 <div className="alert-danger mt-4 mb-0">
-                  ❌ 만료됨. 하이패스 또는 주문번호로 다시 인증해주세요
+                  ❌ 만료됨. 주문번호로 다시 인증해주세요
                 </div>
               )}
             </div>
@@ -231,16 +243,54 @@ export default function MyPage() {
         </div>
 
         <div className="card mb-4">
+          <h2 className="section-title">📍 촬영 감지 이력</h2>
+
+          {gpsEventPasses.length === 0 ? (
+            <p className="text-sm text-muted">아직 촬영 감지 기록이 없어요</p>
+          ) : (
+            <div className="space-y-4">
+              {gpsEventPasses.map(event => (
+                <div key={event.event_id}>
+                  <p className="mb-1 text-sm font-semibold text-[var(--text)]">{event.event_name}</p>
+                  <div className="space-y-1 text-sm text-muted">
+                    {event.locations.map(location => (
+                      <div key={location.location_number}>
+                        {event.locations.length > 1 && (
+                          <p className="text-xs font-medium text-[var(--text)]">
+                            {getGpsLocationLabel(location.location_number, event.locations.length)}
+                          </p>
+                        )}
+                        {event.is_loop_course ? (
+                          <p>
+                            {location.passes
+                              .map(pass => `${pass.pass_count}차 통과: ${pass.display_time}`)
+                              .join(' · ')}
+                          </p>
+                        ) : (
+                          location.passes.map(pass => (
+                            <p key={pass.pass_count}>촬영 지점 통과: {pass.display_time}</p>
+                          ))
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="card mb-4">
           <h2 className="section-title">인증 연장</h2>
           <p className="mb-4 text-sm leading-relaxed text-muted">
-            하이패스 또는 추가 주문번호로 인증하면 만료일이 연장돼요
+            추가 주문번호로 인증하면 만료일이 연장돼요
           </p>
 
           <form onSubmit={handleExtend}>
             <div className="extend-form-row">
               <div className="flex-1">
                 <label htmlFor="extend-order-input" className="label-field">
-                  하이패스 / 주문번호
+                  주문번호
                 </label>
                 <input
                   id="extend-order-input"

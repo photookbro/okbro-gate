@@ -9,7 +9,7 @@ import {
   AdminGpsLocationMap,
   type GpsMapSlot,
 } from '@/components/admin/admin-gps-location-map'
-import { isCompleteIsoDate } from '@/lib/date-input'
+import { isCompleteIsoDate, isPastIsoDate } from '@/lib/date-input'
 import { formatTimeInputValue, isCompleteTime } from '@/lib/time-input'
 
 type Event = {
@@ -65,7 +65,6 @@ type PlayerSummary = {
   total_signups: number
   terms_agreed: number
   purchase_verified: number
-  hipass_used: number
   gps_users: number
 }
 
@@ -78,8 +77,6 @@ type PlayerRow = {
   terms_agreed: boolean
   purchase_verified: boolean
   gps_record: boolean
-  hipass_used: boolean
-  hipass_validity_display: string
   verified_at_display: string
   expires_at_display: string
   days_remaining: number | null
@@ -198,8 +195,6 @@ export default function AdminPage() {
   const [loadingEvents, setLoadingEvents] = useState(true)
   const [eventError, setEventError] = useState('')
 
-  const [sharedOrderNumber, setSharedOrderNumber] = useState('')
-  const [sharedOrderPeriodDays, setSharedOrderPeriodDays] = useState('')
   const [verifiedPeriodDays, setVerifiedPeriodDays] = useState('')
   const [loadingSettings, setLoadingSettings] = useState(true)
   const [settingsError, setSettingsError] = useState('')
@@ -230,6 +225,7 @@ export default function AdminPage() {
   const [loadingGpsAddPlayers, setLoadingGpsAddPlayers] = useState(false)
   const [savingGpsLog, setSavingGpsLog] = useState(false)
   const [gpsAddError, setGpsAddError] = useState('')
+  const [gpsNotifyMsg, setGpsNotifyMsg] = useState('')
 
   const [players, setPlayers] = useState<PlayerRow[]>([])
   const [playerSummary, setPlayerSummary] = useState<PlayerSummary | null>(null)
@@ -238,6 +234,7 @@ export default function AdminPage() {
   const [playerDetail, setPlayerDetail] = useState<PlayerDetail | null>(null)
   const [loadingPlayerDetail, setLoadingPlayerDetail] = useState(false)
   const [playerDetailError, setPlayerDetailError] = useState('')
+  const [revokingAccess, setRevokingAccess] = useState(false)
   const [expandedGpsEventId, setExpandedGpsEventId] = useState<string | null>(null)
   const [duplicateModalUsers, setDuplicateModalUsers] = useState<
     { user_id: string; email: string }[]
@@ -286,8 +283,6 @@ export default function AdminPage() {
       setLoadingSettings(false)
       return
     }
-    setSharedOrderNumber(data.shared_order_number ?? '')
-    setSharedOrderPeriodDays(data.shared_order_period_days ?? '30')
     setVerifiedPeriodDays(data.verified_period_days ?? '')
     setLoadingSettings(false)
   }, [adminFetch])
@@ -347,6 +342,28 @@ export default function AdminPage() {
     }
 
     setPlayerDetail(data.player ?? null)
+  }
+
+  async function handleRevokeAccess(userId: string) {
+    if (!confirm('이 선수의 사진 열람 권한을 강제로 0으로 만들까요? (기존 구매 인증이 모두 즉시 만료돼요)')) {
+      return
+    }
+
+    setRevokingAccess(true)
+    const res = await adminFetch('/api/admin/players/revoke-access', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    })
+    const data = await res.json()
+    setRevokingAccess(false)
+
+    if (!res.ok) {
+      alert(data.error ?? '강제 만료 실패')
+      return
+    }
+
+    await openPlayerDetail(userId)
+    await loadPlayers()
   }
 
   function closePlayerDetail() {
@@ -463,6 +480,14 @@ export default function AdminPage() {
       loadEventMonitoring(eventMonitorEventId)
     }
   }, [tab, loadPlayers, loadEventMonitoring, eventMonitorEventId])
+
+  const eventDateIsPast = isPastIsoDate(form.date)
+
+  useEffect(() => {
+    if (eventDateIsPast && form.gps_enabled) {
+      setForm(f => ({ ...f, gps_enabled: false }))
+    }
+  }, [eventDateIsPast, form.gps_enabled])
 
   function openAddModal() {
     setEditingId(null)
@@ -616,8 +641,6 @@ export default function AdminPage() {
     const res = await adminFetch('/api/admin/settings', {
       method: 'PUT',
       body: JSON.stringify({
-        shared_order_number: sharedOrderNumber,
-        shared_order_period_days: sharedOrderPeriodDays,
         verified_period_days: verifiedPeriodDays,
       }),
     })
@@ -629,20 +652,11 @@ export default function AdminPage() {
       return
     }
 
-    setSharedOrderNumber(data.shared_order_number ?? '')
-    setSharedOrderPeriodDays(data.shared_order_period_days ?? '30')
     setVerifiedPeriodDays(data.verified_period_days ?? '')
 
-    const extendParts: string[] = []
-    if (typeof data.hipass_orders_extended === 'number' && data.hipass_orders_extended > 0) {
-      extendParts.push(`하이패스 ${data.hipass_orders_extended}건`)
-    }
-    if (typeof data.purchase_orders_extended === 'number' && data.purchase_orders_extended > 0) {
-      extendParts.push(`구매인증 ${data.purchase_orders_extended}건`)
-    }
     setSettingsMsg(
-      extendParts.length > 0
-        ? `저장되었어요. 유효 중인 ${extendParts.join(', ')} 만료일을 연장했어요.`
+      typeof data.purchase_orders_extended === 'number' && data.purchase_orders_extended > 0
+        ? `저장되었어요. 유효 중인 구매인증 ${data.purchase_orders_extended}건 만료일을 연장했어요.`
         : '저장되었어요'
     )
     setSavingSettings(false)
@@ -676,6 +690,7 @@ export default function AdminPage() {
             </div>
 
             {eventError && <p className="alert-danger">{eventError}</p>}
+            {gpsNotifyMsg && <p className="alert-success">{gpsNotifyMsg}</p>}
 
             {loadingEvents ? (
               <p className="text-muted">로딩 중...</p>
@@ -759,24 +774,6 @@ export default function AdminPage() {
             ) : (
               <form onSubmit={handleSaveSettings} className="max-w-md">
                 <label className="mb-4 block">
-                  <span className={labelStyle}>하이패스 번호</span>
-                  <input
-                    value={sharedOrderNumber}
-                    onChange={e => setSharedOrderNumber(e.target.value)}
-                    className={inputStyle}
-                  />
-                </label>
-                <label className="mb-4 block">
-                  <span className={labelStyle}>하이패스 유효기간 (일)</span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={sharedOrderPeriodDays}
-                    onChange={e => setSharedOrderPeriodDays(e.target.value)}
-                    className={inputStyle}
-                  />
-                </label>
-                <label className="mb-4 block">
                   <span className={labelStyle}>구매 인증 유효기간 (일)</span>
                   <input
                     type="number"
@@ -832,7 +829,6 @@ export default function AdminPage() {
                   {[
                     { label: '웹앱 가입 수', value: playerSummary?.total_signups ?? 0 },
                     { label: '약관 동의', value: playerSummary?.terms_agreed ?? 0 },
-                    { label: '하이패스 사용', value: playerSummary?.hipass_used ?? 0 },
                     { label: '구매 인증', value: playerSummary?.purchase_verified ?? 0 },
                     { label: 'GPS 사용', value: playerSummary?.gps_users ?? 0 },
                   ].map(card => (
@@ -852,7 +848,6 @@ export default function AdminPage() {
                         '이메일',
                         '가입일',
                         '약관 동의',
-                        '하이패스 입력',
                         '구매 인증',
                         'GPS 기록',
                         '구매 인증일',
@@ -876,7 +871,6 @@ export default function AdminPage() {
                         <td>{player.email}</td>
                         <td className="whitespace-nowrap text-muted">{player.joined_at_display}</td>
                         <td><OxBadge value={player.terms_agreed} /></td>
-                        <td><OxBadge value={player.hipass_used} /></td>
                         <td><OxBadge value={player.purchase_verified} /></td>
                         <td><OxBadge value={player.gps_record} /></td>
                         <td className="whitespace-nowrap text-muted">{player.verified_at_display}</td>
@@ -1040,14 +1034,20 @@ export default function AdminPage() {
             </label>
 
             <div className="card-section mb-4">
-              <label className="mb-3 flex cursor-pointer items-center gap-2">
+              <label className="mb-1 flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
                   checked={form.gps_enabled}
+                  disabled={eventDateIsPast}
                   onChange={e => setForm(f => ({ ...f, gps_enabled: e.target.checked }))}
                 />
                 <span className="text-sm font-semibold text-[var(--text)]">GPS 감지</span>
               </label>
+              {eventDateIsPast && (
+                <p className="mb-3 text-xs text-muted">
+                  지난 대회는 GPS 감지를 켤 수 없어요
+                </p>
+              )}
               <label className="mb-4 flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
@@ -1423,7 +1423,17 @@ export default function AdminPage() {
                 </section>
 
                 <section className="card-section mb-4">
-                  <h4 className="mb-2 text-sm font-semibold">💰 구매 인증</h4>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-semibold">💰 구매 인증</h4>
+                    <button
+                      type="button"
+                      className="btn-danger-inline"
+                      disabled={revokingAccess}
+                      onClick={() => void handleRevokeAccess(playerDetail.id)}
+                    >
+                      {revokingAccess ? '처리 중...' : '🚫 열람 강제 만료'}
+                    </button>
+                  </div>
                   {playerDetail.orders.length === 0 ? (
                     <p className="text-sm text-muted">구매 인증 기록이 없어요</p>
                   ) : (

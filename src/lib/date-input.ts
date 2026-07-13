@@ -19,3 +19,15 @@ export function isCompleteIsoDate(value: string): boolean {
   const d = new Date(year, month - 1, day)
   return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day
 }
+
+export function todayIsoDate(now: Date = new Date()): string {
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/** date < 오늘 (오늘 당일은 과거로 취급하지 않음) */
+export function isPastIsoDate(value: string, now: Date = new Date()): boolean {
+  return isCompleteIsoDate(value) && value < todayIsoDate(now)
+}

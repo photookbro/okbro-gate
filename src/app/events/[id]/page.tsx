@@ -188,7 +188,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           <h1 className="page-title mt-3">{event.name}</h1>
           <p className="page-subtitle mb-6">📅 {formatEventDate(event.date)}</p>
 
-          {event.gps_enabled !== false && locations.length > 0 ? (
+          {event.gps_enabled === true && locations.length > 0 ? (
             <div className="mb-6">
               <EventPermissionGate enabled={termsAgreed && !!userId}>
                 <GpsDetector

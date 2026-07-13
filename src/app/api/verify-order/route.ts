@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getAuthenticatedUser } from '@/lib/auth-server'
 import {
@@ -6,9 +6,11 @@ import {
   calculateNewExpiresAt,
 } from '@/lib/order-verification'
 import { validateNaverOrderNumber } from '@/lib/naver-order-number'
+import { isFixedAccessCode } from '@/lib/fixed-access-code'
 import { ORDER_DUPLICATE_ERROR } from '@/lib/order-duplicate'
 import { extendUserOrderVerification } from '@/lib/verify-order-extend'
 import { loadVerificationSettings } from '@/lib/verification-settings'
+import { sendKakaoNotify } from '@/lib/kakao-notify'
 
 function formatDbError(error: { message?: string; code?: string; details?: string | null }) {
   return {
@@ -16,6 +18,21 @@ function formatDbError(error: { message?: string; code?: string; details?: strin
     code: error.code ?? null,
     details: error.details ?? null,
   }
+}
+
+async function notifyVerifySuccess(
+  admin: ReturnType<typeof supabaseAdmin>,
+  userEmail: string | undefined,
+  eventId: string | null,
+  orderNumber: string
+) {
+  let eventName = '전체 이용권'
+  if (eventId) {
+    const { data: event } = await admin.from('events').select('name').eq('id', eventId).maybeSingle()
+    eventName = event?.name ?? '전체 이용권'
+  }
+  const last4 = orderNumber.slice(-4)
+  await sendKakaoNotify(`[오켱GATE] 인증 성공: ${eventName} - ${userEmail ?? '알 수 없음'} - 주문번호 ****${last4}`)
 }
 
 export async function POST(req: NextRequest) {
@@ -33,23 +50,13 @@ export async function POST(req: NextRequest) {
   const trimmedOrderNumber = order_number.trim()
   const admin = supabaseAdmin()
   const settings = await loadVerificationSettings(admin)
+  const periodDays = settings.verifiedPeriodDays
+  const isFixedCode = isFixedAccessCode(trimmedOrderNumber)
 
-  const isHipassOrder =
-    !!settings.sharedOrderNumber &&
-    trimmedOrderNumber.toLowerCase() === settings.sharedOrderNumber.toLowerCase()
-
-  const periodDays = isHipassOrder
-    ? settings.sharedOrderPeriodDays
-    : settings.verifiedPeriodDays
-
-  if (!isHipassOrder) {
+  if (!isFixedCode) {
     const validation = validateNaverOrderNumber(trimmedOrderNumber)
     if (!validation.ok) {
       return NextResponse.json({ error: validation.error }, { status: 400 })
-    }
-
-    if (!Number.isFinite(settings.verifiedPeriodDays) || settings.verifiedPeriodDays <= 0) {
-      return NextResponse.json({ error: '인증 기간 설정을 확인할 수 없어요' }, { status: 500 })
     }
   }
 
@@ -61,7 +68,7 @@ export async function POST(req: NextRequest) {
   const ownedBySelf = existingOrders?.find(row => row.user_id === user.id)
   const ownedByOthers = existingOrders?.filter(row => row.user_id !== user.id) ?? []
 
-  if (ownedByOthers.length > 0 && !isHipassOrder) {
+  if (ownedByOthers.length > 0 && !isFixedCode) {
     return NextResponse.json(
       { success: false, error: ORDER_DUPLICATE_ERROR },
       { status: 409 }
@@ -70,11 +77,7 @@ export async function POST(req: NextRequest) {
 
   if (!Number.isFinite(periodDays) || periodDays <= 0) {
     return NextResponse.json(
-      {
-        error: isHipassOrder
-          ? '하이패스 유효기간 설정을 확인할 수 없어요'
-          : '구매 인증 유효기간 설정을 확인할 수 없어요',
-      },
+      { error: '구매 인증 유효기간 설정을 확인할 수 없어요' },
       { status: 500 }
     )
   }
@@ -93,6 +96,7 @@ export async function POST(req: NextRequest) {
           now,
         }
       )
+      after(() => notifyVerifySuccess(admin, user.email, event_id || null, trimmedOrderNumber))
       return NextResponse.json({
         success: true,
         extended,
@@ -107,10 +111,6 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       )
     }
-  }
-
-  if (isHipassOrder && ownedByOthers.length > 0) {
-    return NextResponse.json({ success: true, already_verified: true })
   }
 
   const { data: userLatestOrder, error: latestOrderError } = await admin
@@ -187,6 +187,8 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     )
   }
+
+  after(() => notifyVerifySuccess(admin, user.email, event_id || null, trimmedOrderNumber))
 
   return NextResponse.json({
     success: true,

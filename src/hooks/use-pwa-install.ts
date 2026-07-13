@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   type BeforeInstallPromptEvent,
+  dismissPwaInstall,
   isBeforeInstallPromptEvent,
+  isPwaInstallDismissed,
   isStandaloneDisplayMode,
 } from '@/lib/pwa-install'
 
@@ -11,9 +13,11 @@ export function usePwaInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [isInstalled, setIsInstalled] = useState(false)
   const [installing, setInstalling] = useState(false)
+  const [dismissed, setDismissed] = useState(true)
 
   useEffect(() => {
     setIsInstalled(isStandaloneDisplayMode())
+    setDismissed(isPwaInstallDismissed())
 
     function handleBeforeInstallPrompt(event: Event) {
       event.preventDefault()
@@ -24,6 +28,8 @@ export function usePwaInstall() {
     function handleAppInstalled() {
       setDeferredPrompt(null)
       setIsInstalled(true)
+      dismissPwaInstall()
+      setDismissed(true)
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
@@ -55,10 +61,17 @@ export function usePwaInstall() {
     }
   }, [deferredPrompt])
 
+  const dismiss = useCallback(() => {
+    dismissPwaInstall()
+    setDismissed(true)
+  }, [])
+
   return {
     canInstall,
     isInstalled,
     installing,
     promptInstall,
+    dismissed,
+    dismiss,
   }
 }
