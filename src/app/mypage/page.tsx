@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { authFetch, resolveClientUser } from '@/lib/supabase/auth-client'
 import { NAVER_ORDER_PLACEHOLDER } from '@/lib/naver-order-number'
 import { getGpsLocationLabel } from '@/lib/gps-locations'
+import { ensurePushSubscription } from '@/lib/push-client'
 
 type PhotoAccess = {
   purchase_days_remaining: number
@@ -60,6 +61,12 @@ export default function MyPage() {
   const [extendError, setExtendError] = useState('')
   const [extendSuccess, setExtendSuccess] = useState('')
 
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | 'unsupported'
+  >('default')
+  const [enablingNotification, setEnablingNotification] = useState(false)
+  const [notificationMsg, setNotificationMsg] = useState('')
+
   const loadMypage = useCallback(async () => {
     const res = await authFetch('/api/mypage')
     const data = await res.json()
@@ -73,6 +80,30 @@ export default function MyPage() {
     setErrorMsg('')
     return true
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setNotificationPermission('unsupported')
+      return
+    }
+    setNotificationPermission(Notification.permission)
+  }, [])
+
+  async function handleEnableNotification() {
+    setEnablingNotification(true)
+    setNotificationMsg('')
+    try {
+      const ok = await ensurePushSubscription()
+      if (typeof Notification !== 'undefined') {
+        setNotificationPermission(Notification.permission)
+      }
+      setNotificationMsg(
+        ok ? '✅ 촬영 알림이 켜졌어요' : '알림을 켜지 못했어요. 브라우저 설정을 확인해주세요'
+      )
+    } finally {
+      setEnablingNotification(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -278,6 +309,36 @@ export default function MyPage() {
               ))}
             </div>
           )}
+        </div>
+
+        <div className="card mb-4">
+          <h2 className="section-title">🔔 촬영 알림</h2>
+
+          {notificationPermission === 'unsupported' ? (
+            <p className="text-sm text-muted">이 브라우저는 알림을 지원하지 않아요</p>
+          ) : notificationPermission === 'granted' ? (
+            <p className="text-sm text-success">✅ 촬영 알림이 켜져 있어요</p>
+          ) : notificationPermission === 'denied' ? (
+            <p className="text-sm text-muted">
+              알림이 차단돼 있어요. 브라우저 설정에서 알림을 허용으로 바꿔주세요
+            </p>
+          ) : (
+            <>
+              <p className="mb-4 text-sm leading-relaxed text-muted">
+                대회 종료 후 사진이 찍힌 시각을 알려드려요
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleEnableNotification()}
+                disabled={enablingNotification}
+                className="btn-primary-inline"
+              >
+                {enablingNotification ? '요청 중...' : '🔔 촬영 알림 켜기'}
+              </button>
+            </>
+          )}
+
+          {notificationMsg && <p className="mt-3 text-sm text-muted">{notificationMsg}</p>}
         </div>
 
         <div className="card mb-4">

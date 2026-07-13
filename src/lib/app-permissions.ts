@@ -6,6 +6,7 @@ import {
 export const PERMISSION_GPS_ACK_KEY = 'okbro_permission_gps_ack'
 export const EVENT_DETAIL_PERMISSION_RECHECK_KEY = 'okbro_event_detail_permission_recheck_done'
 export const ONBOARDING_VERIFICATION_SKIPPED_KEY = 'okbro_onboarding_verification_skipped'
+export const PERMISSION_NOTIFICATION_ASKED_KEY = 'okbro_permission_notification_asked'
 
 export type PermissionSnapshot = {
   gps: GeolocationPermissionState
@@ -82,6 +83,14 @@ export function isOnboardingVerificationSkipped(): boolean {
 
 export function markOnboardingVerificationSkipped() {
   writeFlag(ONBOARDING_VERIFICATION_SKIPPED_KEY, true)
+}
+
+export function isNotificationPermissionAsked(): boolean {
+  return readFlag(PERMISSION_NOTIFICATION_ASKED_KEY)
+}
+
+export function markNotificationPermissionAsked() {
+  writeFlag(PERMISSION_NOTIFICATION_ASKED_KEY, true)
 }
 
 export function detectPlatform(): MobilePlatform {

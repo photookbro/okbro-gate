@@ -153,9 +153,7 @@ type EventMonitorRow = {
 
 const TAB_LABELS = {
   events: '대회 관리',
-  settings: '설정 관리',
-  home_background: '홈 배경 이미지',
-  notifications: '공지 관리',
+  settings: '설정',
   players: '선수 관리',
   event_monitoring: '대회별 모니터링',
 } as const
@@ -188,9 +186,7 @@ function OxBadge({ value }: { value: boolean }) {
 
 export default function AdminPage() {
   const token = useAdminToken()
-  const [tab, setTab] = useState<
-    'events' | 'settings' | 'home_background' | 'notifications' | 'players' | 'event_monitoring'
-  >('events')
+  const [tab, setTab] = useState<'events' | 'settings' | 'players' | 'event_monitoring'>('events')
   const [events, setEvents] = useState<Event[]>([])
   const [loadingEvents, setLoadingEvents] = useState(true)
   const [eventError, setEventError] = useState('')
@@ -246,6 +242,7 @@ export default function AdminPage() {
   const [eventMonitorRows, setEventMonitorRows] = useState<EventMonitorRow[]>([])
   const [loadingEventMonitoring, setLoadingEventMonitoring] = useState(false)
   const [eventMonitoringError, setEventMonitoringError] = useState('')
+  const [sendingEventNotify, setSendingEventNotify] = useState(false)
 
   const adminFetch = useCallback(
     (url: string, options: RequestInit = {}) =>
@@ -309,6 +306,41 @@ export default function AdminPage() {
     },
     [adminFetch]
   )
+
+  async function handleSendEventMonitorNotify() {
+    if (!eventMonitorEventId) return
+
+    const pendingCount = eventMonitorRows.filter(row => row.gps_passed && !row.notified).length
+    if (pendingCount === 0) {
+      alert('발송할 대상이 없어요 (이미 발송된 기록뿐이에요)')
+      return
+    }
+
+    if (!confirm(`미발송 ${pendingCount}명에게 알림을 보내시겠습니까?`)) return
+
+    setSendingEventNotify(true)
+    try {
+      const res = await adminFetch('/api/gps-notify', {
+        method: 'POST',
+        body: JSON.stringify({ event_id: eventMonitorEventId }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        alert(data.error ?? '발송 실패')
+        return
+      }
+
+      await loadEventMonitoring(eventMonitorEventId)
+
+      const parts = [`${data.pending}명 중 ${data.notified}명 발송 완료`]
+      if (data.no_subscription > 0) parts.push(`${data.no_subscription}명은 알림 미구독 상태`)
+      if (data.push_failed > 0) parts.push(`${data.push_failed}건 발송 실패`)
+      alert(`${parts.join(', ')}입니다`)
+    } finally {
+      setSendingEventNotify(false)
+    }
+  }
 
   const loadPlayers = useCallback(async () => {
     setLoadingPlayers(true)
@@ -816,48 +848,48 @@ export default function AdminPage() {
 
         {tab === 'settings' && (
           <>
-            <h2 className="section-title">설정 관리</h2>
+            <h2 className="section-title">설정</h2>
 
-            {loadingSettings ? (
-              <p className="text-muted">로딩 중...</p>
-            ) : (
-              <form onSubmit={handleSaveSettings} className="max-w-md">
-                <label className="mb-4 block">
-                  <span className={labelStyle}>구매 인증 유효기간 (일)</span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={verifiedPeriodDays}
-                    onChange={e => setVerifiedPeriodDays(e.target.value)}
-                    className={inputStyle}
-                  />
-                </label>
+            <section className="card-section">
+              <h3 className="mb-3 text-base font-semibold text-[var(--text)]">일반 설정</h3>
 
-                {settingsError && <p className="alert-danger">{settingsError}</p>}
-                {settingsMsg && <p className="alert-success">{settingsMsg}</p>}
+              {loadingSettings ? (
+                <p className="text-muted">로딩 중...</p>
+              ) : (
+                <form onSubmit={handleSaveSettings} className="max-w-md">
+                  <label className="mb-4 block">
+                    <span className={labelStyle}>구매 인증 유효기간 (일)</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={verifiedPeriodDays}
+                      onChange={e => setVerifiedPeriodDays(e.target.value)}
+                      className={inputStyle}
+                    />
+                  </label>
 
-                <button type="submit" disabled={savingSettings} className="btn-primary-inline">
-                  {savingSettings ? '저장 중...' : '저장'}
-                </button>
-              </form>
-            )}
-          </>
-        )}
+                  {settingsError && <p className="alert-danger">{settingsError}</p>}
+                  {settingsMsg && <p className="alert-success">{settingsMsg}</p>}
 
-        {tab === 'home_background' && (
-          <>
-            <h2 className="section-title">홈 배경 이미지</h2>
-            <HomeBackgroundAdminPanel token={token} />
-          </>
-        )}
+                  <button type="submit" disabled={savingSettings} className="btn-primary-inline">
+                    {savingSettings ? '저장 중...' : '저장'}
+                  </button>
+                </form>
+              )}
+            </section>
 
-        {tab === 'notifications' && (
-          <>
-            <h2 className="section-title">공지 관리</h2>
-            <p className="mb-4 text-sm text-muted">
-              저장한 공지는 선수 홈 화면에 최신 1건이 배너로 표시됩니다.
-            </p>
-            <NotificationsAdminPanel token={token} />
+            <section className="card-section">
+              <h3 className="mb-3 text-base font-semibold text-[var(--text)]">홈 배경 이미지</h3>
+              <HomeBackgroundAdminPanel token={token} />
+            </section>
+
+            <section className="card-section">
+              <h3 className="mb-3 text-base font-semibold text-[var(--text)]">공지 관리</h3>
+              <p className="mb-4 text-sm text-muted">
+                저장한 공지는 선수 홈 화면에 최신 1건이 배너로 표시됩니다.
+              </p>
+              <NotificationsAdminPanel token={token} />
+            </section>
           </>
         )}
 
@@ -983,6 +1015,19 @@ export default function AdminPage() {
             </div>
 
             {eventMonitoringError && <p className="alert-danger">{eventMonitoringError}</p>}
+
+            {eventMonitorEventId && !loadingEventMonitoring && (
+              <div className="mb-4">
+                <button
+                  type="button"
+                  onClick={() => void handleSendEventMonitorNotify()}
+                  disabled={sendingEventNotify}
+                  className="btn-primary-inline"
+                >
+                  {sendingEventNotify ? '발송 중...' : '📣 전체 알림 발송'}
+                </button>
+              </div>
+            )}
 
             {!eventMonitorEventId ? (
               <p className="text-sm text-muted">GPS 통과 현황을 보려면 대회를 선택하세요.</p>
