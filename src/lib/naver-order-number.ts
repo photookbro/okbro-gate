@@ -1,3 +1,5 @@
+import { kstMidnight, startOfKstDay } from './date-input'
+
 export const NAVER_ORDER_NUMBER_LENGTH = 16
 export const NAVER_ORDER_RECENT_DAYS = 3
 export const NAVER_ORDER_PLACEHOLDER = 'xxxxxxxxxxxxxxxx'
@@ -7,10 +9,6 @@ export const NAVER_ORDER_TOO_OLD_MESSAGE = '최근 3일 이내 주문만 인증�
 export type NaverOrderValidationResult =
   | { ok: true; orderDate: Date }
   | { ok: false; error: string }
-
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
-}
 
 export function isNaverOrderNumberFormat(value: string): boolean {
   return /^\d{16}$/.test(value.trim())
@@ -26,16 +24,18 @@ export function parseNaverOrderDate(orderNumber: string): Date | null {
 
   if (month < 1 || month > 12 || day < 1 || day > 31) return null
 
-  const date = new Date(year, month - 1, day)
+  // 유효한 달력 날짜인지 검증 (예: 2월 30일 같은 존재하지 않는 날짜 걸러내기)
+  const validityCheck = new Date(year, month - 1, day)
   if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
+    validityCheck.getFullYear() !== year ||
+    validityCheck.getMonth() !== month - 1 ||
+    validityCheck.getDate() !== day
   ) {
     return null
   }
 
-  return date
+  // 주문번호에 박힌 날짜는 한국 달력 기준이므로 KST 자정으로 고정
+  return kstMidnight(year, month, day)
 }
 
 export function isNaverOrderDateWithinRecentDays(
@@ -43,8 +43,8 @@ export function isNaverOrderDateWithinRecentDays(
   recentDays: number = NAVER_ORDER_RECENT_DAYS,
   now: Date = new Date()
 ): boolean {
-  const today = startOfDay(now)
-  const orderDay = startOfDay(orderDate)
+  const today = startOfKstDay(now)
+  const orderDay = orderDate
 
   if (orderDay > today) return false
 

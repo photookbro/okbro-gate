@@ -1,11 +1,13 @@
+import { startOfKstDay } from '@/lib/date-input'
+
 export const GPS_ENTER_RADIUS_METERS = 50
 export const GPS_EXIT_RADIUS_METERS = 100
 export const MAX_GPS_PASSES_PER_DAY = 3
 
+/** "오늘" 경계를 KST 기준으로 계산 — 서버가 UTC(Vercel)여도 한국 자정 기준 유지 */
 export function getTodayRange() {
-  const now = new Date()
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  const start = startOfKstDay()
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
   return { start: start.toISOString(), end: end.toISOString() }
 }
 
