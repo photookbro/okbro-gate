@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { authFetch } from '@/lib/supabase/auth-client'
 import {
   EVENTS_PAST_SECTION_SUB_MAIN,
   EVENTS_PAST_SECTION_SUB_TAIL,
@@ -57,7 +58,7 @@ export function PastEventsSection() {
     setLoading(true)
     setError('')
 
-    fetch('/api/events/list')
+    authFetch('/api/events/list')
       .then(async res => {
         const data = await res.json()
         if (!res.ok) {

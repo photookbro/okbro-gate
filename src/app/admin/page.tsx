@@ -217,6 +217,7 @@ export default function AdminPage() {
   >([])
   const [loadingGpsLogs, setLoadingGpsLogs] = useState(false)
   const [gpsLogsError, setGpsLogsError] = useState('')
+  const [notifyingEventId, setNotifyingEventId] = useState<string | null>(null)
 
   const [gpsAddModalEvent, setGpsAddModalEvent] = useState<Event | null>(null)
   const [gpsAddUserId, setGpsAddUserId] = useState('')
@@ -395,6 +396,46 @@ export default function AdminPage() {
     setGpsLogsModalEvent(null)
     setGpsLogs([])
     setGpsLogsError('')
+  }
+
+  async function handleSendGpsNotify(event: Event) {
+    setNotifyingEventId(event.id)
+    try {
+      const countRes = await adminFetch(`/api/admin/gps-logs?event_id=${encodeURIComponent(event.id)}`)
+      const countData = await countRes.json()
+      if (!countRes.ok) {
+        alert(countData.error ?? 'GPS 로그 조회 실패')
+        return
+      }
+
+      const pendingCount = (countData.logs ?? []).filter(
+        (log: { notified: boolean }) => !log.notified
+      ).length
+
+      if (pendingCount === 0) {
+        alert('발송할 대상이 없어요 (이미 발송된 기록뿐이에요)')
+        return
+      }
+
+      if (!confirm(`${pendingCount}명에게 발송하시겠습니까?`)) return
+
+      const res = await adminFetch('/api/gps-notify', {
+        method: 'POST',
+        body: JSON.stringify({ event_id: event.id }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        alert(data.error ?? '발송 실패')
+        return
+      }
+
+      alert(
+        `발송 완료 — 성공 ${data.notified}건 · 구독 없음 ${data.no_subscription}건 · 실패 ${data.push_failed}건`
+      )
+    } finally {
+      setNotifyingEventId(null)
+    }
   }
 
   async function openGpsAddModal(event: Event) {
@@ -732,6 +773,14 @@ export default function AdminPage() {
                               className="btn-secondary-inline"
                             >
                               GPS 로그 추가
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleSendGpsNotify(event)}
+                              disabled={notifyingEventId === event.id}
+                              className="btn-secondary-inline"
+                            >
+                              {notifyingEventId === event.id ? '발송 중...' : '종료 후 알림 발송'}
                             </button>
                             <button
                               type="button"

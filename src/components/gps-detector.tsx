@@ -27,6 +27,7 @@ import {
 } from '@/lib/gps-tracking-storage'
 import { syncGpsTrackingPref } from '@/lib/gps-tracking-pref-client'
 import { authFetch } from '@/lib/supabase/auth-client'
+import { ensurePushSubscription } from '@/lib/push-client'
 
 type GpsDetectorProps = {
   eventId: string
@@ -297,6 +298,7 @@ export function GpsDetector({
     setTracking(true)
     setGpsTrackingEnabled(eventId, true)
     void syncGpsTrackingPref(eventId, true)
+    void ensurePushSubscription()
   }, [canUseGps, eventId, handlePosition, stopTracking, syncTodayPasses])
 
   const beginTrackingWithPermission = useCallback(async () => {

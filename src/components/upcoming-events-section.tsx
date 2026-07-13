@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { GpsTrackingToggle } from '@/components/gps-tracking-toggle'
 import { useGpsTrackingEnabled } from '@/lib/gps-tracking-storage'
+import { authFetch } from '@/lib/supabase/auth-client'
 import {
   EVENTS_UPCOMING_ON_DETAIL,
   EVENTS_UPCOMING_ON_PROMPT,
@@ -94,7 +95,7 @@ export function UpcomingEventsSection() {
         setError('')
       }
 
-      fetch('/api/events/list')
+      authFetch('/api/events/list')
         .then(async res => {
           const data = await res.json()
           if (cancelled) return

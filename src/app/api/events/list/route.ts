@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { fetchEventsList, hasEventAlbum } from '@/lib/event-query'
 import { getAuthenticatedUser } from '@/lib/auth-server'
@@ -7,7 +7,7 @@ import { MAX_EVENT_LIST_GPS_LOGS } from '@/lib/event-gps-logs'
 import { buildPastGpsPassDisplay, emailToUsername } from '@/lib/shoot-record'
 import { formatGpsPassDisplay, groupGpsLogsByLocation, type GpsLocationPassGroup } from '@/lib/gps-access'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const { past: pastEvents, upcoming: upcomingEvents, error } = await fetchEventsList()
 
   if (error) {
@@ -18,7 +18,7 @@ export async function GET() {
   const gpsLogsByEvent: Record<string, { username: string; time: string }[]> = {}
   const upcomingShootRecordByEvent: Record<string, { username: string; time: string }> = {}
   const upcomingPassGroupsByEvent: Record<string, GpsLocationPassGroup[]> = {}
-  const user = await getAuthenticatedUser()
+  const user = await getAuthenticatedUser(req)
 
   if (user && pastEvents.length > 0) {
     const admin = supabaseAdmin()

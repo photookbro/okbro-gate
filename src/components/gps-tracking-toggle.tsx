@@ -9,6 +9,7 @@ import {
 } from '@/lib/geolocation-request'
 import { syncGpsTrackingPref } from '@/lib/gps-tracking-pref-client'
 import { useGpsTrackingEnabled } from '@/lib/gps-tracking-storage'
+import { ensurePushSubscription } from '@/lib/push-client'
 
 type GpsTrackingToggleProps = {
   eventId: string
@@ -45,6 +46,7 @@ export function GpsTrackingToggle({
     onToggle?.(true)
     setPermissionOpen(false)
     void syncGpsTrackingPref(eventId, true)
+    void ensurePushSubscription()
   }
 
   function disableTracking() {
