@@ -4,7 +4,21 @@ import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
 import { formatPassTimeSeconds } from '@/lib/geo'
 import { emailToUsername } from '@/lib/shoot-record'
 import { getUserDisplayName } from '@/lib/admin-players'
+import { USER_GPS_TRACKING_PREFS_TABLE } from '@/lib/user-gps-tracking-prefs-server'
 import type { User } from '@supabase/supabase-js'
+
+type EventMonitorRow = {
+  id: string
+  user_id: string | null
+  player_label: string
+  gps_tracking_on: boolean
+  gps_passed: boolean
+  passed_at: string | null
+  passed_at_display: string | null
+  pass_count: number | null
+  location_number: number | null
+  notified: boolean
+}
 
 async function buildPlayerLabelMap(admin: ReturnType<typeof supabaseAdmin>) {
   const labelByUserId = new Map<string, string>()
@@ -51,7 +65,7 @@ export async function GET(req: NextRequest) {
 
   const admin = supabaseAdmin()
 
-  const [{ data: event, error: eventError }, logsResult, { data: orders }] =
+  const [{ data: event, error: eventError }, logsResult, { data: orders }, prefsResult] =
     await Promise.all([
       admin.from('events').select('id, name, date').eq('id', eventId).maybeSingle(),
       admin
@@ -60,6 +74,10 @@ export async function GET(req: NextRequest) {
         .eq('event_id', eventId)
         .order('passed_at', { ascending: false }),
       admin.from('orders').select('user_id').eq('event_id', eventId),
+      admin
+        .from(USER_GPS_TRACKING_PREFS_TABLE)
+        .select('user_id, enabled')
+        .eq('event_id', eventId),
     ])
 
   let logs = logsResult.data
@@ -80,20 +98,31 @@ export async function GET(req: NextRequest) {
     }))
   }
 
+  if (prefsResult.error) {
+    console.error('[admin/event-monitoring] prefs', prefsResult.error)
+  }
+
   if (eventError || !event) {
     return NextResponse.json({ error: '대회를 찾을 수 없어요' }, { status: 404 })
   }
 
-  const labelByUserId = await buildPlayerLabelMap(admin)
-  const usersWithLogs = new Set<string>()
+  const trackingOnByUser = new Map<string, boolean>()
+  for (const pref of prefsResult.data ?? []) {
+    if (!pref.user_id) continue
+    trackingOnByUser.set(pref.user_id, pref.enabled === true)
+  }
 
-  const rows = (logs ?? []).map(log => {
-    if (log.user_id) usersWithLogs.add(log.user_id)
+  const labelByUserId = await buildPlayerLabelMap(admin)
+  const listedUserIds = new Set<string>()
+
+  const rows: EventMonitorRow[] = (logs ?? []).map(log => {
+    if (log.user_id) listedUserIds.add(log.user_id)
     const rawLabel = log.user_id ? (labelByUserId.get(log.user_id) ?? log.user_id.slice(0, 8)) : '-'
     return {
       id: log.id,
       user_id: log.user_id,
       player_label: formatPlayerLabel(rawLabel),
+      gps_tracking_on: log.user_id ? trackingOnByUser.get(log.user_id) === true : false,
       gps_passed: true,
       passed_at: log.passed_at,
       passed_at_display: log.passed_at ? formatPassTimeSeconds(new Date(log.passed_at)) : null,
@@ -103,19 +132,15 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  const purchaserIds = new Set<string>()
-  for (const order of orders ?? []) {
-    if (order.user_id && !usersWithLogs.has(order.user_id)) {
-      purchaserIds.add(order.user_id)
-    }
-  }
-
-  for (const userId of purchaserIds) {
+  function pushPlaceholderRow(userId: string) {
+    if (listedUserIds.has(userId)) return
+    listedUserIds.add(userId)
     const rawLabel = labelByUserId.get(userId) ?? userId.slice(0, 8)
     rows.push({
       id: `no-log-${userId}`,
       user_id: userId,
       player_label: formatPlayerLabel(rawLabel),
+      gps_tracking_on: trackingOnByUser.get(userId) === true,
       gps_passed: false,
       passed_at: null,
       passed_at_display: null,
@@ -125,14 +150,21 @@ export async function GET(req: NextRequest) {
     })
   }
 
+  for (const order of orders ?? []) {
+    if (order.user_id) pushPlaceholderRow(order.user_id)
+  }
+
+  // 로그·구매 없어도 GPS 감지 ON이면 리스트에 포함
+  for (const [userId, enabled] of trackingOnByUser) {
+    if (enabled) pushPlaceholderRow(userId)
+  }
+
   rows.sort((a, b) => {
+    if (a.gps_tracking_on !== b.gps_tracking_on) return a.gps_tracking_on ? -1 : 1
+    if (a.gps_passed !== b.gps_passed) return a.gps_passed ? -1 : 1
     const nameCmp = a.player_label.localeCompare(b.player_label, 'ko')
     if (nameCmp !== 0) return nameCmp
-    if (!a.gps_passed && b.gps_passed) return 1
-    if (a.gps_passed && !b.gps_passed) return -1
-    const passA = a.pass_count ?? 0
-    const passB = b.pass_count ?? 0
-    return passA - passB
+    return (a.pass_count ?? 0) - (b.pass_count ?? 0)
   })
 
   return NextResponse.json({

@@ -143,6 +143,7 @@ type EventMonitorRow = {
   id: string
   user_id: string | null
   player_label: string
+  gps_tracking_on: boolean
   gps_passed: boolean
   passed_at: string | null
   passed_at_display: string | null
@@ -1040,6 +1041,7 @@ export default function AdminPage() {
                     <tr>
                       {[
                         '선수명',
+                        'GPS 감지',
                         'GPS 통과',
                         '통과 시각',
                         'pass_count',
@@ -1053,6 +1055,9 @@ export default function AdminPage() {
                     {eventMonitorRows.map(row => (
                       <tr key={row.id}>
                         <td>{row.player_label}</td>
+                        <td>
+                          <OxBadge value={row.gps_tracking_on === true} />
+                        </td>
                         <td>
                           <OxBadge value={row.gps_passed} />
                         </td>
@@ -1077,8 +1082,8 @@ export default function AdminPage() {
                     ))}
                     {eventMonitorRows.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="py-8 text-center text-muted">
-                          GPS 로그가 없어요
+                        <td colSpan={6} className="py-8 text-center text-muted">
+                          GPS 감지 ON / 통과 로그 / 구매 인증 선수가 없어요
                         </td>
                       </tr>
                     )}
