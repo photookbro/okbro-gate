@@ -101,7 +101,7 @@ export function GpsTrackingToggle({
           role="switch"
           aria-checked={enabled}
           aria-disabled={disabled}
-          aria-label={isEventsList ? (enabled ? 'GPS 감지 중' : 'GPS 감지 OFF') : '촬영 감지 ON/OFF'}
+          aria-label={isEventsList ? (enabled ? 'GPS 포착 중' : 'GPS 포착 OFF') : '촬영 감지 ON/OFF'}
           disabled={disabled}
           onClick={handleClick}
           onPointerDown={stopNavigation}
@@ -111,7 +111,7 @@ export function GpsTrackingToggle({
         </button>
         {isEventsList ? (
           <span className={enabled ? 'events-gps-switch-label-on' : 'events-gps-switch-label-off'}>
-            {enabled ? '감지중' : 'OFF'}
+            {enabled ? 'CAPTURING' : 'OFF'}
           </span>
         ) : (
           <span className="text-xs font-medium text-[var(--text)]">{enabled ? 'ON' : 'OFF'}</span>

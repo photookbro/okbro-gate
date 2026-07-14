@@ -13,9 +13,9 @@ function AdminLogoutBar() {
   const { logout } = useAdminAuth()
 
   return (
-    <div className="mx-auto flex w-full max-w-[1400px] justify-end px-4 pt-4">
+    <div className="mx-auto flex w-full max-w-[1400px] justify-end px-4 pb-0 pt-2">
       <button type="button" onClick={logout} className="btn-secondary-inline text-sm">
-        로그아웃
+        LOG OUT
       </button>
     </div>
   )
@@ -83,7 +83,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   if (!checked) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f3f4f6]">
+      <div className="admin-shell flex min-h-screen items-center justify-center">
         <p className="text-muted">잠시만 기다리세요. 관리자 인증을 확인하고 있습니다.</p>
       </div>
     )
@@ -91,7 +91,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   if (!token) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f3f4f6] p-4">
+      <div className="admin-shell flex min-h-screen items-center justify-center p-4">
         <form onSubmit={handleLogin} className="modal-card w-full max-w-sm">
           <h1 className="section-title mb-2 text-center">🔐 관리자 로그인</h1>
           <p className="mb-4 text-center text-sm text-muted">관리자 비밀번호를 입력해주세요</p>
@@ -115,7 +115,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AdminAuthProvider token={token}>
-      <div className="min-h-screen bg-[#f3f4f6]">
+      <div className="admin-shell min-h-screen">
         <AdminLogoutBar />
         {children}
       </div>

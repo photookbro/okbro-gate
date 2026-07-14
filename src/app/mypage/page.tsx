@@ -219,7 +219,7 @@ export default function MyPage() {
   return (
     <div className="page-shell">
       <div className="page-container">
-        <h1 className="page-title">마이페이지</h1>
+        <h1 className="page-title">MY PAGE</h1>
         {email && <p className="page-subtitle">{email}</p>}
 
         {errorMsg && <p className="alert-danger">{errorMsg}</p>}
@@ -274,6 +274,66 @@ export default function MyPage() {
         </div>
 
         <div className="card mb-4">
+          <h2 className="section-title">인증 연장</h2>
+          <p className="mb-4 text-sm leading-relaxed text-muted">
+            추가 주문번호로 인증하면 만료일이 연장돼요
+          </p>
+
+          <form onSubmit={handleExtend}>
+            <div className="extend-form-row">
+              <div className="flex-1">
+                <label htmlFor="extend-order-input" className="label-field">
+                  주문번호
+                </label>
+                <input
+                  id="extend-order-input"
+                  type="text"
+                  value={orderInput}
+                  onChange={e => setOrderInput(e.target.value)}
+                  placeholder={NAVER_ORDER_PLACEHOLDER}
+                  autoComplete="off"
+                  className={`input-field ${extendError ? 'input-field-error' : ''}`}
+                />
+              </div>
+              <button type="submit" disabled={extending} className="btn-primary-inline">
+                {extending ? '인증 중...' : '인증 연장하기'}
+              </button>
+            </div>
+
+            {extendError && <p className="alert-danger mt-3 mb-0">{extendError}</p>}
+            {extendSuccess && <p className="alert-success mt-3 mb-0">{extendSuccess}</p>}
+          </form>
+        </div>
+
+        <div className="card mb-4">
+          <h2 className="section-title">🔔 촬영 알림</h2>
+          <p className="mb-4 text-sm leading-relaxed text-muted">
+            촬영 알림을 ON으로 해두셔야 대회 종료 후 알람을 받을 수 있어요
+          </p>
+
+          {notificationPermission === 'unsupported' ? (
+            <p className="text-sm text-muted">이 브라우저는 알림을 지원하지 않아요</p>
+          ) : notificationPermission === 'granted' ? (
+            <p className="text-sm text-success">✅ 촬영 알림이 켜져 있어요</p>
+          ) : notificationPermission === 'denied' ? (
+            <p className="text-sm text-muted">
+              알림이 차단돼 있어요. 브라우저 설정에서 알림을 허용으로 바꿔주세요
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void handleEnableNotification()}
+              disabled={enablingNotification}
+              className="btn-primary-inline"
+            >
+              {enablingNotification ? '요청 중...' : '🔔 촬영 알림 켜기'}
+            </button>
+          )}
+
+          {notificationMsg && <p className="mt-3 text-sm text-muted">{notificationMsg}</p>}
+        </div>
+
+        <div className="card mb-4">
           <h2 className="section-title">📍 촬영 감지 이력</h2>
 
           {gpsEventPasses.length === 0 ? (
@@ -309,68 +369,6 @@ export default function MyPage() {
               ))}
             </div>
           )}
-        </div>
-
-        <div className="card mb-4">
-          <h2 className="section-title">🔔 촬영 알림</h2>
-
-          {notificationPermission === 'unsupported' ? (
-            <p className="text-sm text-muted">이 브라우저는 알림을 지원하지 않아요</p>
-          ) : notificationPermission === 'granted' ? (
-            <p className="text-sm text-success">✅ 촬영 알림이 켜져 있어요</p>
-          ) : notificationPermission === 'denied' ? (
-            <p className="text-sm text-muted">
-              알림이 차단돼 있어요. 브라우저 설정에서 알림을 허용으로 바꿔주세요
-            </p>
-          ) : (
-            <>
-              <p className="mb-4 text-sm leading-relaxed text-muted">
-                대회 종료 후 사진이 찍힌 시각을 알려드려요
-              </p>
-              <button
-                type="button"
-                onClick={() => void handleEnableNotification()}
-                disabled={enablingNotification}
-                className="btn-primary-inline"
-              >
-                {enablingNotification ? '요청 중...' : '🔔 촬영 알림 켜기'}
-              </button>
-            </>
-          )}
-
-          {notificationMsg && <p className="mt-3 text-sm text-muted">{notificationMsg}</p>}
-        </div>
-
-        <div className="card mb-4">
-          <h2 className="section-title">인증 연장</h2>
-          <p className="mb-4 text-sm leading-relaxed text-muted">
-            추가 주문번호로 인증하면 만료일이 연장돼요
-          </p>
-
-          <form onSubmit={handleExtend}>
-            <div className="extend-form-row">
-              <div className="flex-1">
-                <label htmlFor="extend-order-input" className="label-field">
-                  주문번호
-                </label>
-                <input
-                  id="extend-order-input"
-                  type="text"
-                  value={orderInput}
-                  onChange={e => setOrderInput(e.target.value)}
-                  placeholder={NAVER_ORDER_PLACEHOLDER}
-                  autoComplete="off"
-                  className={`input-field ${extendError ? 'input-field-error' : ''}`}
-                />
-              </div>
-              <button type="submit" disabled={extending} className="btn-primary-inline">
-                {extending ? '인증 중...' : '인증 연장하기'}
-              </button>
-            </div>
-
-            {extendError && <p className="alert-danger mt-3 mb-0">{extendError}</p>}
-            {extendSuccess && <p className="alert-success mt-3 mb-0">{extendSuccess}</p>}
-          </form>
         </div>
       </div>
     </div>

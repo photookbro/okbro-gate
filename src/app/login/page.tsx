@@ -48,13 +48,14 @@ export default function LoginPage() {
         <div className="card p-7 text-center">
           <img src="/icons/icon-192.png" alt="" width={72} height={72} className="mx-auto mb-3 rounded-2xl" />
           <h1 className="page-title mb-2 text-center text-xl md:text-2xl">
-            <span className="text-okbro-orange">OKbro</span>GATE
+            <span className="text-okbro-orange">OKbro</span>
+            <span className="text-[var(--text)]">GATE</span>
           </h1>
 
           <div className="alert-warning text-left">
-            <p className="font-semibold">⚠️ Google 계정으로 로그인하세요</p>
+            <p className="font-semibold">⚠️ Google 계정으로만 로그인하세요</p>
             <p className="mt-1 text-sm">
-              이메일 입력 로그인은 지원하지 않습니다.
+              구글앨범을 이용을 위해서 꼭 구글 로그인 해주세요.
               {inAppBrowser ? (
                 <>
                   <br />

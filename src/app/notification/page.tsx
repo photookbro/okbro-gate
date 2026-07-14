@@ -42,7 +42,7 @@ export default function NotificationPage() {
           ← 홈으로
         </Link>
 
-        <h1 className="page-title mt-3">📢 공지</h1>
+        <h1 className="page-title mt-3">📢 NOTICE</h1>
 
         {loading && <p className="text-muted">로딩 중...</p>}
         {error && <p className="alert-danger">{error}</p>}

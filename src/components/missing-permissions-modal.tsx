@@ -91,7 +91,7 @@ export function MissingPermissionsModal({ open, onResolved, onDismiss }: Missing
         {errorMessage ? <p className="alert-danger mb-4 text-sm">{errorMessage}</p> : null}
         <div className="btn-row">
           <button type="button" className="btn-secondary" onClick={onDismiss} disabled={requesting}>
-            나중에
+            LATER
           </button>
           <button
             type="button"

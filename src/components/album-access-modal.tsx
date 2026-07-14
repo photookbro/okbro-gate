@@ -74,7 +74,7 @@ export function AlbumAccessModal({
     return (
       <div className="modal-overlay" onClick={onClose}>
         <div className="modal-card max-w-lg" onClick={e => e.stopPropagation()}>
-          <AAlbumView albumAUrl={albumAUrl ?? null} incentive="고화질을 보려면 과일 구매!" />
+          <AAlbumView albumAUrl={albumAUrl ?? null} incentive="이 장면을 고화질로 만나보세요" />
           <button type="button" onClick={onClose} className="btn-secondary mt-4 w-full">
             닫기
           </button>

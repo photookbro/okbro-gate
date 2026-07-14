@@ -9,16 +9,6 @@ import {
   shouldShowNotificationBanner,
 } from '@/lib/notification-dismiss'
 
-function formatNotificationDate(iso: string): string {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-}
-
 export function HomeNotificationBanner() {
   const [notification, setNotification] = useState<NotificationRecord | null>(null)
   const [visible, setVisible] = useState(false)
@@ -62,42 +52,33 @@ export function HomeNotificationBanner() {
   if (loading || !visible || !notification) return null
 
   return (
-    <section className="home-notification-banner" aria-labelledby="home-notification-title">
-      <div className="home-notification-banner-inner">
-        <div className="home-notification-banner-header">
-          <div>
-            <p className="home-notification-banner-label">📢 공지</p>
-            <h2 id="home-notification-title" className="home-notification-banner-title">
-              {notification.title}
-            </h2>
-            {notification.created_at ? (
-              <time className="home-notification-banner-date" dateTime={notification.created_at}>
-                {formatNotificationDate(notification.created_at)}
-              </time>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            className="home-notification-close"
-            onClick={handleClose}
-            aria-label="공지 닫기"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="home-notification-banner-body">
-          <p className="home-notification-banner-content">{notification.content}</p>
-        </div>
-
-        <div className="home-notification-banner-actions">
-          <Link href="/notification" className="home-notification-link">
-            전체 보기
-          </Link>
-          <button type="button" onClick={handleDismissToday} className="home-notification-dismiss">
-            오늘 그만 보기
-          </button>
-        </div>
+    <section className="home-notification-thin" aria-labelledby="home-notification-title">
+      <div className="home-notification-thin-inner">
+        <span className="home-notification-thin-icon" aria-hidden="true">
+          📢
+        </span>
+        <h2 id="home-notification-title" className="home-notification-thin-title">
+          {notification.title}
+        </h2>
+        <button
+          type="button"
+          className="home-notification-thin-close"
+          onClick={handleClose}
+          aria-label="공지 닫기"
+        >
+          ✕
+        </button>
+      </div>
+      <div className="home-notification-thin-actions">
+        <Link href="/notification" className="home-notification-thin-link">
+          전체 보기
+        </Link>
+        <span className="home-notification-thin-sep" aria-hidden="true">
+          ·
+        </span>
+        <button type="button" onClick={handleDismissToday} className="home-notification-thin-dismiss">
+          오늘 그만 보기
+        </button>
       </div>
     </section>
   )

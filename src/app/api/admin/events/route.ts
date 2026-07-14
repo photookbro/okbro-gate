@@ -4,7 +4,7 @@ import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
 import { disableAllUserGpsTrackingPrefsForEvent } from '@/lib/user-gps-tracking-prefs-server'
 
 const EVENT_FIELDS =
-  'id, name, date, album_a_url, album_b_url, gps_lat, gps_lng, gps_radius_meters, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_enabled, is_loop_course'
+  'id, name, date, album_a_url, album_b_url, photo_url, gps_lat, gps_lng, gps_radius_meters, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_enabled, is_loop_course'
 
 const LEGACY_EVENT_FIELDS =
   'id, name, date, album_a_url, album_b_url, gps_lat, gps_lng, gps_radius_meters, gps_enabled'
@@ -33,6 +33,7 @@ type EventRow = {
   date: string
   album_a_url: string | null
   album_b_url: string | null
+  photo_url?: string | null
   gps_lat?: number | null
   gps_lng?: number | null
   gps_radius_meters?: number | null

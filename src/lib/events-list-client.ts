@@ -23,6 +23,7 @@ export type EventsListPastEvent = {
   name: string
   date: string
   has_album: boolean
+  photo_url: string | null
   gps_logs: EventsListShootRecord[]
 }
 
@@ -50,6 +51,7 @@ export type EventsListUpcomingEvent = {
   gps_enabled: boolean
   show_gps_toggle: boolean
   is_loop_course: boolean
+  photo_url: string | null
   locations: EventsListLocation[]
   shoot_record: EventsListShootRecord | null
   gps_pass_groups: EventsListGpsPassGroup[]
@@ -88,6 +90,7 @@ export function parsePastEvent(value: unknown): EventsListPastEvent | null {
     name,
     date,
     has_album: row.has_album === true,
+    photo_url: typeof row.photo_url === 'string' && row.photo_url.trim() ? row.photo_url : null,
     gps_logs: parseShootRecords(
       row.gps_logs ?? (row.shoot_record != null ? [row.shoot_record] : [])
     ),
@@ -156,6 +159,7 @@ export function parseUpcomingEvent(value: unknown): EventsListUpcomingEvent | nu
     gps_enabled,
     show_gps_toggle: gps_enabled || hasGpsLocations,
     is_loop_course: row.is_loop_course === true,
+    photo_url: typeof row.photo_url === 'string' && row.photo_url.trim() ? row.photo_url : null,
     locations,
     shoot_record,
     gps_pass_groups,
@@ -190,10 +194,9 @@ export function parseEventsListResponse(data: unknown): {
 export const GPS_SHOOT_RECORD_DISCLAIMER =
   '핸드폰 GPS 오차, 신호 송신 지연, 선수 밀집도에 따라 실제 시각과 다를 수 있습니다'
 
-export const EVENTS_UPCOMING_SECTION_TITLE = '📅 오켱 출사 예정'
+export const EVENTS_UPCOMING_SECTION_TITLE = '📅 렌즈가 기다리는 그날'
 export const EVENTS_UPCOMING_ON_PROMPT = '참가 예정이면 ON으로 해주세요'
-export const EVENTS_UPCOMING_ON_DETAIL =
-  'ON으로 해주시면 이후 앨범을 찾으실 때 오켱 카메라 앞에 언제 지나갔는지 알려드려요'
+export const EVENTS_UPCOMING_ON_DETAIL = 'ON으로 해두시면 스쳐 간 순간까지 놓치지 않습니다'
 export const EVENTS_PAST_SECTION_SUB_MAIN = '지난 대회 및 사진 업로드 현황'
 export const EVENTS_PAST_SECTION_SUB_TAIL = '최근 12개월'
 

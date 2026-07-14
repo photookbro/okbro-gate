@@ -32,7 +32,7 @@ export function NotificationPermissionModal({
         </p>
         <div className="btn-row">
           <button type="button" className="btn-secondary" onClick={onSkip} disabled={requesting}>
-            나중에
+            LATER
           </button>
           <button type="button" className="btn-primary" onClick={onAllow} disabled={requesting}>
             {requesting ? '요청 중...' : '알림 허용'}

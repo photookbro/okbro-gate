@@ -98,6 +98,7 @@ export async function GET(req: NextRequest) {
         date: event.date,
         gps_enabled: event.gps_enabled,
         has_album: hasAlbum,
+        photo_url: event.photo_url ?? null,
         gps_logs: gpsLogsByEvent[event.id] ?? [],
       }
     }),
@@ -106,6 +107,7 @@ export async function GET(req: NextRequest) {
       name: event.name,
       date: event.date,
       gps_enabled: event.gps_enabled,
+      photo_url: event.photo_url ?? null,
       is_loop_course: event.is_loop_course === true,
       locations: getEventGpsLocations(event).map(location => ({
         location_number: location.locationNumber,

@@ -20,7 +20,7 @@ export function PwaInstallButton({ className = 'landing-install-btn' }: PwaInsta
       disabled={installing}
       onClick={() => void promptInstall()}
     >
-      {installing ? '설치 준비 중...' : '📥 앱 설치하기'}
+      {installing ? '설치 준비 중...' : '📥 INSTALL'}
     </button>
   )
 }

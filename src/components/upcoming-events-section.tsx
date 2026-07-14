@@ -28,53 +28,62 @@ function UpcomingEventItem({ event }: { event: EventsListUpcomingEvent }) {
   const hasPassData = isMultiMode ? event.gps_pass_groups.length > 0 : !!event.shoot_record
 
   return (
-    <li className="events-list-item">
-      <div className="events-card">
-        <div className="events-card-upcoming">
-          <Link href={`/events/${event.id}`} className="events-card-upcoming-link">
-            <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
-            <span className="events-event-name">{event.name}</span>
-          </Link>
-          {event.show_gps_toggle ? (
-            <GpsTrackingToggle eventId={event.id} variant="events-list" />
-          ) : null}
-        </div>
-
-        {trackingEnabled && hasPassData && (
-          <div className="w-full events-past-meta">
-            {isMultiMode
-              ? event.gps_pass_groups.map(group => (
-                  <p key={group.location_number} className="events-shoot-record">
-                    {event.gps_pass_groups.length > 1 && (
-                      <strong>{group.location_number}차 위치 </strong>
-                    )}
-                    {group.passes
-                      .map(pass => `${pass.pass_count}차 통과: ${pass.display_time}`)
-                      .join(' · ')}
-                  </p>
-                ))
-              : event.shoot_record && (
-                  <p className="events-shoot-record">
-                    <strong>{event.shoot_record.username}</strong>님은{' '}
-                    <strong>{event.shoot_record.time}</strong>경에 오켱 카메라 앞을 지나갔습니다
-                  </p>
-                )}
+    <li className="event-portrait-item">
+      <Link href={`/events/${event.id}`} className="event-portrait-photo-link">
+        {event.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={event.photo_url} alt="" className="event-portrait-photo" />
+        ) : (
+          <div className="event-portrait-photo event-portrait-photo-placeholder" aria-hidden="true">
+            📷
           </div>
         )}
+      </Link>
 
-        {event.locations.length > 0 && (
-          <div className="w-full">
-            <button
-              type="button"
-              className="events-location-preview-toggle"
-              onClick={() => setMapOpen(open => !open)}
-            >
-              {mapOpen ? '📍 촬영 위치 닫기' : '📍 촬영 위치 보기'}
-            </button>
-            {mapOpen && <PlayerLocationPreviewMap locations={event.locations} />}
-          </div>
-        )}
+      <div className="event-portrait-caption">
+        <Link href={`/events/${event.id}`} className="event-portrait-caption-link">
+          <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
+          <span className="events-event-name">{event.name}</span>
+        </Link>
+        {event.show_gps_toggle ? (
+          <GpsTrackingToggle eventId={event.id} variant="events-list" />
+        ) : null}
       </div>
+
+      {trackingEnabled && hasPassData && (
+        <div className="events-past-meta">
+          {isMultiMode
+            ? event.gps_pass_groups.map(group => (
+                <p key={group.location_number} className="events-shoot-record">
+                  {event.gps_pass_groups.length > 1 && (
+                    <strong>{group.location_number}차 위치 </strong>
+                  )}
+                  {group.passes
+                    .map(pass => `${pass.pass_count}차 통과: ${pass.display_time}`)
+                    .join(' · ')}
+                </p>
+              ))
+            : event.shoot_record && (
+                <p className="events-shoot-record">
+                  <strong>{event.shoot_record.username}</strong>님은{' '}
+                  <strong>{event.shoot_record.time}</strong>경에 오켱 카메라 앞을 지나갔습니다
+                </p>
+              )}
+        </div>
+      )}
+
+      {event.locations.length > 0 && (
+        <div className="event-portrait-map-toggle">
+          <button
+            type="button"
+            className="events-location-preview-toggle"
+            onClick={() => setMapOpen(open => !open)}
+          >
+            {mapOpen ? '📍 촬영 위치 닫기' : '📍 촬영 위치 보기'}
+          </button>
+          {mapOpen && <PlayerLocationPreviewMap locations={event.locations} />}
+        </div>
+      )}
     </li>
   )
 }
@@ -136,7 +145,7 @@ export function UpcomingEventsSection() {
       {error && <p className="text-sm text-danger">{error}</p>}
 
       {!loading && !error && (
-        <ul className="events-vertical-list">
+        <ul className="event-portrait-grid">
           {upcoming.length === 0 ? (
             <li className="events-empty">예정된 대회가 없어요</li>
           ) : (

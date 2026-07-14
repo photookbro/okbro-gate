@@ -14,7 +14,7 @@ export function GpsTrackingBanner({ eventId }: GpsTrackingBannerProps) {
 
   return (
     <div className="gps-tracking-banner" role="status">
-      <p className="gps-tracking-banner-title">⚠️ GPS 추적 중</p>
+      <p className="gps-tracking-banner-title">⚠️ GPS 포착 중</p>
       <p className="gps-tracking-banner-text">
         레이스 완료 후 OFF를 눌러 종료하세요.
         <br />

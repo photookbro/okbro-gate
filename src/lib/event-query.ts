@@ -13,10 +13,10 @@ export const EVENT_DETAIL_FIELDS =
 export const EVENT_DETAIL_FIELDS_LEGACY =
   'id, name, date, album_a_url, album_b_url, gps_enabled, is_loop_course, gps_lat, gps_lng, gps_radius_meters'
 
-export const EVENT_LIST_PAST_FIELDS = 'id, name, date, gps_enabled, album_b_url'
+export const EVENT_LIST_PAST_FIELDS = 'id, name, date, gps_enabled, album_b_url, photo_url'
 
 export const EVENT_LIST_FIELDS =
-  'id, name, date, gps_enabled, album_b_url, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_lat, gps_lng, gps_radius_meters, is_loop_course'
+  'id, name, date, gps_enabled, album_b_url, photo_url, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_lat, gps_lng, gps_radius_meters, is_loop_course'
 
 export const EVENT_LIST_FIELDS_LEGACY =
   'id, name, date, gps_enabled, album_b_url, gps_lat, gps_lng, gps_radius_meters, is_loop_course'
@@ -33,6 +33,7 @@ export type EventRow = {
   date: string
   album_a_url?: string | null
   album_b_url?: string | null
+  photo_url?: string | null
   gps_enabled?: boolean | null
   is_loop_course?: boolean | null
   gps_1_lat?: number | null
@@ -92,25 +93,32 @@ export async function fetchEventsList(): Promise<{
   const admin = supabaseAdmin()
   const cutoff = twelveMonthsAgoDateString()
 
-  let result = await admin
+  const primary = await admin
     .from('events')
     .select(EVENT_LIST_FIELDS)
     .gte('date', cutoff)
     .order('date', { ascending: false })
 
-  if (result.error && isMissingColumnError(result.error.message)) {
-    result = await admin
+  let rows: EventRow[]
+
+  if (!primary.error) {
+    rows = (primary.data ?? []) as EventRow[]
+  } else if (isMissingColumnError(primary.error.message)) {
+    const fallback = await admin
       .from('events')
       .select(EVENT_LIST_FIELDS_LEGACY)
       .gte('date', cutoff)
       .order('date', { ascending: false })
+
+    if (fallback.error) {
+      return { past: [], upcoming: [], error: new Error(fallback.error.message) }
+    }
+    rows = (fallback.data ?? []) as EventRow[]
+  } else {
+    return { past: [], upcoming: [], error: new Error(primary.error.message) }
   }
 
-  if (result.error) {
-    return { past: [], upcoming: [], error: new Error(result.error.message) }
-  }
-
-  const classified = classifyEventsForList((result.data ?? []) as EventRow[], { cutoff })
+  const classified = classifyEventsForList(rows, { cutoff })
 
   return {
     past: classified.past as EventRow[],

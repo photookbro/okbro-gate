@@ -60,18 +60,21 @@ export function SiteNav() {
           <span className="nav-brand-accent">OKbro</span>GATE
         </Link>
         <div className="nav-links">
+          <Link href="/home" className={navLinkClass(pathname === '/home')}>
+            HOME
+          </Link>
           <Link
-            href="/#events"
+            href="/"
             className={navLinkClass(
               pathname === '/' || pathname === '/events' || pathname.startsWith('/events/')
             )}
           >
-            대회 목록
+            EVENTS
           </Link>
           {userId ? (
             <>
               <Link href="/mypage" className={navLinkClass(pathname === '/mypage')}>
-                마이페이지
+                MY PAGE
               </Link>
               <button
                 type="button"
@@ -79,12 +82,12 @@ export function SiteNav() {
                 disabled={loggingOut}
                 className="nav-btn-logout"
               >
-                {loggingOut ? '로그아웃 중...' : '로그아웃'}
+                {loggingOut ? '로그아웃 중...' : 'LOG OUT'}
               </button>
             </>
           ) : (
             <Link href="/login" className={navLinkClass(pathname === '/login')}>
-              로그인
+              LOG IN
             </Link>
           )}
         </div>

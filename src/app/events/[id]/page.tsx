@@ -170,7 +170,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     return (
       <AAlbumView
         albumAUrl={event!.album_a_url}
-        incentive="고화질을 보려면 과일 구매!"
+        incentive="이 장면을 고화질로 만나보세요"
         eventId={event!.id}
       />
     )
@@ -204,6 +204,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             </div>
           ) : null}
 
+          <h2 className="section-title">B급 순간들, 오켱이 담은 나</h2>
           {renderAlbumSection()}
         </div>
       </div>

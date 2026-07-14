@@ -4,13 +4,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAdminToken } from './admin-auth-context'
 import { AdminDateInput } from '@/components/admin-date-input'
 import { HomeBackgroundAdminPanel } from '@/components/admin/home-background-admin-panel'
+import { EventPhotoUpload } from '@/components/admin/event-photo-upload'
 import { NotificationsAdminPanel } from '@/components/admin/notifications-admin-panel'
 import {
   AdminGpsLocationMap,
   type GpsMapSlot,
 } from '@/components/admin/admin-gps-location-map'
 import { isCompleteIsoDate, isPastIsoDate } from '@/lib/date-input'
-import { formatTimeInputValue, isCompleteTime } from '@/lib/time-input'
 
 type Event = {
   id: string
@@ -18,6 +18,7 @@ type Event = {
   date: string
   album_a_url: string | null
   album_b_url: string | null
+  photo_url: string | null
   gps_lat: number | null
   gps_lng: number | null
   gps_radius_meters: number | null
@@ -59,13 +60,6 @@ const emptyForm: EventForm = {
   gps_2_lat: '',
   gps_2_lng: '',
   gps_2_radius_meters: '50',
-}
-
-type PlayerSummary = {
-  total_signups: number
-  terms_agreed: number
-  purchase_verified: number
-  gps_users: number
 }
 
 type PlayerRow = {
@@ -153,10 +147,10 @@ type EventMonitorRow = {
 }
 
 const TAB_LABELS = {
-  events: '대회 관리',
-  settings: '설정',
-  players: '선수 관리',
-  event_monitoring: '대회별 모니터링',
+  events: 'MANAGE EVENTS',
+  settings: 'SETTINGS',
+  players: 'PLAYERS',
+  event_monitoring: 'MONITORING',
 } as const
 
 function formatDateOnly(date: string | null | undefined): string {
@@ -202,6 +196,7 @@ export default function AdminPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<EventForm>(emptyForm)
   const [savingEvent, setSavingEvent] = useState(false)
+  const [eventSavedMsg, setEventSavedMsg] = useState('')
   const [gpsMapSlot, setGpsMapSlot] = useState<GpsMapSlot>(1)
   const [gpsMapSaving, setGpsMapSaving] = useState(false)
   const [gpsMapMessage, setGpsMapMessage] = useState('')
@@ -216,17 +211,7 @@ export default function AdminPage() {
   const [gpsLogsError, setGpsLogsError] = useState('')
   const [notifyingEventId, setNotifyingEventId] = useState<string | null>(null)
 
-  const [gpsAddModalEvent, setGpsAddModalEvent] = useState<Event | null>(null)
-  const [gpsAddUserId, setGpsAddUserId] = useState('')
-  const [gpsAddTime, setGpsAddTime] = useState('')
-  const [gpsAddPlayers, setGpsAddPlayers] = useState<PlayerRow[]>([])
-  const [loadingGpsAddPlayers, setLoadingGpsAddPlayers] = useState(false)
-  const [savingGpsLog, setSavingGpsLog] = useState(false)
-  const [gpsAddError, setGpsAddError] = useState('')
-  const [gpsNotifyMsg, setGpsNotifyMsg] = useState('')
-
   const [players, setPlayers] = useState<PlayerRow[]>([])
-  const [playerSummary, setPlayerSummary] = useState<PlayerSummary | null>(null)
   const [loadingPlayers, setLoadingPlayers] = useState(false)
   const [playersError, setPlayersError] = useState('')
   const [playerDetail, setPlayerDetail] = useState<PlayerDetail | null>(null)
@@ -350,12 +335,10 @@ export default function AdminPage() {
     const data = await res.json()
     if (!res.ok) {
       setPlayersError(data.error ?? '선수 목록을 불러오지 못했어요')
-      setPlayerSummary(null)
       setLoadingPlayers(false)
       return
     }
     setPlayers(data.players ?? [])
-    setPlayerSummary(data.summary ?? null)
     setLoadingPlayers(false)
   }, [adminFetch])
 
@@ -471,76 +454,6 @@ export default function AdminPage() {
     }
   }
 
-  async function openGpsAddModal(event: Event) {
-    setGpsAddModalEvent(event)
-    setGpsAddUserId('')
-    setGpsAddTime('')
-    setGpsAddError('')
-    setLoadingGpsAddPlayers(true)
-
-    const res = await adminFetch('/api/admin/players')
-    const data = await res.json()
-
-    setLoadingGpsAddPlayers(false)
-
-    if (!res.ok) {
-      setGpsAddError(data.error ?? '선수 목록을 불러오지 못했어요')
-      setGpsAddPlayers([])
-      return
-    }
-
-    setGpsAddPlayers(data.players ?? [])
-  }
-
-  function closeGpsAddModal() {
-    setGpsAddModalEvent(null)
-    setGpsAddUserId('')
-    setGpsAddTime('')
-    setGpsAddPlayers([])
-    setGpsAddError('')
-  }
-
-  async function handleSaveGpsLog(e: React.FormEvent) {
-    e.preventDefault()
-    if (!gpsAddModalEvent) return
-
-    if (!gpsAddUserId) {
-      setGpsAddError('선수를 선택해주세요')
-      return
-    }
-
-    if (!isCompleteTime(gpsAddTime)) {
-      setGpsAddError('통과 시각을 HH:MM:SS 형식으로 입력해주세요 (예: 143245)')
-      return
-    }
-
-    setSavingGpsLog(true)
-    setGpsAddError('')
-
-    const res = await adminFetch('/api/admin/gps-logs', {
-      method: 'POST',
-      body: JSON.stringify({
-        event_id: gpsAddModalEvent.id,
-        user_id: gpsAddUserId,
-        passed_time: gpsAddTime,
-      }),
-    })
-    const data = await res.json()
-
-    setSavingGpsLog(false)
-
-    if (!res.ok) {
-      setGpsAddError(data.error ?? 'GPS 로그 저장 실패')
-      return
-    }
-
-    const player = gpsAddPlayers.find(p => p.id === gpsAddUserId)
-    setGpsNotifyMsg(
-      `✅ ${gpsAddModalEvent.name}: ${player?.name ?? player?.email ?? '선수'} GPS 로그 저장 (${data.log?.passed_at_display ?? gpsAddTime})`
-    )
-    closeGpsAddModal()
-  }
-
   useEffect(() => {
     loadEvents()
     loadSettings()
@@ -569,11 +482,13 @@ export default function AdminPage() {
     setGpsMapSlot(1)
     setGpsMapMessage('')
     setGpsMapError('')
+    setEventSavedMsg('')
     setModalOpen(true)
   }
 
   function openEditModal(event: Event) {
     setEditingId(event.id)
+    setEventSavedMsg('')
     setGpsMapSlot(1)
     setGpsMapMessage('')
     setGpsMapError('')
@@ -675,8 +590,10 @@ export default function AdminPage() {
 
     setSavingEvent(true)
     setEventError('')
+    setEventSavedMsg('')
 
     const body = JSON.stringify(buildEventPayloadFromForm())
+    const isNewEvent = !editingId
 
     const res = editingId
       ? await adminFetch(`/api/admin/events?id=${editingId}`, { method: 'PUT', body })
@@ -689,9 +606,17 @@ export default function AdminPage() {
       return
     }
 
-    setModalOpen(false)
     setSavingEvent(false)
     await loadEvents()
+
+    if (isNewEvent && data.event?.id) {
+      // 신규 대회는 저장 직후에도 모달을 열어둬서 바로 사진을 업로드할 수 있게 함
+      setEditingId(data.event.id)
+      setEventSavedMsg('대회가 저장됐어요. 아래에서 대회 사진을 업로드할 수 있어요.')
+      return
+    }
+
+    setModalOpen(false)
   }
 
   async function handleDeleteEvent(id: string) {
@@ -738,7 +663,7 @@ export default function AdminPage() {
 
   return (
     <div className="page-container-admin">
-      <h1 className="page-title mb-6">⚙️ 관리자</h1>
+      <h1 className="page-title">⚙️ 관리자</h1>
 
       <div className="admin-tabs">
         {(Object.keys(TAB_LABELS) as Array<keyof typeof TAB_LABELS>).map(key => (
@@ -757,14 +682,13 @@ export default function AdminPage() {
         {tab === 'events' && (
           <>
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="section-title mb-0">대회 목록</h2>
+              <h2 className="section-title mb-0">EVENTS</h2>
               <button type="button" onClick={openAddModal} className="btn-primary-inline">
                 + 대회 추가
               </button>
             </div>
 
             {eventError && <p className="alert-danger">{eventError}</p>}
-            {gpsNotifyMsg && <p className="alert-success">{gpsNotifyMsg}</p>}
 
             {loadingEvents ? (
               <p className="text-muted">로딩 중...</p>
@@ -802,16 +726,9 @@ export default function AdminPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => void openGpsAddModal(event)}
-                              className="btn-secondary-inline"
-                            >
-                              GPS 로그 추가
-                            </button>
-                            <button
-                              type="button"
                               onClick={() => void handleSendGpsNotify(event)}
                               disabled={notifyingEventId === event.id}
-                              className="btn-secondary-inline"
+                              className="btn-secondary-inline btn-notify"
                             >
                               {notifyingEventId === event.id ? '발송 중...' : '종료 후 알림 발송'}
                             </button>
@@ -849,7 +766,7 @@ export default function AdminPage() {
 
         {tab === 'settings' && (
           <>
-            <h2 className="section-title">설정</h2>
+            <h2 className="section-title">SETTINGS</h2>
 
             <section className="card-section">
               <h3 className="mb-3 text-base font-semibold text-[var(--text)]">일반 설정</h3>
@@ -873,19 +790,19 @@ export default function AdminPage() {
                   {settingsMsg && <p className="alert-success">{settingsMsg}</p>}
 
                   <button type="submit" disabled={savingSettings} className="btn-primary-inline">
-                    {savingSettings ? '저장 중...' : '저장'}
+                    {savingSettings ? '저장 중...' : 'SAVE'}
                   </button>
                 </form>
               )}
             </section>
 
             <section className="card-section">
-              <h3 className="mb-3 text-base font-semibold text-[var(--text)]">홈 배경 이미지</h3>
+              <h3 className="mb-3 text-base font-semibold text-[var(--text)]">BACKGROUND</h3>
               <HomeBackgroundAdminPanel token={token} />
             </section>
 
             <section className="card-section">
-              <h3 className="mb-3 text-base font-semibold text-[var(--text)]">공지 관리</h3>
+              <h3 className="mb-3 text-base font-semibold text-[var(--text)]">NOTICE</h3>
               <p className="mb-4 text-sm text-muted">
                 저장한 공지는 선수 홈 화면에 최신 1건이 배너로 표시됩니다.
               </p>
@@ -896,7 +813,7 @@ export default function AdminPage() {
 
         {tab === 'players' && (
           <>
-            <h2 className="section-title">선수 관리</h2>
+            <h2 className="section-title">PLAYERS</h2>
             <p className="mb-4 text-sm text-muted">
               약관 동의·구매 인증·GPS 기록을 한곳에서 확인할 수 있어요. 행을 클릭하면 상세 프로필을 볼 수 있어요.
             </p>
@@ -907,20 +824,6 @@ export default function AdminPage() {
               <p className="text-muted">로딩 중...</p>
             ) : (
               <>
-                <div className="mb-6 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
-                  {[
-                    { label: '웹앱 가입 수', value: playerSummary?.total_signups ?? 0 },
-                    { label: '약관 동의', value: playerSummary?.terms_agreed ?? 0 },
-                    { label: '구매 인증', value: playerSummary?.purchase_verified ?? 0 },
-                    { label: 'GPS 사용', value: playerSummary?.gps_users ?? 0 },
-                  ].map(card => (
-                    <div key={card.label} className="card-section mb-0 text-center">
-                      <p className="mb-1 text-xs text-muted">{card.label}</p>
-                      <p className="text-2xl font-bold text-[var(--text)]">{card.value}</p>
-                    </div>
-                  ))}
-                </div>
-
                 <div className="admin-table-wrap">
                 <table className="admin-table">
                   <thead>
@@ -934,7 +837,6 @@ export default function AdminPage() {
                         'GPS 기록',
                         '구매 인증일',
                         '구매 만료일',
-                        '구매 남은 기간',
                         '열람 가능(합산)',
                         '마지막 활동',
                       ].map(col => (
@@ -951,30 +853,23 @@ export default function AdminPage() {
                       >
                         <td className="font-medium">{player.name}</td>
                         <td>{player.email}</td>
-                        <td className="whitespace-nowrap text-muted">{player.joined_at_display}</td>
+                        <td className="whitespace-nowrap text-muted">{formatDateOnly(player.joined_at)}</td>
                         <td><OxBadge value={player.terms_agreed} /></td>
                         <td><OxBadge value={player.purchase_verified} /></td>
                         <td><OxBadge value={player.gps_record} /></td>
                         <td className="whitespace-nowrap text-muted">{player.verified_at_display}</td>
                         <td className="whitespace-nowrap text-muted">{player.expires_at_display}</td>
-                        <td className="whitespace-nowrap">
-                          {player.days_remaining == null
-                            ? '-'
-                            : player.days_remaining <= 0
-                              ? '만료'
-                              : `${player.days_remaining}일`}
-                        </td>
                         <td className="whitespace-nowrap font-medium">
                           {player.photo_access_days_remaining > 0
                             ? `${player.photo_access_days_remaining}일`
                             : '0일'}
                         </td>
-                        <td className="whitespace-nowrap text-muted">{player.last_activity_display}</td>
+                        <td className="whitespace-nowrap text-muted">{formatDateOnly(player.last_activity)}</td>
                       </tr>
                     ))}
                     {players.length === 0 && (
                       <tr>
-                        <td colSpan={12} className="py-8 text-center text-muted">
+                        <td colSpan={10} className="py-8 text-center text-muted">
                           등록된 선수가 없어요
                         </td>
                       </tr>
@@ -989,7 +884,7 @@ export default function AdminPage() {
 
         {tab === 'event_monitoring' && (
           <>
-            <h2 className="section-title">대회별 모니터링</h2>
+            <h2 className="section-title">MONITORING</h2>
 
             <div className="mb-4 max-w-md">
               <label htmlFor="event-monitor-select" className={labelStyle}>
@@ -1025,7 +920,7 @@ export default function AdminPage() {
                   disabled={sendingEventNotify}
                   className="btn-primary-inline"
                 >
-                  {sendingEventNotify ? '발송 중...' : '📣 전체 알림 발송'}
+                  {sendingEventNotify ? '발송 중...' : '📣 NOTIFY ALL'}
                 </button>
               </div>
             )}
@@ -1131,6 +1026,24 @@ export default function AdminPage() {
               <span className={labelStyle}>고화소 앨범 URL</span>
               <input value={form.album_b_url} onChange={e => setForm(f => ({ ...f, album_b_url: e.target.value }))} className={inputStyle} />
             </label>
+
+            {editingId ? (
+              <>
+                {eventSavedMsg && <p className="alert-success">{eventSavedMsg}</p>}
+                <EventPhotoUpload
+                  token={token}
+                  eventId={editingId}
+                  photoUrl={events.find(e => e.id === editingId)?.photo_url ?? null}
+                  onChange={photoUrl => {
+                    setEvents(prev =>
+                      prev.map(e => (e.id === editingId ? { ...e, photo_url: photoUrl } : e))
+                    )
+                  }}
+                />
+              </>
+            ) : (
+              <p className="mb-4 text-xs text-muted">대회를 먼저 저장하면 사진을 업로드할 수 있어요</p>
+            )}
 
             <div className="card-section mb-4">
               <label className="mb-1 flex cursor-pointer items-center gap-2">
@@ -1250,78 +1163,7 @@ export default function AdminPage() {
                 취소
               </button>
               <button type="submit" className="btn-primary-inline" disabled={savingEvent}>
-                {savingEvent ? '저장 중...' : '저장'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {gpsAddModalEvent && (
-        <div className="modal-overlay" onClick={() => !savingGpsLog && closeGpsAddModal()}>
-          <form
-            onSubmit={handleSaveGpsLog}
-            onClick={e => e.stopPropagation()}
-            className="modal-card max-w-md"
-          >
-            <h3 className="section-title">📍 GPS 로그 추가 — {gpsAddModalEvent.name}</h3>
-            <p className="mb-4 text-sm text-muted">대회일: {gpsAddModalEvent.date}</p>
-
-            {loadingGpsAddPlayers ? (
-              <p className="text-sm text-muted">선수 목록 로딩 중...</p>
-            ) : (
-              <>
-                <label className="mb-3 block">
-                  <span className={labelStyle}>선수</span>
-                  <select
-                    required
-                    value={gpsAddUserId}
-                    onChange={e => setGpsAddUserId(e.target.value)}
-                    className={inputStyle}
-                  >
-                    <option value="">선수 선택</option>
-                    {gpsAddPlayers.map(player => (
-                      <option key={player.id} value={player.id}>
-                        {player.name} ({player.email})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="mb-3 block">
-                  <span className={labelStyle}>통과 시각 (HH:MM:SS)</span>
-                  <input
-                    required
-                    type="text"
-                    inputMode="numeric"
-                    value={gpsAddTime}
-                    onChange={e => setGpsAddTime(formatTimeInputValue(e.target.value))}
-                    className={inputStyle}
-                    placeholder="143245"
-                    maxLength={8}
-                  />
-                  <p className="mt-1 text-xs text-muted">예: 143245 → 14:32:45</p>
-                </label>
-              </>
-            )}
-
-            {gpsAddError && <p className="alert-danger">{gpsAddError}</p>}
-
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeGpsAddModal}
-                className="btn-secondary-inline"
-                disabled={savingGpsLog}
-              >
-                취소
-              </button>
-              <button
-                type="submit"
-                className="btn-primary-inline"
-                disabled={savingGpsLog || loadingGpsAddPlayers}
-              >
-                {savingGpsLog ? '저장 중...' : '저장'}
+                {savingEvent ? '저장 중...' : 'SAVE'}
               </button>
             </div>
           </form>

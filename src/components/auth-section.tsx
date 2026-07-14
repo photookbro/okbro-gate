@@ -32,7 +32,7 @@ export default function AuthSection({ user }: { user: User | null }) {
           onClick={handleLogout}
           className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
         >
-          로그아웃
+          LOG OUT
         </button>
       </div>
     )

@@ -32,7 +32,7 @@ export function PwaInstallGuideModal({ open, platform, onClose }: PwaInstallGuid
         aria-labelledby="pwa-install-guide-title"
       >
         <h2 id="pwa-install-guide-title" className="section-title">
-          📥 앱 설치하기
+          📥 INSTALL
         </h2>
         <p className="mb-4 text-sm leading-relaxed text-muted">
           아래 순서대로 홈 화면에 추가하면 앱처럼 이용할 수 있어요.

@@ -61,7 +61,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // /api/admin 은 세션 미들웨어 불필요 + multipart 업로드 body 를 middleware 프록시로 받지 않음
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/admin|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

@@ -63,7 +63,7 @@ export function AlbumAccessSection({
   if (view === 'a-album-preview') {
     return (
       <div className="card-section space-y-4">
-        <AAlbumView albumAUrl={albumAUrl ?? null} incentive="고화질을 보려면 과일 구매!" />
+        <AAlbumView albumAUrl={albumAUrl ?? null} incentive="이 장면을 고화질로 만나보세요" />
         <button type="button" onClick={() => setView('main')} className="btn-secondary w-full">
           돌아가기
         </button>

@@ -16,16 +16,29 @@ import {
 function PastEventItem({ event }: { event: EventsListPastEvent }) {
   const displayName = formatPastEventDisplayName(event.name, event.has_album)
   const hasLogs = event.gps_logs.length > 0
+  const statusIcon = !event.has_album ? '⏳' : hasLogs ? '📸' : '⏳'
 
-  const content = (
-    <>
-      <div className="events-past-heading">
-        <span className="events-past-icon" aria-hidden="true">
-          {!event.has_album ? '⏳' : hasLogs ? '📸' : '⏳'}
+  return (
+    <li className="event-portrait-item">
+      <Link href={`/events/${event.id}`} className="event-portrait-photo-link">
+        {event.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={event.photo_url} alt="" className="event-portrait-photo" />
+        ) : (
+          <div className="event-portrait-photo event-portrait-photo-placeholder" aria-hidden="true">
+            📷
+          </div>
+        )}
+        <span className="event-portrait-status-badge" aria-hidden="true">
+          {statusIcon}
         </span>
+      </Link>
+
+      <Link href={`/events/${event.id}`} className="event-portrait-caption-link mt-3">
         <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
         <span className="events-event-name">{displayName}</span>
-      </div>
+      </Link>
+
       {hasLogs ? (
         <div className="events-past-meta">
           {event.gps_logs.map((record, index) => (
@@ -37,14 +50,6 @@ function PastEventItem({ event }: { event: EventsListPastEvent }) {
           <p className="events-shoot-record-note">{GPS_SHOOT_RECORD_DISCLAIMER}</p>
         </div>
       ) : null}
-    </>
-  )
-
-  return (
-    <li className="events-list-item">
-      <Link href={`/events/${event.id}`} className="events-card events-card-past">
-        {content}
-      </Link>
     </li>
   )
 }
@@ -74,7 +79,7 @@ export function PastEventsSection() {
 
   return (
     <section className="events-section landing-events-section">
-      <h2 className="events-section-title">🎬 오켱 출사</h2>
+      <h2 className="events-section-title">🎬 렌즈가 담아온 기록</h2>
       <p className="events-section-sub events-past-section-sub">
         <span>{EVENTS_PAST_SECTION_SUB_MAIN}</span>
         <span className="events-past-section-sub-tail">{EVENTS_PAST_SECTION_SUB_TAIL}</span>
@@ -84,7 +89,7 @@ export function PastEventsSection() {
       {error && <p className="text-sm text-danger">{error}</p>}
 
       {!loading && !error && (
-        <ul className="events-vertical-list">
+        <ul className="event-portrait-grid">
           {past.length === 0 ? (
             <li className="events-empty">오켱 출사 대회가 없어요</li>
           ) : (

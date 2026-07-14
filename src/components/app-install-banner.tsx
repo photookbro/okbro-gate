@@ -59,7 +59,7 @@ export function AppInstallBanner({ visible = true }: AppInstallBannerProps) {
             cursor: 'pointer',
           }}
         >
-          앱 설치하기
+          INSTALL
         </a>
       </div>
     </div>

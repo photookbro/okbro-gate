@@ -12,7 +12,7 @@ type AAlbumViewProps = {
 
 export function AAlbumView({
   albumAUrl,
-  incentive = '고화질을 보려면 과일 구매!',
+  incentive = '이 장면을 고화질로 만나보세요',
   eventId,
 }: AAlbumViewProps) {
   return (
@@ -71,7 +71,7 @@ export function AAlbumView({
           저화소 앨범 보기
         </a>
       ) : (
-        <p className="text-sm text-muted">저화소 앨범이 아직 준비되지 않았어요.</p>
+        <p className="text-sm text-muted">사진이 아직 도착하지 않았습니다. 조금만 기다려 주세요</p>
       )}
 
       <a
@@ -80,7 +80,7 @@ export function AAlbumView({
         rel="noopener noreferrer"
         className="btn-primary block w-full text-center no-underline"
       >
-        과일 구매하기
+        이 순간, 인증하고 받기
       </a>
 
       <p className="text-center text-sm text-muted">

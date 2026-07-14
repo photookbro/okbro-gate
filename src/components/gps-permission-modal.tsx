@@ -95,7 +95,7 @@ export function GpsPermissionModal({
           <div className={onSkip ? 'btn-row mt-5' : 'mt-5'}>
             {onSkip ? (
               <button type="button" className="btn-secondary" onClick={onSkip} disabled={requesting}>
-                나중에
+                LATER
               </button>
             ) : null}
             <button
