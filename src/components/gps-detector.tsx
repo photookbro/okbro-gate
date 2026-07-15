@@ -46,6 +46,10 @@ type GpsPassLogGroup = {
   passes: { pass_count: number; display_time: string }[]
 }
 
+function formatCoord(value: number): string {
+  return value.toFixed(6)
+}
+
 function createZoneStateMap(locations: EventGpsLocation[], maxPasses: number) {
   const map = new Map<GpsLocationNumber, GpsPassZoneState>()
   for (const location of locations) {
@@ -81,6 +85,9 @@ export function GpsDetector({
   const [permissionOpen, setPermissionOpen] = useState(false)
   const [requestingPermission, setRequestingPermission] = useState(false)
   const [permissionError, setPermissionError] = useState('')
+  const [currentLat, setCurrentLat] = useState<number | null>(null)
+  const [currentLng, setCurrentLng] = useState<number | null>(null)
+  const [distanceByLocation, setDistanceByLocation] = useState<Record<number, number>>({})
   const [passCountToday, setPassCountToday] = useState(0)
   const [passLog, setPassLog] = useState<GpsPassLogGroup[]>([])
   const maxPasses = isLoopCourse ? MAX_GPS_PASSES_PER_DAY : 1
@@ -120,6 +127,9 @@ export function GpsDetector({
   const stopTracking = useCallback(() => {
     clearWatchOnly()
     setTracking(false)
+    setCurrentLat(null)
+    setCurrentLng(null)
+    setDistanceByLocation({})
     setGpsTrackingEnabled(eventId, false)
     void syncGpsTrackingPref(eventId, false)
   }, [clearWatchOnly, eventId])
@@ -242,10 +252,15 @@ export function GpsDetector({
   const handlePosition = useCallback(
     (position: GeolocationPosition) => {
       const { latitude, longitude } = position.coords
+      const nextDistances: Record<number, number> = {}
       let isNearAnyZone = false
+
+      setCurrentLat(latitude)
+      setCurrentLng(longitude)
 
       for (const location of activeLocations) {
         const distance = haversineDistanceMeters(latitude, longitude, location.lat, location.lng)
+        nextDistances[location.locationNumber] = Math.round(distance)
         const precisionZoneRadiusMeters = location.radiusMeters * 3
         const exitRadius = Math.max(GPS_EXIT_RADIUS_METERS, location.radiusMeters * 2)
 
@@ -267,6 +282,8 @@ export function GpsDetector({
           void recordPass(latitude, longitude, location.locationNumber, state.passCountToday)
         }
       }
+
+      setDistanceByLocation(nextDistances)
 
       // 근접 구역 안에서는 위치를 더 자주 확인해 통과 판정 정밀도를 높이고,
       // 벗어나면 배터리 절약을 위해 보조 폴링을 멈춤 (watchPosition은 계속 유지)
@@ -401,6 +418,33 @@ export function GpsDetector({
 
         {passCountToday > 0 && (
           <p className="mb-2 text-xs font-medium text-success">오늘 총 {passCountToday}회 기록됨</p>
+        )}
+
+        {tracking && currentLat != null && currentLng != null && (
+          <div className="mb-3 space-y-2 text-xs leading-relaxed">
+            <p className="font-medium text-danger">
+              🔴 추적 중... (현재 좌표: {formatCoord(currentLat)}, {formatCoord(currentLng)})
+            </p>
+            {activeLocations.map(location => {
+              const distance = distanceByLocation[location.locationNumber]
+              const exitRadius = Math.max(GPS_EXIT_RADIUS_METERS, location.radiusMeters * 2)
+              return (
+                <p
+                  key={location.locationNumber}
+                  className={
+                    distance != null && distance <= location.radiusMeters
+                      ? 'text-success'
+                      : distance != null && distance >= exitRadius
+                        ? 'text-muted'
+                        : 'text-warning'
+                  }
+                >
+                  {activeLocations.length > 1 ? `${location.locationNumber}차 위치` : '촬영 위치'}:{' '}
+                  {distance != null ? `${distance}m` : '-'} (도착 {location.radiusMeters}m)
+                </p>
+              )
+            })}
+          </div>
         )}
 
         <div className="space-y-1 text-xs text-muted">
