@@ -515,9 +515,9 @@ body {
 }
 
 .mypage-pass-event-name {
-  font-size: var(--font-body-size);
+  font-size: var(--font-h3-size);
   font-weight: 700;
-  line-height: var(--font-body-line-height);
+  line-height: var(--font-h3-line-height);
   color: var(--text);
 }
 
@@ -1519,12 +1519,17 @@ body {
 .gps-permission-stack {
   display: flex;
   width: 100%;
-  max-width: 28rem;
+  max-width: min(36rem, calc(100vw - 1.25rem));
   flex-direction: column;
   gap: 12px;
   margin: auto;
   max-height: 90vh;
   overflow-y: auto;
+}
+
+.gps-permission-stack .modal-card {
+  max-width: none;
+  width: 100%;
 }
 
 .gps-permission-emphasis-title {
@@ -1542,9 +1547,8 @@ body {
   margin: 0.15rem 0;
 }
 
-.gps-permission-emphasis-warning {
-  margin: 0.75rem 0 0;
-  font-weight: 700;
+.gps-permission-emphasis-nowrap {
+  white-space: nowrap;
 }
 
 .gps-tracking-banner {

@@ -140,4 +140,4 @@ export function getGeolocationSettingsGuide(platform: MobilePlatform): {
 }
 
 export const BACKGROUND_GPS_UNSUPPORTED_MESSAGE =
-  '이 앱은 백그라운드 GPS를 지원하지 않아요. 앱을 완전히 종료하면 위치 추적이 멈춥니다. 화면만 꺼진 상태는 괜찮아요.'
+  '이 앱은 백그라운드 GPS/근거리통신을 지원하지 않아요. 앱을 완전히 종료하면 위치 추적이 멈춥니다. 화면만 꺼진 상태는 괜찮아요.'
