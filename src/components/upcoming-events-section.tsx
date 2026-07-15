@@ -32,7 +32,10 @@ function UpcomingEventItem({ event }: { event: EventsListUpcomingEvent }) {
       <div className="event-upcoming-row">
         <Link href={`/events/${event.id}`} className="event-upcoming-main-link">
           <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
-          <span className="events-event-name">{event.name}</span>
+          <span className="events-event-name-row">
+            <span className="events-event-name">{event.name}</span>
+            <span className="events-event-detail-hint">상세보기 ›</span>
+          </span>
         </Link>
         {event.show_gps_toggle ? (
           <GpsTrackingToggle eventId={event.id} variant="events-list" />

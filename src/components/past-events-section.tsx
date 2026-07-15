@@ -7,17 +7,11 @@ import {
   EVENTS_PAST_SECTION_SUB_MAIN,
   EVENTS_PAST_SECTION_SUB_TAIL,
   formatEventDateDisplay,
-  formatPastEventDisplayName,
-  GPS_SHOOT_RECORD_DISCLAIMER,
   parseEventsListResponse,
   type EventsListPastEvent,
 } from '@/lib/events-list-client'
 
 function PastEventItem({ event }: { event: EventsListPastEvent }) {
-  const displayName = formatPastEventDisplayName(event.name, event.has_album)
-  const hasLogs = event.gps_logs.length > 0
-  const statusIcon = !event.has_album ? '⏳' : hasLogs ? '📸' : '⏳'
-
   return (
     <li className="event-portrait-item">
       <Link href={`/events/${event.id}`} className="event-portrait-photo-link">
@@ -31,27 +25,12 @@ function PastEventItem({ event }: { event: EventsListPastEvent }) {
             📷
           </div>
         )}
-        <span className="event-portrait-status-badge" aria-hidden="true">
-          {statusIcon}
-        </span>
       </Link>
 
       <Link href={`/events/${event.id}`} className="event-portrait-caption-link mt-3">
         <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
-        <span className="events-event-name">{displayName}</span>
+        <span className="events-event-name">{event.name}</span>
       </Link>
-
-      {hasLogs ? (
-        <div className="events-past-meta">
-          {event.gps_logs.map((record, index) => (
-            <p key={`${record.time}-${index}`} className="events-shoot-record">
-              <strong>{record.username}</strong>님은 <strong>{record.time}</strong>경에 오켱 카메라
-              앞을 지나갔습니다
-            </p>
-          ))}
-          <p className="events-shoot-record-note">{GPS_SHOOT_RECORD_DISCLAIMER}</p>
-        </div>
-      ) : null}
     </li>
   )
 }

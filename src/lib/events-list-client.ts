@@ -194,7 +194,22 @@ export function parseEventsListResponse(data: unknown): {
 }
 
 export const GPS_SHOOT_RECORD_DISCLAIMER =
-  '핸드폰 GPS 오차, 신호 송신 지연, 선수 밀집도에 따라 실제 시각과 다를 수 있습니다'
+  '⚠️ 핸드폰 GPS 오차, 신호 송신 지연, 선수 밀집도에 따라 실제 시각과 조금 다를 수 있습니다.'
+
+/** display_time(HH:MM:SS 등) → HH:MM */
+export function formatPassTimeHm(displayTime: string): string {
+  const match = displayTime.trim().match(/^(\d{1,2}:\d{2})/)
+  return match ? match[1] : displayTime.trim()
+}
+
+/** 마이페이지 촬영 이력용 문장 */
+export function formatOkcamPassSentence(displayTime: string, passCount?: number): string {
+  const hm = formatPassTimeHm(displayTime)
+  if (passCount != null && passCount > 0) {
+    return `오켱 카메라 앞을 ${passCount}차 ${hm} 즈음 지나갔습니다.`
+  }
+  return `오켱 카메라 앞을 ${hm} 즈음 지나갔습니다.`
+}
 
 export const EVENTS_UPCOMING_SECTION_TITLE = '📅 렌즈가 기다리는 그날'
 export const EVENTS_UPCOMING_ON_PROMPT = '참가 예정이면 ON으로 해주세요'

@@ -1,7 +1,6 @@
 'use client'
 
 import { useGpsTrackingEnabled } from '@/lib/gps-tracking-storage'
-import { BackgroundGpsNotice } from '@/components/background-gps-notice'
 
 type GpsTrackingBannerProps = {
   eventId: string
@@ -14,17 +13,18 @@ export function GpsTrackingBanner({ eventId }: GpsTrackingBannerProps) {
 
   return (
     <div className="gps-tracking-banner" role="status">
-      <p className="gps-tracking-banner-title">⚠️ GPS 포착 중</p>
+      <p className="gps-tracking-banner-title">⚠️ GPS와 근거리통신 포착 중</p>
       <p className="gps-tracking-banner-text">
-        레이스 완료 후 OFF를 눌러 종료하세요.
+        RACE 완료 후 OFF를 누르는 것을 추천드립니다.
         <br />
-        주의: 앱을 종료하거나 다른 사이트로 나가면 기록이 멈춥니다.
+        이 앱은 백그라운드 GPS/근거리통신을 지원하지 않아요.
+        <br />
+        앱을 완전히 종료하면 촬영 로그가 멈춥니다.
+        <br />
+        화면만 꺼진 상태는 괜찮아요.
         <br />
         가능하면 이 대회 상세 화면을 켠 채로 두세요.
       </p>
-      <div className="mt-2 px-3">
-        <BackgroundGpsNotice compact />
-      </div>
     </div>
   )
 }

@@ -7,6 +7,11 @@ import { createClient } from '@/lib/supabase/client'
 import { authFetch, resolveClientUser } from '@/lib/supabase/auth-client'
 import { NAVER_ORDER_PLACEHOLDER } from '@/lib/naver-order-number'
 import { getGpsLocationLabel } from '@/lib/gps-locations'
+import {
+  formatEventDateDisplay,
+  formatOkcamPassSentence,
+  GPS_SHOOT_RECORD_DISCLAIMER,
+} from '@/lib/events-list-client'
 import { ensurePushSubscription } from '@/lib/push-client'
 
 type PhotoAccess = {
@@ -31,6 +36,7 @@ type GpsLocationGroup = {
 type GpsEventPasses = {
   event_id: string
   event_name: string
+  event_date: string | null
   is_loop_course: boolean
   locations: GpsLocationGroup[]
 }
@@ -195,7 +201,7 @@ export default function MyPage() {
 
   if (loading) {
     return (
-      <div className="page-shell flex items-center justify-center">
+      <div className="page-shell mypage-page flex items-center justify-center">
         <p className="text-muted">로딩 중...</p>
       </div>
     )
@@ -217,7 +223,7 @@ export default function MyPage() {
   ].filter((item): item is NonNullable<typeof item> => item != null)
 
   return (
-    <div className="page-shell">
+    <div className="page-shell mypage-page">
       <div className="page-container">
         <h1 className="page-title">MY PAGE</h1>
         {email && <p className="page-subtitle">{email}</p>}
@@ -342,7 +348,14 @@ export default function MyPage() {
             <div className="space-y-4">
               {gpsEventPasses.map(event => (
                 <div key={event.event_id}>
-                  <p className="mb-1 text-sm font-semibold text-[var(--text)]">{event.event_name}</p>
+                  <p className="mypage-pass-event-heading">
+                    <span className="mypage-pass-event-name">{event.event_name}</span>
+                    {event.event_date ? (
+                      <span className="mypage-pass-event-date">
+                        {formatEventDateDisplay(event.event_date)}
+                      </span>
+                    ) : null}
+                  </p>
                   <div className="space-y-1 text-sm text-muted">
                     {event.locations.map(location => (
                       <div key={location.location_number}>
@@ -351,19 +364,17 @@ export default function MyPage() {
                             {getGpsLocationLabel(location.location_number, event.locations.length)}
                           </p>
                         )}
-                        {event.is_loop_course ? (
-                          <p>
-                            {location.passes
-                              .map(pass => `${pass.pass_count}차 통과: ${pass.display_time}`)
-                              .join(' · ')}
+                        {location.passes.map(pass => (
+                          <p key={pass.pass_count}>
+                            {formatOkcamPassSentence(
+                              pass.display_time,
+                              event.is_loop_course ? pass.pass_count : undefined
+                            )}
                           </p>
-                        ) : (
-                          location.passes.map(pass => (
-                            <p key={pass.pass_count}>촬영 지점 통과: {pass.display_time}</p>
-                          ))
-                        )}
+                        ))}
                       </div>
                     ))}
+                    <p className="mypage-pass-disclaimer">{GPS_SHOOT_RECORD_DISCLAIMER}</p>
                   </div>
                 </div>
               ))}
