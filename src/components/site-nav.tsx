@@ -56,7 +56,7 @@ export function SiteNav() {
   return (
     <nav className="site-nav">
       <div className="site-nav-inner">
-        <Link href="/" className="nav-brand">
+        <Link href="/home" className="nav-brand">
           <span className="nav-brand-accent">OKbro</span>GATE
         </Link>
         <div className="nav-links">
