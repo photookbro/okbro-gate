@@ -123,18 +123,18 @@ export default function PhotoDetailPage({ params }: { params: Promise<{ id: stri
 
             {/* 다운로드 후 멘트 */}
             {justDownloaded && (
-              <div className="card" style={{ padding: '1.25rem', borderColor: '#f59e0b', background: '#1a1500' }}>
+              <div className="card" style={{ padding: '1.25rem', borderColor: 'var(--warning)', background: 'var(--color-warning-bg)' }}>
                 {unlockCount >= 2 ? (
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🎨</div>
-                    <p style={{ fontWeight: 700, marginBottom: '0.5rem', color: '#f59e0b' }}>
+                    <p style={{ fontWeight: 700, marginBottom: '0.5rem', color: 'var(--warning)' }}>
                       오켱의 보정 찬스를 사용할 수 있어요!
                     </p>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>
                       인스타그램 DM으로 보정 의뢰해보세요!
                     </p>
                     <a href="https://instagram.com/photo_ok_bro" target="_blank" style={{
-                      display: 'inline-block', background: '#f59e0b', color: '#000',
+                      display: 'inline-block', background: 'var(--warning)', color: '#1a1200',
                       padding: '10px 20px', borderRadius: '8px', fontWeight: 700,
                       textDecoration: 'none', fontSize: '0.9rem',
                     }}>

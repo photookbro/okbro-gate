@@ -4,11 +4,11 @@ export function LandingGuideContent() {
       <div className="landing-guide-logo-wrap">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/brand/okbro-logo.png"
+          src="/brand/okbro-logo.png?v=20260715-red"
           alt="Okbro"
           className="landing-guide-logo"
-          width={799}
-          height={371}
+          width={796}
+          height={368}
         />
       </div>
 

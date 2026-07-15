@@ -25,14 +25,14 @@ export function AppInstallBanner({ visible = true }: AppInstallBannerProps) {
         style={{
           maxWidth: '640px',
           margin: '0 auto',
-          backgroundColor: '#ffffff',
+          backgroundColor: 'var(--bg-card)',
           borderRadius: '12px',
-          border: '1px solid #e5e7eb',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+          border: '1px solid var(--border)',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.55)',
           padding: '1.25rem',
         }}
       >
-        <p style={{ color: '#374151', fontSize: '0.9rem', lineHeight: 1.6, margin: '0 0 1rem' }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: '0 0 1rem' }}>
           📸 다음 대회에서 내 사진 찍히는 순간 바로 알림 받고 싶으세요?
           <br />
           앱을 설치하면 대회 현장 통과 시각을 자동으로 알려드려요.
@@ -50,7 +50,7 @@ export function AppInstallBanner({ visible = true }: AppInstallBannerProps) {
             padding: '10px 14px',
             borderRadius: '8px',
             border: 'none',
-            backgroundColor: '#FF5500',
+            backgroundColor: 'var(--primary)',
             color: '#ffffff',
             fontSize: '0.9rem',
             fontWeight: 600,

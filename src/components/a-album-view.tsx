@@ -28,7 +28,7 @@ export function AAlbumView({
           aspectRatio: '4 / 3',
           borderRadius: '10px',
           overflow: 'hidden',
-          background: 'linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%)',
+          background: 'linear-gradient(135deg, var(--border) 0%, var(--bg-card) 100%)',
           filter: 'blur(1.5px) saturate(0.6)',
         }}
       >

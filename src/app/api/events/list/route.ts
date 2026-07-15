@@ -92,12 +92,14 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     past: pastEvents.map(event => {
       const hasAlbum = hasEventAlbum(event)
+      const hasAnyAlbum = !!(event.album_a_url?.trim() || event.album_b_url?.trim())
       return {
         id: event.id,
         name: event.name,
         date: event.date,
         gps_enabled: event.gps_enabled,
         has_album: hasAlbum,
+        has_any_album: hasAnyAlbum,
         photo_url: event.photo_url ?? null,
         gps_logs: gpsLogsByEvent[event.id] ?? [],
       }

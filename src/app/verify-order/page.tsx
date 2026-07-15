@@ -117,18 +117,18 @@ function VerifyOrderContent() {
 
   if (!authChecked || statusLoading) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: '#6b7280' }}>로딩 중...</p>
+      <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'var(--text-muted)' }}>로딩 중...</p>
       </div>
     )
   }
 
   if (!eventId) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <p style={{ color: '#6b7280', marginBottom: '1rem' }}>대회 정보가 없어요</p>
-          <Link href="/#events" style={{ color: '#FF5500', fontSize: '0.9rem' }}>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>대회 정보가 없어요</p>
+          <Link href="/#events" style={{ color: 'var(--primary)', fontSize: 'var(--font-caption-size)' }}>
             대회 목록으로
           </Link>
         </div>
@@ -144,7 +144,7 @@ function VerifyOrderContent() {
     <div
       style={{
         minHeight: '100vh',
-        backgroundColor: '#f3f4f6',
+        backgroundColor: 'var(--bg)',
         padding: '2rem 1rem',
         display: 'flex',
         alignItems: 'center',
@@ -156,8 +156,8 @@ function VerifyOrderContent() {
           href={`/events/${eventId}`}
           style={{
             display: 'inline-block',
-            color: '#6b7280',
-            fontSize: '0.85rem',
+            color: 'var(--text-muted)',
+            fontSize: 'var(--font-caption-size)',
             textDecoration: 'none',
             marginBottom: '1rem',
           }}
@@ -167,10 +167,10 @@ function VerifyOrderContent() {
 
         <div
           style={{
-            backgroundColor: '#ffffff',
+            backgroundColor: 'var(--bg-card)',
             borderRadius: '12px',
-            border: '1px solid #e5e7eb',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.06)',
+            border: '1px solid var(--border)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
             padding: '1.75rem',
           }}
         >
@@ -180,11 +180,11 @@ function VerifyOrderContent() {
                 marginBottom: '1.25rem',
                 padding: '0.75rem 1rem',
                 borderRadius: '8px',
-                backgroundColor: '#f0fdf4',
-                border: '1px solid #bbf7d0',
-                color: '#166534',
-                fontSize: '0.85rem',
-                lineHeight: 1.5,
+                backgroundColor: 'var(--color-success-bg)',
+                border: '1px solid var(--color-success-border)',
+                color: '#66bb6a',
+                fontSize: 'var(--font-body-size)',
+                lineHeight: 'var(--font-body-line-height)',
               }}
             >
               ✅ 인증 완료 - {verification?.order_number ?? '-'} /{' '}
@@ -199,11 +199,11 @@ function VerifyOrderContent() {
                 marginBottom: '1.25rem',
                 padding: '0.75rem 1rem',
                 borderRadius: '8px',
-                backgroundColor: '#fffbeb',
-                border: '1px solid #fde68a',
-                color: '#92400e',
-                fontSize: '0.85rem',
-                lineHeight: 1.5,
+                backgroundColor: 'var(--color-warning-bg)',
+                border: '1px solid var(--color-warning-border)',
+                color: '#e0b94d',
+                fontSize: 'var(--font-body-size)',
+                lineHeight: 'var(--font-body-line-height)',
               }}
             >
               ⚠️ 인증이 만료됐어요. 새 주문번호로 다시 인증해주세요.
@@ -212,11 +212,11 @@ function VerifyOrderContent() {
 
           <div style={{ textAlign: 'center', marginBottom: showForm ? '1.5rem' : '1.25rem' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🛒</div>
-            <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: '#111827', margin: '0 0 0.5rem' }}>
+            <h1 style={{ fontSize: 'var(--font-h2-size)', fontWeight: 700, lineHeight: 'var(--font-h2-line-height)', color: 'var(--text)', margin: '0 0 0.5rem' }}>
               주문 인증
             </h1>
             {showForm && (
-              <p style={{ color: '#6b7280', fontSize: '0.85rem', margin: 0, lineHeight: 1.5 }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: 'var(--font-body-size)', margin: 0, lineHeight: 'var(--font-body-line-height)' }}>
                 네이버 주문번호를 입력해주세요
               </p>
             )}
@@ -234,7 +234,7 @@ function VerifyOrderContent() {
                 padding: '12px 14px',
                 borderRadius: '8px',
                 border: 'none',
-                backgroundColor: albumBUrl ? '#FF5500' : '#9ca3af',
+                backgroundColor: albumBUrl ? 'var(--primary)' : 'var(--disabled)',
                 color: '#ffffff',
                 fontSize: '0.95rem',
                 fontWeight: 600,
@@ -249,9 +249,9 @@ function VerifyOrderContent() {
                 htmlFor="order-input"
                 style={{
                   display: 'block',
-                  fontSize: '0.85rem',
+                  fontSize: 'var(--font-body-size)',
                   fontWeight: 600,
-                  color: '#374151',
+                  color: 'var(--text)',
                   marginBottom: '0.5rem',
                 }}
               >
@@ -270,11 +270,11 @@ function VerifyOrderContent() {
                   boxSizing: 'border-box',
                   padding: '12px 14px',
                   borderRadius: '8px',
-                  border: `1px solid ${errorMsg ? '#ef4444' : '#d1d5db'}`,
-                  backgroundColor: '#ffffff',
-                  color: '#111827',
-                  fontSize: '0.95rem',
-                  lineHeight: '1.5',
+                  border: `1px solid ${errorMsg ? 'var(--danger)' : 'var(--border)'}`,
+                  backgroundColor: 'var(--bg-card)',
+                  color: 'var(--text)',
+                  fontSize: 'var(--font-body-size)',
+                  lineHeight: 'var(--font-body-line-height)',
                   outline: 'none',
                   marginBottom: '0.5rem',
                 }}
@@ -283,13 +283,13 @@ function VerifyOrderContent() {
               {errorMsg && (
                 <p
                   style={{
-                    color: '#ef4444',
-                    fontSize: '0.8rem',
+                    color: '#ff6b52',
+                    fontSize: 'var(--font-body-size)',
                     margin: '0 0 1rem',
                     padding: '0.5rem 0.75rem',
-                    backgroundColor: '#fef2f2',
+                    backgroundColor: 'var(--color-danger-bg)',
                     borderRadius: '6px',
-                    border: '1px solid #fecaca',
+                    border: '1px solid var(--color-danger-border)',
                   }}
                 >
                   {errorMsg}
@@ -306,7 +306,7 @@ function VerifyOrderContent() {
                   padding: '12px 14px',
                   borderRadius: '8px',
                   border: 'none',
-                  backgroundColor: loading ? '#9ca3af' : '#FF5500',
+                  backgroundColor: loading ? 'var(--disabled)' : 'var(--primary)',
                   color: '#ffffff',
                   fontSize: '0.95rem',
                   fontWeight: 600,
@@ -337,8 +337,8 @@ export default function VerifyOrderPage() {
   return (
     <Suspense
       fallback={
-        <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <p style={{ color: '#6b7280' }}>로딩 중...</p>
+        <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p style={{ color: 'var(--text-muted)' }}>로딩 중...</p>
         </div>
       }
     >

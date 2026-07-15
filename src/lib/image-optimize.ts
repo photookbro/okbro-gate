@@ -1,10 +1,10 @@
 import 'server-only'
 import sharp from 'sharp'
 
-export const HOME_BACKGROUND_MAX_OUTPUT_BYTES = 2 * 1024 * 1024
-export const HOME_BACKGROUND_MAX_OUTPUT_WIDTH = 1920
+export const IMAGE_OPTIMIZE_MAX_OUTPUT_BYTES = 2 * 1024 * 1024
+export const IMAGE_OPTIMIZE_MAX_OUTPUT_WIDTH = 1920
 
-export type OptimizedHomeBackgroundImage = {
+export type OptimizedImage = {
   buffer: Buffer
   mimeType: 'image/webp'
   extension: 'webp'
@@ -13,14 +13,14 @@ export type OptimizedHomeBackgroundImage = {
   byteSize: number
 }
 
-export async function optimizeHomeBackgroundImage(input: Buffer): Promise<OptimizedHomeBackgroundImage> {
+export async function optimizeImageToWebp(input: Buffer): Promise<OptimizedImage> {
   const metadata = await sharp(input, { failOn: 'none' }).rotate().metadata()
 
   if (!metadata.width || !metadata.height) {
     throw new Error('이미지를 읽을 수 없어요')
   }
 
-  let width = Math.min(metadata.width, HOME_BACKGROUND_MAX_OUTPUT_WIDTH)
+  let width = Math.min(metadata.width, IMAGE_OPTIMIZE_MAX_OUTPUT_WIDTH)
   let quality = 82
 
   for (let attempt = 0; attempt < 14; attempt++) {
@@ -30,7 +30,7 @@ export async function optimizeHomeBackgroundImage(input: Buffer): Promise<Optimi
       .webp({ quality, effort: 5 })
       .toBuffer()
 
-    if (buffer.length <= HOME_BACKGROUND_MAX_OUTPUT_BYTES) {
+    if (buffer.length <= IMAGE_OPTIMIZE_MAX_OUTPUT_BYTES) {
       const outputMeta = await sharp(buffer).metadata()
       return {
         buffer,

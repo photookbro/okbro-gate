@@ -21,7 +21,9 @@ function PastEventItem({ event }: { event: EventsListPastEvent }) {
   return (
     <li className="event-portrait-item">
       <Link href={`/events/${event.id}`} className="event-portrait-photo-link">
-        {event.photo_url ? (
+        {!event.has_any_album ? (
+          <div className="event-portrait-photo event-portrait-photo-pending">업로드 중입니다</div>
+        ) : event.photo_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={event.photo_url} alt="" className="event-portrait-photo" />
         ) : (

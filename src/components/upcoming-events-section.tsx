@@ -28,20 +28,9 @@ function UpcomingEventItem({ event }: { event: EventsListUpcomingEvent }) {
   const hasPassData = isMultiMode ? event.gps_pass_groups.length > 0 : !!event.shoot_record
 
   return (
-    <li className="event-portrait-item">
-      <Link href={`/events/${event.id}`} className="event-portrait-photo-link">
-        {event.photo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={event.photo_url} alt="" className="event-portrait-photo" />
-        ) : (
-          <div className="event-portrait-photo event-portrait-photo-placeholder" aria-hidden="true">
-            📷
-          </div>
-        )}
-      </Link>
-
-      <div className="event-portrait-caption">
-        <Link href={`/events/${event.id}`} className="event-portrait-caption-link">
+    <li className="event-upcoming-item">
+      <div className="event-upcoming-row">
+        <Link href={`/events/${event.id}`} className="event-upcoming-main-link">
           <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
           <span className="events-event-name">{event.name}</span>
         </Link>
@@ -73,7 +62,7 @@ function UpcomingEventItem({ event }: { event: EventsListUpcomingEvent }) {
       )}
 
       {event.locations.length > 0 && (
-        <div className="event-portrait-map-toggle">
+        <div className="event-upcoming-map-toggle">
           <button
             type="button"
             className="events-location-preview-toggle"
@@ -145,7 +134,7 @@ export function UpcomingEventsSection() {
       {error && <p className="text-sm text-danger">{error}</p>}
 
       {!loading && !error && (
-        <ul className="event-portrait-grid">
+        <ul className="event-upcoming-list">
           {upcoming.length === 0 ? (
             <li className="events-empty">예정된 대회가 없어요</li>
           ) : (

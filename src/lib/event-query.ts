@@ -16,7 +16,7 @@ export const EVENT_DETAIL_FIELDS_LEGACY =
 export const EVENT_LIST_PAST_FIELDS = 'id, name, date, gps_enabled, album_b_url, photo_url'
 
 export const EVENT_LIST_FIELDS =
-  'id, name, date, gps_enabled, album_b_url, photo_url, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_lat, gps_lng, gps_radius_meters, is_loop_course'
+  'id, name, date, gps_enabled, album_a_url, album_b_url, photo_url, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_lat, gps_lng, gps_radius_meters, is_loop_course'
 
 export const EVENT_LIST_FIELDS_LEGACY =
   'id, name, date, gps_enabled, album_b_url, gps_lat, gps_lng, gps_radius_meters, is_loop_course'

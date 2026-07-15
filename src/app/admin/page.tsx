@@ -1,9 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAdminToken } from './admin-auth-context'
 import { AdminDateInput } from '@/components/admin-date-input'
-import { HomeBackgroundAdminPanel } from '@/components/admin/home-background-admin-panel'
 import { EventPhotoUpload } from '@/components/admin/event-photo-upload'
 import { NotificationsAdminPanel } from '@/components/admin/notifications-admin-panel'
 import {
@@ -197,6 +196,7 @@ export default function AdminPage() {
   const [form, setForm] = useState<EventForm>(emptyForm)
   const [savingEvent, setSavingEvent] = useState(false)
   const [eventSavedMsg, setEventSavedMsg] = useState('')
+  const formSnapshotRef = useRef<EventForm>(emptyForm)
   const [gpsMapSlot, setGpsMapSlot] = useState<GpsMapSlot>(1)
   const [gpsMapSaving, setGpsMapSaving] = useState(false)
   const [gpsMapMessage, setGpsMapMessage] = useState('')
@@ -479,6 +479,7 @@ export default function AdminPage() {
   function openAddModal() {
     setEditingId(null)
     setForm(emptyForm)
+    formSnapshotRef.current = emptyForm
     setGpsMapSlot(1)
     setGpsMapMessage('')
     setGpsMapError('')
@@ -492,7 +493,7 @@ export default function AdminPage() {
     setGpsMapSlot(1)
     setGpsMapMessage('')
     setGpsMapError('')
-    setForm({
+    const nextForm: EventForm = {
       name: event.name,
       date: event.date,
       album_a_url: event.album_a_url ?? '',
@@ -521,9 +522,37 @@ export default function AdminPage() {
       gps_2_lng: event.gps_2_lng != null ? String(event.gps_2_lng) : '',
       gps_2_radius_meters:
         event.gps_2_radius_meters != null ? String(event.gps_2_radius_meters) : '50',
-    })
+    }
+    setForm(nextForm)
+    formSnapshotRef.current = nextForm
     setModalOpen(true)
   }
+
+  function isEventFormDirty() {
+    return JSON.stringify(form) !== JSON.stringify(formSnapshotRef.current)
+  }
+
+  function requestCloseEventModal() {
+    if (savingEvent) return
+    if (isEventFormDirty() && !confirm('저장하지 않은 변경사항이 있습니다. 닫으시겠습니까?')) {
+      return
+    }
+    setModalOpen(false)
+  }
+
+  useEffect(() => {
+    if (!modalOpen) return
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        requestCloseEventModal()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalOpen, form, savingEvent])
 
   function buildEventPayloadFromForm(
     sourceForm: EventForm = form,
@@ -607,6 +636,7 @@ export default function AdminPage() {
     }
 
     setSavingEvent(false)
+    formSnapshotRef.current = form
     await loadEvents()
 
     if (isNewEvent && data.event?.id) {
@@ -794,11 +824,6 @@ export default function AdminPage() {
                   </button>
                 </form>
               )}
-            </section>
-
-            <section className="card-section">
-              <h3 className="mb-3 text-base font-semibold text-[var(--text)]">BACKGROUND</h3>
-              <HomeBackgroundAdminPanel token={token} />
             </section>
 
             <section className="card-section">
@@ -992,18 +1017,26 @@ export default function AdminPage() {
       </div>
 
       {modalOpen && (
-        <div
-          className="modal-overlay"
-          onClick={() => !savingEvent && setModalOpen(false)}
-        >
+        <div className="modal-overlay">
           <form
             onSubmit={handleSaveEvent}
             onClick={e => e.stopPropagation()}
             className="modal-card admin-event-modal max-h-[90vh] overflow-y-auto"
           >
-            <h3 className="section-title">
-              {editingId ? '대회 수정' : '대회 추가'}
-            </h3>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h3 className="section-title mb-0">
+                {editingId ? '대회 수정' : '대회 추가'}
+              </h3>
+              <button
+                type="button"
+                onClick={requestCloseEventModal}
+                disabled={savingEvent}
+                aria-label="닫기"
+                className="btn-secondary-inline px-2.5 py-1.5 text-sm"
+              >
+                ✕
+              </button>
+            </div>
 
             <label className="mb-3 block">
               <span className={labelStyle}>대회명</span>
@@ -1159,7 +1192,7 @@ export default function AdminPage() {
             </div>
 
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary-inline" disabled={savingEvent}>
+              <button type="button" onClick={requestCloseEventModal} className="btn-secondary-inline" disabled={savingEvent}>
                 취소
               </button>
               <button type="submit" className="btn-primary-inline" disabled={savingEvent}>
@@ -1263,50 +1296,41 @@ export default function AdminPage() {
                 </section>
 
                 <section className="card-section mb-4">
-                  <h4 className="mb-2 text-sm font-semibold">🎯 대회 이력</h4>
+                  <h4 className="mb-2 text-sm font-semibold">🎯 대회 이력 · GPS 로그</h4>
                   {playerDetail.event_history.length === 0 ? (
                     <p className="text-sm text-muted">지난 대회 기록이 없어요</p>
                   ) : (
                     <ul className="space-y-2 text-sm">
-                      {playerDetail.event_history.map(event => (
-                        <li key={event.event_id} className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium">{event.name}</span>
-                          <span className="text-muted">({event.date})</span>
-                          {event.passed ? (
-                            <span className="text-success">✅ GPS {event.gps_pass_count}회</span>
-                          ) : (
-                            <span className="text-muted">❌ 미출전</span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </section>
-
-                <section className="card-section mb-4">
-                  <h4 className="mb-2 text-sm font-semibold">📍 GPS 로그 조회</h4>
-                  {playerDetail.event_history.length === 0 ? (
-                    <p className="text-sm text-muted">조회할 대회가 없어요</p>
-                  ) : (
-                    <ul className="space-y-2 text-sm">
                       {playerDetail.event_history.map(event => {
-                        const expanded = expandedGpsEventId === event.event_id
+                        const hasPassDetail = event.locations.some(
+                          location => location.passes.length > 0
+                        )
+                        const expanded = hasPassDetail && expandedGpsEventId === event.event_id
                         return (
                           <li key={event.event_id}>
                             <button
                               type="button"
-                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-[var(--bg)]"
+                              className="flex w-full flex-wrap items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-[var(--bg)] disabled:cursor-default disabled:hover:bg-transparent"
                               onClick={() =>
+                                hasPassDetail &&
                                 setExpandedGpsEventId(expanded ? null : event.event_id)
                               }
+                              disabled={!hasPassDetail}
                             >
-                              <span className="text-muted">{expanded ? '▼' : '▶'}</span>
+                              <span className="text-muted">
+                                {hasPassDetail ? (expanded ? '▼' : '▶') : '·'}
+                              </span>
                               <span className="font-medium">{event.name}</span>
+                              <span className="text-muted">({event.date})</span>
                               {event.course_label && (
                                 <span className="text-xs text-muted">{event.course_label}</span>
                               )}
-                              {event.passed && (
-                                <span className="text-xs text-success">GPS {event.gps_pass_count}회</span>
+                              {event.passed ? (
+                                <span className="text-xs text-success">
+                                  ✅ GPS {event.gps_pass_count}회
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted">❌ 미출전</span>
                               )}
                             </button>
                             {expanded && (

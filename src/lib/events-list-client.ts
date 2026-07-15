@@ -23,6 +23,7 @@ export type EventsListPastEvent = {
   name: string
   date: string
   has_album: boolean
+  has_any_album: boolean
   photo_url: string | null
   gps_logs: EventsListShootRecord[]
 }
@@ -90,6 +91,7 @@ export function parsePastEvent(value: unknown): EventsListPastEvent | null {
     name,
     date,
     has_album: row.has_album === true,
+    has_any_album: row.has_any_album === true,
     photo_url: typeof row.photo_url === 'string' && row.photo_url.trim() ? row.photo_url : null,
     gps_logs: parseShootRecords(
       row.gps_logs ?? (row.shoot_record != null ? [row.shoot_record] : [])

@@ -23,8 +23,8 @@ const sectionBoxStyle: React.CSSProperties = {
   marginBottom: '1rem',
   padding: '1rem',
   borderRadius: '8px',
-  border: '1px solid #e5e7eb',
-  backgroundColor: '#f9fafb',
+  border: '1px solid var(--border)',
+  backgroundColor: 'var(--bg)',
 }
 
 const checkboxRowStyle: React.CSSProperties = {
@@ -139,16 +139,16 @@ export function TermsAgreement({
 
   const content = (
     <>
-      <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', margin: '0 0 0.35rem' }}>
+      <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)', margin: '0 0 0.35rem' }}>
         이용 안내 및 동의
       </h2>
-      <p style={{ color: '#6b7280', fontSize: '0.85rem', margin: '0 0 1.25rem', lineHeight: 1.5 }}>
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0 0 1.25rem', lineHeight: 1.5 }}>
         앨범 이용 전 아래 내용을 확인해 주세요.
       </p>
 
       {sections.map(section => (
         <div key={section.title} style={sectionBoxStyle}>
-          <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#111827', margin: '0 0 0.5rem' }}>
+          <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text)', margin: '0 0 0.5rem' }}>
             {section.title}
           </h3>
           {section.warningBox && (
@@ -157,14 +157,14 @@ export function TermsAgreement({
                 marginBottom: '0.75rem',
                 padding: '1rem',
                 borderRadius: '8px',
-                border: '2px solid #dc2626',
-                backgroundColor: '#fef2f2',
+                border: '2px solid var(--danger)',
+                backgroundColor: 'var(--color-danger-bg)',
               }}
             >
               <p
                 style={{
                   margin: 0,
-                  color: '#991b1b',
+                  color: '#ff6b52',
                   fontSize: '1.125rem',
                   fontWeight: 700,
                   lineHeight: 1.5,
@@ -178,7 +178,7 @@ export function TermsAgreement({
             style={{
               margin: 0,
               paddingLeft: '1.1rem',
-              color: '#374151',
+              color: 'var(--text-muted)',
               fontSize: '0.82rem',
               lineHeight: 1.6,
             }}
@@ -196,7 +196,7 @@ export function TermsAgreement({
               onChange={e => section.onChange(e.target.checked)}
               style={{ marginTop: '0.2rem', flexShrink: 0 }}
             />
-            <span style={{ color: '#111827', fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.5 }}>
+            <span style={{ color: 'var(--text)', fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.5 }}>
               {section.checkboxLabel}
             </span>
           </label>
@@ -206,13 +206,13 @@ export function TermsAgreement({
       {submitError && (
         <p
           style={{
-            color: '#ef4444',
+            color: '#ff6b52',
             fontSize: '0.8rem',
             margin: '0 0 0.75rem',
             padding: '0.5rem 0.75rem',
-            backgroundColor: '#fef2f2',
+            backgroundColor: 'var(--color-danger-bg)',
             borderRadius: '6px',
-            border: '1px solid #fecaca',
+            border: '1px solid var(--color-danger-border)',
           }}
         >
           {submitError}
@@ -228,7 +228,7 @@ export function TermsAgreement({
           padding: '12px 14px',
           borderRadius: '8px',
           border: 'none',
-          backgroundColor: allChecked && !submitting ? '#FF5500' : '#9ca3af',
+          backgroundColor: allChecked && !submitting ? 'var(--primary)' : 'var(--disabled)',
           color: '#ffffff',
           fontSize: '0.95rem',
           fontWeight: 600,
@@ -242,15 +242,15 @@ export function TermsAgreement({
 
   if (isPage) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem 1rem' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', padding: '2rem 1rem' }}>
         <div
           style={{
             maxWidth: '480px',
             margin: '0 auto',
-            backgroundColor: '#ffffff',
+            backgroundColor: 'var(--bg-card)',
             borderRadius: '12px',
-            border: '1px solid #e5e7eb',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.06)',
+            border: '1px solid var(--border)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
             padding: '1.5rem',
           }}
         >
@@ -280,10 +280,10 @@ export function TermsAgreement({
           maxWidth: '480px',
           maxHeight: '90vh',
           overflowY: 'auto',
-          backgroundColor: '#ffffff',
+          backgroundColor: 'var(--bg-card)',
           borderRadius: '12px',
-          border: '1px solid #e5e7eb',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+          border: '1px solid var(--border)',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.55)',
           padding: '1.5rem',
         }}
         onClick={e => e.stopPropagation()}
