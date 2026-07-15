@@ -20,13 +20,6 @@ function shouldSkipMiddleware(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  if (pathname === '/events') {
-    const url = request.nextUrl.clone()
-    url.pathname = '/'
-    url.hash = 'events'
-    return NextResponse.redirect(url)
-  }
-
   if (shouldSkipMiddleware(pathname)) {
     return NextResponse.next({ request })
   }

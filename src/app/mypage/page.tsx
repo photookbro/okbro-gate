@@ -237,7 +237,7 @@ export default function MyPage() {
             <div>
               <p className="mypage-dday mypage-dday-muted mb-3 text-center">인증 없음</p>
               <p className="mb-4 text-center text-sm text-muted">인증 기록이 없어요</p>
-              <Link href="/#events" className="btn-primary-inline inline-flex no-underline">
+              <Link href="/events" className="btn-primary-inline inline-flex no-underline">
                 대회 목록에서 인증하기
               </Link>
             </div>

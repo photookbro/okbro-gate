@@ -128,7 +128,7 @@ function VerifyOrderContent() {
       <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
           <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>대회 정보가 없어요</p>
-          <Link href="/#events" style={{ color: 'var(--primary)', fontSize: 'var(--font-caption-size)' }}>
+          <Link href="/events" style={{ color: 'var(--primary)', fontSize: 'var(--font-caption-size)' }}>
             대회 목록으로
           </Link>
         </div>

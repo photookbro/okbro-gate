@@ -56,18 +56,16 @@ export function SiteNav() {
   return (
     <nav className="site-nav">
       <div className="site-nav-inner">
-        <Link href="/home" className="nav-brand">
+        <Link href="/" className="nav-brand">
           <span className="nav-brand-accent">OKbro</span>GATE
         </Link>
         <div className="nav-links">
-          <Link href="/home" className={navLinkClass(pathname === '/home')}>
+          <Link href="/home" className={navLinkClass(pathname === '/home' || pathname === '/')}>
             HOME
           </Link>
           <Link
-            href="/"
-            className={navLinkClass(
-              pathname === '/' || pathname === '/events' || pathname.startsWith('/events/')
-            )}
+            href="/events"
+            className={navLinkClass(pathname === '/events' || pathname.startsWith('/events/'))}
           >
             EVENTS
           </Link>
