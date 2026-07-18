@@ -1097,6 +1097,16 @@ body {
   word-break: keep-all;
 }
 
+.landing-guide-brand-okyeong {
+  color: #ffd700;
+  font-weight: 700;
+}
+
+.landing-guide-brand-gate {
+  color: #ff2800;
+  font-weight: 700;
+}
+
 .landing-guide-feature--a,
 .landing-guide-feature--b,
 .landing-guide-feature--c,

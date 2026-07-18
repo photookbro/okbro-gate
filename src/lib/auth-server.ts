@@ -65,7 +65,8 @@ export async function getAuthenticatedUser(req?: RequestWithHeaders): Promise<Us
     data: { session },
   } = await supabase.auth.getSession()
 
-  if (session) {
+  // 세션 쿠키가 있을 때만 refresh — 로그아웃 후 빈 상태에서 세션을 되살리지 않음
+  if (session?.refresh_token) {
     const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession()
     if (!refreshError && refreshed.session) {
       const {

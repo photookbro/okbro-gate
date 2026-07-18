@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { buildAuthCallbackUrl } from '@/lib/app-origin'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
+import { emitAuthLogout } from '@/lib/gps-tracking-storage'
 
 export default function AuthSection({ user }: { user: User | null }) {
   const router = useRouter()
@@ -19,6 +20,7 @@ export default function AuthSection({ user }: { user: User | null }) {
   }
 
   async function handleLogout() {
+    emitAuthLogout()
     await supabase.auth.signOut()
     router.refresh()
   }

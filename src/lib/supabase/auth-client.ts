@@ -51,6 +51,12 @@ export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}
   let response = await fetch(input, await buildAuthFetchInit(init))
 
   if (response.status === 401) {
+    // 로그아웃 등으로 세션이 없으면 refresh로 세션을 되살리지 않음
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session) return response
+
     const { data, error } = await supabase.auth.refreshSession()
     if (!error && data.session) {
       response = await fetch(input, await buildAuthFetchInit(init))

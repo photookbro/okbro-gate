@@ -5,6 +5,8 @@ import { fetchGpsTrackingPref } from '@/lib/gps-tracking-pref-client'
 
 const STORAGE_KEY = 'okbro-gps-tracking'
 const CHANGE_EVENT = 'okbro-gps-tracking-change'
+/** 로그아웃 직후 GpsDetector 등이 watchPosition을 즉시 끊도록 알림 */
+export const AUTH_LOGOUT_EVENT = 'okbro-auth-logout'
 
 type GpsTrackingMap = Record<string, boolean>
 
@@ -42,6 +44,18 @@ export function setGpsTrackingEnabled(eventId: string, enabled: boolean) {
     delete map[eventId]
   }
   writeMap(map)
+}
+
+/** 로그아웃 시 로컬 CAPTURING 표시/자동시작 플래그를 전부 제거 */
+export function clearAllGpsTrackingLocal() {
+  writeMap({})
+}
+
+export function emitAuthLogout() {
+  clearAllGpsTrackingLocal()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(AUTH_LOGOUT_EVENT))
+  }
 }
 
 export function useGpsTrackingEnabled(eventId: string): [boolean, (enabled: boolean) => void] {

@@ -55,7 +55,7 @@ export default function LoginPage() {
           <div className="alert-warning text-left">
             <p className="font-semibold">⚠️ Google 계정으로만 로그인하세요</p>
             <p className="mt-1 text-sm">
-              구글앨범을 이용을 위해서 꼭 구글 로그인 해주세요.
+              구글 앨범을 활용하기 위해서는 꼭 구글 로그인 해주세야 해요.
               {inAppBrowser ? (
                 <>
                   <br />

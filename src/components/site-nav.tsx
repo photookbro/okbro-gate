@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { resolveClientUser } from '@/lib/supabase/auth-client'
+import { emitAuthLogout } from '@/lib/gps-tracking-storage'
 
 function navLinkClass(active: boolean) {
   return active ? 'nav-link nav-link-active' : 'nav-link'
@@ -47,7 +48,10 @@ export function SiteNav() {
   async function handleLogout() {
     if (loggingOut) return
     setLoggingOut(true)
+    // 세션 종료 전에 GPS watch/로컬 CAPTURING을 먼저 끊음
+    emitAuthLogout()
     await supabase.auth.signOut()
+    setUserId(null)
     router.push('/login')
   }
 

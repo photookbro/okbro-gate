@@ -51,7 +51,7 @@ export function InappBrowserWarning() {
 
   return (
     <>
-      <div className="inapp-browser-overlay">
+      <div className="inapp-browser-overlay" data-guest-allowed>
         <div className="inapp-browser-card">
           <h1 className="inapp-browser-title">외부 브라우저에서 열어주세요</h1>
           <p className="inapp-browser-text">

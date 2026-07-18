@@ -1,8 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-
-const FRUIT_STORE_URL = 'https://smartstore.naver.com/daebakfresh'
+import { FRUIT_STORE_URL } from '@/lib/fruit-store'
 
 type AAlbumViewProps = {
   albumAUrl: string | null
@@ -79,6 +78,7 @@ export function AAlbumView({
         target="_blank"
         rel="noopener noreferrer"
         className="btn-primary block w-full text-center no-underline"
+        data-guest-allowed
       >
         이 순간, 인증하고 받기
       </a>

@@ -21,6 +21,7 @@ import {
 } from '@/lib/gps-pass'
 import type { EventGpsLocation, GpsLocationNumber } from '@/lib/gps-locations'
 import {
+  AUTH_LOGOUT_EVENT,
   isGpsTrackingEnabled,
   setGpsTrackingEnabled,
   useGpsTrackingEnabled,
@@ -79,6 +80,8 @@ export function GpsDetector({
   const autoStartedRef = useRef(false)
   const nearZoneIntervalRef = useRef<number | null>(null)
   const handlePositionRef = useRef<(position: GeolocationPosition) => void>(() => {})
+  const canUseGpsRef = useRef(false)
+  const prevUserIdRef = useRef<string | null | undefined>(undefined)
   const [storedEnabled] = useGpsTrackingEnabled(eventId)
   const [tracking, setTracking] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -124,15 +127,21 @@ export function GpsDetector({
     stopNearZonePolling()
   }, [stopNearZonePolling])
 
-  const stopTracking = useCallback(() => {
-    clearWatchOnly()
-    setTracking(false)
-    setCurrentLat(null)
-    setCurrentLng(null)
-    setDistanceByLocation({})
-    setGpsTrackingEnabled(eventId, false)
-    void syncGpsTrackingPref(eventId, false)
-  }, [clearWatchOnly, eventId])
+  const stopTracking = useCallback(
+    (options?: { syncServer?: boolean }) => {
+      clearWatchOnly()
+      setTracking(false)
+      setCurrentLat(null)
+      setCurrentLng(null)
+      setDistanceByLocation({})
+      setGpsTrackingEnabled(eventId, false)
+      autoStartedRef.current = false
+      if (options?.syncServer !== false) {
+        void syncGpsTrackingPref(eventId, false)
+      }
+    },
+    [clearWatchOnly, eventId]
+  )
 
   useEffect(() => {
     zoneStateRef.current = createZoneStateMap(activeLocations, maxPasses)
@@ -143,13 +152,54 @@ export function GpsDetector({
     return () => clearWatchOnly()
   }, [clearWatchOnly])
 
-  useEffect(() => {
-    if (!purchaseVerified && tracking) {
-      stopTracking()
-    }
-  }, [purchaseVerified, tracking, stopTracking])
+  const canUseGps =
+    verificationChecked && !!userId && purchaseVerified && activeLocations.length > 0
 
-  const canUseGps = verificationChecked && !!userId && purchaseVerified && activeLocations.length > 0
+  useEffect(() => {
+    canUseGpsRef.current = canUseGps
+  }, [canUseGps])
+
+  // 로그아웃·인증 만료 등으로 사용 불가해지면 watchPosition을 즉시 중단
+  useEffect(() => {
+    const prevUserId = prevUserIdRef.current
+    prevUserIdRef.current = userId
+
+    if (canUseGps) return
+
+    clearWatchOnly()
+    setTracking(false)
+    setCurrentLat(null)
+    setCurrentLng(null)
+    setDistanceByLocation({})
+    autoStartedRef.current = false
+
+    // 세션 로딩 중(userId 초기 null)에는 로컬 플래그를 건드리지 않음
+    if (prevUserId && !userId) {
+      setGpsTrackingEnabled(eventId, false)
+      return
+    }
+
+    if (userId && verificationChecked && !purchaseVerified) {
+      setGpsTrackingEnabled(eventId, false)
+      void syncGpsTrackingPref(eventId, false)
+    }
+  }, [
+    canUseGps,
+    userId,
+    purchaseVerified,
+    verificationChecked,
+    clearWatchOnly,
+    eventId,
+  ])
+
+  // 다른 탭/네비에서 로그아웃해도 즉시 중단
+  useEffect(() => {
+    function onAuthLogout() {
+      stopTracking({ syncServer: false })
+    }
+    window.addEventListener(AUTH_LOGOUT_EVENT, onAuthLogout)
+    return () => window.removeEventListener(AUTH_LOGOUT_EVENT, onAuthLogout)
+  }, [stopTracking])
 
   const syncTodayPasses = useCallback(async () => {
     try {
@@ -199,6 +249,8 @@ export function GpsDetector({
       locationNumber: GpsLocationNumber,
       passCount: number
     ) => {
+      if (!canUseGpsRef.current) return
+
       const key = `${locationNumber}-${passCount}`
       if (recordingRef.current.has(key)) return
 
@@ -251,6 +303,11 @@ export function GpsDetector({
 
   const handlePosition = useCallback(
     (position: GeolocationPosition) => {
+      if (!canUseGpsRef.current) {
+        clearWatchOnly()
+        return
+      }
+
       const { latitude, longitude } = position.coords
       const nextDistances: Record<number, number> = {}
       let isNearAnyZone = false
@@ -293,7 +350,14 @@ export function GpsDetector({
         stopNearZonePolling()
       }
     },
-    [activeLocations, maxPasses, recordPass, startNearZonePolling, stopNearZonePolling]
+    [
+      activeLocations,
+      clearWatchOnly,
+      maxPasses,
+      recordPass,
+      startNearZonePolling,
+      stopNearZonePolling,
+    ]
   )
 
   useEffect(() => {
@@ -375,7 +439,8 @@ export function GpsDetector({
     return null
   }
 
-  const isTrackingOn = tracking || storedEnabled
+  // 비로그인 시 로컬 플래그만으로 CAPTURING이 남지 않게 함
+  const isTrackingOn = !!userId && (tracking || storedEnabled)
 
   return (
     <>

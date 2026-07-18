@@ -1,6 +1,6 @@
 'use client'
 
-const FRUIT_STORE_URL = 'https://smartstore.naver.com/daebakfresh'
+import { FRUIT_STORE_URL } from '@/lib/fruit-store'
 
 export function FixedFruitCta() {
   return (
@@ -11,6 +11,7 @@ export function FixedFruitCta() {
           href={FRUIT_STORE_URL}
           target="_blank"
           rel="noreferrer"
+          data-guest-allowed
         >
           🎁 과일사러 대박과수원으로
         </a>
