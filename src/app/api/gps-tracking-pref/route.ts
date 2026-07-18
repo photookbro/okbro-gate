@@ -17,7 +17,7 @@ async function notifyGpsTrackingEnabled(
 export async function GET(req: NextRequest) {
   const user = await getAuthenticatedUser(req)
   if (!user) {
-    return NextResponse.json({ enabled: false })
+    return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
   }
 
   const eventId = req.nextUrl.searchParams.get('event_id')?.trim()

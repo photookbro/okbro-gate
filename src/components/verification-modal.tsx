@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { NAVER_ORDER_PLACEHOLDER } from '@/lib/naver-order-number'
 import { markOnboardingVerificationSkipped } from '@/lib/app-permissions'
+import { buildLoginHref } from '@/components/login-required-modal'
 
 type VerificationModalProps = {
   open: boolean
@@ -12,11 +15,13 @@ type VerificationModalProps = {
 }
 
 export function VerificationModal({ open, onComplete, onSkip }: VerificationModalProps) {
+  const pathname = usePathname()
   const [orderInput, setOrderInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
+  const loginHref = buildLoginHref(pathname || '/home')
 
   useEffect(() => {
     if (!open) return
@@ -92,9 +97,17 @@ export function VerificationModal({ open, onComplete, onSkip }: VerificationModa
         {!authChecked ? (
           <p className="text-sm text-muted">확인 중...</p>
         ) : !userId ? (
-          <p className="alert-warning mb-4 text-sm">
-            로그인하지 않은 상태예요. 인증은 로그인 후 마이페이지에서 할 수 있어요.
-          </p>
+          <>
+            <p className="alert-warning mb-4 text-sm">
+              이 기능을 사용하려면 로그인이 필요해요. 로그인 후 주문번호 인증을 할 수 있어요.
+            </p>
+            <Link
+              href={loginHref}
+              className="btn-primary mb-3 block w-full text-center no-underline"
+            >
+              로그인하기
+            </Link>
+          </>
         ) : (
           <form onSubmit={e => void handleSubmit(e)} className="space-y-3">
             <label className="block">

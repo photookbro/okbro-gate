@@ -1,8 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { GpsPermissionModal } from '@/components/gps-permission-modal'
 import { GpsPermissionEmphasisNotice } from '@/components/gps-permission-emphasis-notice'
+import {
+  LoginRequiredModal,
+  buildLoginHref,
+} from '@/components/login-required-modal'
 import {
   geolocationFailureMessage,
   requestPreciseGeolocation,
@@ -10,6 +15,7 @@ import {
 import { syncGpsTrackingPref } from '@/lib/gps-tracking-pref-client'
 import { useGpsTrackingEnabled } from '@/lib/gps-tracking-storage'
 import { ensurePushSubscription } from '@/lib/push-client'
+import { resolveClientUser } from '@/lib/supabase/auth-client'
 
 type GpsTrackingToggleProps = {
   eventId: string
@@ -26,8 +32,11 @@ export function GpsTrackingToggle({
   variant = 'default',
   onToggle,
 }: GpsTrackingToggleProps) {
+  const pathname = usePathname()
   const [enabled, setEnabled] = useGpsTrackingEnabled(eventId)
   const [permissionOpen, setPermissionOpen] = useState(false)
+  const [loginRequiredOpen, setLoginRequiredOpen] = useState(false)
+  const [authChecking, setAuthChecking] = useState(false)
   const [requesting, setRequesting] = useState(false)
   const [permissionError, setPermissionError] = useState('')
 
@@ -45,14 +54,27 @@ export function GpsTrackingToggle({
     setEnabled(true)
     onToggle?.(true)
     setPermissionOpen(false)
-    void syncGpsTrackingPref(eventId, true)
+
+    const saved = await syncGpsTrackingPref(eventId, true)
+    if (!saved) {
+      setEnabled(false)
+      onToggle?.(false)
+      setPermissionError('설정 저장에 실패했어요. 로그인 상태를 확인한 뒤 다시 시도해주세요.')
+      setPermissionOpen(true)
+      return
+    }
+
     void ensurePushSubscription()
   }
 
-  function disableTracking() {
+  async function disableTracking() {
     setEnabled(false)
     onToggle?.(false)
-    void syncGpsTrackingPref(eventId, false)
+    const saved = await syncGpsTrackingPref(eventId, false)
+    if (!saved) {
+      setEnabled(true)
+      onToggle?.(true)
+    }
   }
 
   function stopNavigation(e: React.SyntheticEvent) {
@@ -60,12 +82,21 @@ export function GpsTrackingToggle({
     e.stopPropagation()
   }
 
-  function handleClick(e: React.MouseEvent) {
+  async function handleClick(e: React.MouseEvent) {
     stopNavigation(e)
-    if (disabled) return
+    if (disabled || authChecking) return
+
+    setAuthChecking(true)
+    const user = await resolveClientUser()
+    setAuthChecking(false)
+
+    if (!user) {
+      setLoginRequiredOpen(true)
+      return
+    }
 
     if (enabled) {
-      disableTracking()
+      void disableTracking()
       return
     }
 
@@ -81,6 +112,8 @@ export function GpsTrackingToggle({
     : isEventsList
       ? 'toggle-switch-events-off'
       : ''
+
+  const loginHref = buildLoginHref(pathname || '/events')
 
   return (
     <>
@@ -103,7 +136,7 @@ export function GpsTrackingToggle({
           aria-disabled={disabled}
           aria-label={isEventsList ? (enabled ? 'GPS 포착 중' : 'GPS 포착 OFF') : '촬영 감지 ON/OFF'}
           disabled={disabled}
-          onClick={handleClick}
+          onClick={e => void handleClick(e)}
           onPointerDown={stopNavigation}
           className={`toggle-switch toggle-switch-sm ${switchClass}`}
         >
@@ -128,6 +161,13 @@ export function GpsTrackingToggle({
           setPermissionError('')
         }}
         footer={permissionOpen ? <GpsPermissionEmphasisNotice /> : null}
+      />
+
+      <LoginRequiredModal
+        open={loginRequiredOpen}
+        message="GPS 촬영 감지를 사용하려면 로그인이 필요해요."
+        loginHref={loginHref}
+        onDismiss={() => setLoginRequiredOpen(false)}
       />
     </>
   )

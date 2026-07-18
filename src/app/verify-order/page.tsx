@@ -27,12 +27,15 @@ function VerifyOrderContent() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session?.user?.id) {
-        router.replace('/login')
+        const next = eventId
+          ? `/verify-order?eventId=${encodeURIComponent(eventId)}`
+          : '/verify-order'
+        router.replace(`/login?next=${encodeURIComponent(next)}`)
         return
       }
       setAuthChecked(true)
     })
-  }, [router])
+  }, [router, eventId])
 
   useEffect(() => {
     if (!authChecked || !eventId) return

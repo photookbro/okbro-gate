@@ -1,77 +1,35 @@
-import { createClient } from '@/lib/supabase/client'
+import { authFetch } from '@/lib/supabase/auth-client'
 
-async function buildAuthHeaders(): Promise<HeadersInit> {
-  const supabase = createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  const headers: HeadersInit = {}
-  if (session?.access_token) {
-    headers.Authorization = `Bearer ${session.access_token}`
-  }
-  return headers
-}
-
-async function refreshClientSession(): Promise<boolean> {
-  const supabase = createClient()
-  const { data, error } = await supabase.auth.refreshSession()
-  return !error && !!data.session
-}
-
-export async function fetchGpsTrackingPref(eventId: string): Promise<boolean> {
+/** true/false = 서버 확정값, null = 조회 실패(로컬 유지) */
+export async function fetchGpsTrackingPref(eventId: string): Promise<boolean | null> {
   try {
-    const headers = await buildAuthHeaders()
-    const res = await fetch(
-      `/api/gps-tracking-pref?event_id=${encodeURIComponent(eventId)}`,
-      { credentials: 'same-origin', headers }
+    const res = await authFetch(
+      `/api/gps-tracking-pref?event_id=${encodeURIComponent(eventId)}`
     )
 
-    if (res.status === 401) return false
-    if (!res.ok) return false
+    if (res.status === 401) return null
+    if (!res.ok) return null
 
     const data = (await res.json()) as { enabled?: boolean }
     return data.enabled === true
   } catch {
-    return false
+    return null
   }
 }
 
-export async function syncGpsTrackingPref(eventId: string, enabled: boolean): Promise<void> {
+export async function syncGpsTrackingPref(eventId: string, enabled: boolean): Promise<boolean> {
   try {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...(await buildAuthHeaders()),
-    }
-
-    let res = await fetch('/api/gps-tracking-pref', {
+    const res = await authFetch('/api/gps-tracking-pref', {
       method: 'POST',
-      headers,
-      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event_id: eventId, enabled }),
     })
 
-    if (res.status === 401) {
-      const refreshed = await refreshClientSession()
-      if (refreshed) {
-        res = await fetch('/api/gps-tracking-pref', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(await buildAuthHeaders()),
-          },
-          credentials: 'same-origin',
-          body: JSON.stringify({ event_id: eventId, enabled }),
-        })
-      }
-    }
-
-    if (!res.ok) {
-      return
-    }
+    if (!res.ok) return false
 
     await res.json().catch(() => {})
+    return true
   } catch {
-    // 네트워크/500 등 실패해도 로컬 UI는 유지
+    return false
   }
 }

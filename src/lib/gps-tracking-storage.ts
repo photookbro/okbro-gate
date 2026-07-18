@@ -54,6 +54,12 @@ export function useGpsTrackingEnabled(eventId: string): [boolean, (enabled: bool
       const serverEnabled = await fetchGpsTrackingPref(eventId)
       if (cancelled) return
 
+      // 조회 실패(null)면 로컬 유지 — 실패를 OFF로 덮어쓰지 않음
+      if (serverEnabled === null) {
+        setEnabled(isGpsTrackingEnabled(eventId))
+        return
+      }
+
       setGpsTrackingEnabled(eventId, serverEnabled)
       setEnabled(serverEnabled)
     }
