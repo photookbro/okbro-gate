@@ -13,7 +13,7 @@ export function FixedFruitCta() {
           rel="noreferrer"
           data-guest-allowed
         >
-          🎁 과일사러 대박과수원으로
+          대박과수원에서 인증하기
         </a>
       </div>
     </div>
