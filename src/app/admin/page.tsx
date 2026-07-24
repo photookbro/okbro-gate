@@ -730,7 +730,7 @@ export default function AdminPage() {
                       <th>대회명</th>
                       <th>날짜</th>
                       <th>저화소 앨범</th>
-                      <th>고화소 앨범</th>
+                      <th>고화질 앨범</th>
                       <th>작업</th>
                     </tr>
                   </thead>
@@ -1056,7 +1056,7 @@ export default function AdminPage() {
               <input value={form.album_a_url} onChange={e => setForm(f => ({ ...f, album_a_url: e.target.value }))} className={inputStyle} />
             </label>
             <label className="mb-3 block">
-              <span className={labelStyle}>고화소 앨범 URL</span>
+              <span className={labelStyle}>고화질 앨범 URL</span>
               <input value={form.album_b_url} onChange={e => setForm(f => ({ ...f, album_b_url: e.target.value }))} className={inputStyle} />
             </label>
 

@@ -53,7 +53,7 @@ export function VerificationExpiryBanner() {
           ⚠️ 인증이 <strong>{daysRemaining}일</strong> 후 만료됩니다. 계속 이어가시겠어요
         </p>
         <div className="verification-expiry-banner-actions">
-          <Link href="/verify-order" className="verification-expiry-banner-cta">
+          <Link href="/mypage" className="verification-expiry-banner-cta">
             연장하기
           </Link>
           <button type="button" onClick={handleDismiss} className="verification-expiry-banner-dismiss">

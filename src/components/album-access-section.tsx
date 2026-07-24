@@ -51,7 +51,7 @@ export function AlbumAccessSection({
           <p className="mt-1 text-sm">당신의 개인 정보가 포함되어 있어요.</p>
         </div>
         <button type="button" onClick={handleOpenAlbumB} className="btn-primary w-full">
-          고화소 앨범 열기
+          고화질 앨범 열기
         </button>
         <button type="button" onClick={() => setView('main')} className="btn-secondary w-full">
           돌아가기
@@ -75,7 +75,7 @@ export function AlbumAccessSection({
     <div className="card-section space-y-4">
       {isValid && isGpsAccess && verification.gps_passed_at && (
         <div className="alert-success mb-0">
-          📍 GPS 통과: {formatGpsPassDisplay(verification.gps_passed_at)} (고화소 앨범 자동 접근)
+          📍 GPS 통과: {formatGpsPassDisplay(verification.gps_passed_at)} (고화질 앨범 자동 접근)
         </div>
       )}
 

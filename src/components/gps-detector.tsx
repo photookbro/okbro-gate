@@ -47,10 +47,6 @@ type GpsPassLogGroup = {
   passes: { pass_count: number; display_time: string }[]
 }
 
-function formatCoord(value: number): string {
-  return value.toFixed(6)
-}
-
 function createZoneStateMap(locations: EventGpsLocation[], maxPasses: number) {
   const map = new Map<GpsLocationNumber, GpsPassZoneState>()
   for (const location of locations) {
@@ -91,7 +87,6 @@ export function GpsDetector({
   const [currentLat, setCurrentLat] = useState<number | null>(null)
   const [currentLng, setCurrentLng] = useState<number | null>(null)
   const [distanceByLocation, setDistanceByLocation] = useState<Record<number, number>>({})
-  const [passCountToday, setPassCountToday] = useState(0)
   const [passLog, setPassLog] = useState<GpsPassLogGroup[]>([])
   const maxPasses = isLoopCourse ? MAX_GPS_PASSES_PER_DAY : 1
   const activeLocations = useMemo(
@@ -229,7 +224,6 @@ export function GpsDetector({
       nextPassLog.sort((a, b) => a.location_number - b.location_number)
 
       zoneStateRef.current = nextState
-      setPassCountToday(data.pass_count ?? 0)
       setPassLog(nextPassLog)
     } catch {
       // ignore
@@ -277,7 +271,6 @@ export function GpsDetector({
               armedForNextPass: true,
             })
           }
-          setPassCountToday(prev => Math.max(0, prev - 1))
           setErrorMsg(data.error ?? '통과 기록 저장 실패')
           return
         }
@@ -292,7 +285,6 @@ export function GpsDetector({
             armedForNextPass: true,
           })
         }
-        setPassCountToday(prev => Math.max(0, prev - 1))
         setErrorMsg('통과 기록 저장 중 오류가 발생했어요')
       } finally {
         recordingRef.current.delete(key)
@@ -460,6 +452,73 @@ export function GpsDetector({
           </span>
         </div>
 
+        {tracking ? (
+          <div className="gps-distance-panel" aria-live="polite">
+            {currentLat != null && currentLng != null ? (
+              activeLocations.map(location => {
+                const distance = distanceByLocation[location.locationNumber]
+                const arrived =
+                  distance != null && distance <= location.radiusMeters
+                const multi = activeLocations.length > 1
+                const place = multi ? `${location.locationNumber}차 촬영 위치` : '촬영 위치'
+                const passGroup = passLog.find(
+                  group => group.location_number === location.locationNumber
+                )
+                const latestPassTime =
+                  passGroup && passGroup.passes.length > 0
+                    ? passGroup.passes[passGroup.passes.length - 1].display_time
+                    : null
+
+                if (distance == null) {
+                  return (
+                    <div key={location.locationNumber} className="gps-distance-block">
+                      <p className="gps-distance-line">
+                        <span className="gps-distance-primary">{place}까지 —</span>
+                      </p>
+                    </div>
+                  )
+                }
+
+                if (arrived) {
+                  const arrivedLabel = multi
+                    ? `${location.locationNumber}차 도착 ${distance}m`
+                    : `도착 ${distance}m`
+
+                  return (
+                    <div key={location.locationNumber} className="gps-distance-block">
+                      <p className="gps-distance-line">
+                        <span className="gps-distance-primary">{arrivedLabel}</span>
+                      </p>
+                      {latestPassTime ? (
+                        <p className="gps-pass-complete-time">
+                          {latestPassTime} 촬영 완료
+                        </p>
+                      ) : null}
+                    </div>
+                  )
+                }
+
+                const distanceKm = (distance / 1000).toFixed(2)
+
+                return (
+                  <div key={location.locationNumber} className="gps-distance-block">
+                    <p className="gps-distance-line">
+                      <span className="gps-distance-primary">
+                        {place}까지 {distance}m
+                      </span>
+                      <span className="gps-distance-secondary">
+                        , 오켱까지 {distanceKm}km 떨어져 있어요
+                      </span>
+                    </p>
+                  </div>
+                )
+              })
+            ) : (
+              <p className="gps-distance-line gps-distance-waiting">위치 확인 중입니다</p>
+            )}
+          </div>
+        ) : null}
+
         <div className="gps-athlete-checklist">
           <p className="gps-athlete-checklist-title">✓ 경기 시작 전 확인사항:</p>
           <ul className="gps-athlete-checklist-list">
@@ -480,64 +539,6 @@ export function GpsDetector({
         {activeLocations.length === 0 && (
           <p className="text-xs text-muted">촬영 위치가 설정되지 않았어요</p>
         )}
-
-        {passCountToday > 0 && (
-          <p className="mb-2 text-xs font-medium text-success">오늘 총 {passCountToday}회 기록됨</p>
-        )}
-
-        {tracking && currentLat != null && currentLng != null && (
-          <div className="mb-3 space-y-2 text-xs leading-relaxed">
-            <p className="font-medium text-danger">
-              🔴 추적 중... (현재 좌표: {formatCoord(currentLat)}, {formatCoord(currentLng)})
-            </p>
-            {activeLocations.map(location => {
-              const distance = distanceByLocation[location.locationNumber]
-              const exitRadius = Math.max(GPS_EXIT_RADIUS_METERS, location.radiusMeters * 2)
-              return (
-                <p
-                  key={location.locationNumber}
-                  className={
-                    distance != null && distance <= location.radiusMeters
-                      ? 'text-success'
-                      : distance != null && distance >= exitRadius
-                        ? 'text-muted'
-                        : 'text-warning'
-                  }
-                >
-                  {activeLocations.length > 1 ? `${location.locationNumber}차 위치` : '촬영 위치'}:{' '}
-                  {distance != null ? `${distance}m` : '-'} (도착 {location.radiusMeters}m)
-                </p>
-              )
-            })}
-          </div>
-        )}
-
-        <div className="space-y-1 text-xs text-muted">
-          {passLog.length === 0 ? (
-            <p>아직 촬영 감지 기록이 없어요</p>
-          ) : (
-            passLog.map(group => (
-              <div key={group.location_number}>
-                {passLog.length > 1 && (
-                  <p className="text-xs font-medium text-[var(--text)]">
-                    {group.location_number}차 촬영 위치
-                  </p>
-                )}
-                {isLoopCourse ? (
-                  <p>
-                    {group.passes
-                      .map(pass => `${pass.pass_count}차 통과: ${pass.display_time}`)
-                      .join(' · ')}
-                  </p>
-                ) : (
-                  group.passes.map(pass => (
-                    <p key={pass.pass_count}>촬영 지점 통과: {pass.display_time}</p>
-                  ))
-                )}
-              </div>
-            ))
-          )}
-        </div>
 
         {errorMsg && <p className="mt-3 text-xs text-danger">{errorMsg}</p>}
       </div>

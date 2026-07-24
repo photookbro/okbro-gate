@@ -13,6 +13,7 @@ import {
   GPS_SHOOT_RECORD_DISCLAIMER,
 } from '@/lib/events-list-client'
 import { ensurePushSubscription } from '@/lib/push-client'
+import { OrderNumberGuide } from '@/components/order-number-guide'
 
 type PhotoAccess = {
   purchase_days_remaining: number
@@ -284,6 +285,8 @@ export default function MyPage() {
           <p className="mb-4 text-sm leading-relaxed text-muted">
             추가 주문번호로 인증하면 만료일이 연장돼요
           </p>
+
+          <OrderNumberGuide className="mb-3" />
 
           <form onSubmit={handleExtend}>
             <div className="extend-form-row">

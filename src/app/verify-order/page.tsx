@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { formatVerificationDate, type VerificationInfo } from '@/lib/order-verification'
 import { NAVER_ORDER_PLACEHOLDER } from '@/lib/naver-order-number'
 import { AlbumAccessModal } from '@/components/album-access-modal'
+import { OrderNumberGuide } from '@/components/order-number-guide'
 
 function VerifyOrderContent() {
   const router = useRouter()
@@ -35,33 +36,59 @@ function VerifyOrderContent() {
       }
       setAuthChecked(true)
     })
-  }, [router, eventId])
+  }, [router, eventId, supabase.auth])
 
   useEffect(() => {
-    if (!authChecked || !eventId) return
+    if (!authChecked) return
 
+    let cancelled = false
     setStatusLoading(true)
-    Promise.all([
-      fetch(`/api/verify-order/status?event_id=${encodeURIComponent(eventId)}`).then(async res => {
-        const data = await res.json()
-        if (!res.ok || !data?.status) {
-          return { status: 'none' } as VerificationInfo
+
+    async function load() {
+      try {
+        const statusUrl = eventId
+          ? `/api/verify-order/status?event_id=${encodeURIComponent(eventId)}`
+          : '/api/verify-order/status'
+
+        const statusRes = await fetch(statusUrl)
+        const statusData = await statusRes.json()
+        if (cancelled) return
+
+        if (statusRes.ok && statusData?.status) {
+          setVerification(statusData as VerificationInfo)
+        } else {
+          setVerification({ status: 'none' })
         }
-        return data as VerificationInfo
-      }),
-      supabase.from('events').select('album_a_url, album_b_url').eq('id', eventId).single(),
-    ])
-      .then(([statusData, { data: event }]) => {
-        setVerification(statusData ?? { status: 'none' })
-        setAlbumBUrl(event?.album_b_url ?? null)
-        setAlbumAUrl(event?.album_a_url ?? null)
-        setStatusLoading(false)
-      })
-      .catch(() => {
-        setVerification({ status: 'none' })
-        setStatusLoading(false)
-      })
-  }, [authChecked, eventId])
+
+        if (eventId) {
+          const { data: event } = await supabase
+            .from('events')
+            .select('album_a_url, album_b_url')
+            .eq('id', eventId)
+            .single()
+          if (cancelled) return
+          setAlbumBUrl(event?.album_b_url ?? null)
+          setAlbumAUrl(event?.album_a_url ?? null)
+        } else {
+          setAlbumBUrl(null)
+          setAlbumAUrl(null)
+        }
+      } catch {
+        if (!cancelled) {
+          setVerification({ status: 'none' })
+          setAlbumBUrl(null)
+          setAlbumAUrl(null)
+        }
+      } finally {
+        if (!cancelled) setStatusLoading(false)
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [authChecked, eventId, supabase])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -70,10 +97,7 @@ function VerifyOrderContent() {
       setErrorMsg('주문번호를 입력해주세요')
       return
     }
-    if (!eventId) {
-      setErrorMsg('대회 정보를 찾을 수 없어요')
-      return
-    }
+
     setLoading(true)
     setErrorMsg('')
 
@@ -84,23 +108,28 @@ function VerifyOrderContent() {
         body: JSON.stringify({
           order_number: orderInput.trim(),
           platform: 'naver',
-          event_id: eventId,
+          ...(eventId ? { event_id: eventId } : {}),
         }),
       })
 
       const data = await res.json()
 
       if (data.success) {
-        const statusRes = await fetch('/api/verify-order/status')
+        const statusRes = await fetch(
+          eventId
+            ? `/api/verify-order/status?event_id=${encodeURIComponent(eventId)}`
+            : '/api/verify-order/status'
+        )
         const statusData = await statusRes.json()
         if (statusRes.ok && statusData?.status) {
           setVerification(statusData as VerificationInfo)
         }
-        setLoading(false)
         setOrderInput('')
+        setLoading(false)
+
         if (albumBUrl) {
           setShowAlbumModal(true)
-        } else {
+        } else if (eventId) {
           router.push(`/events/${eventId}`)
         }
       } else {
@@ -120,28 +149,25 @@ function VerifyOrderContent() {
 
   if (!authChecked || statusLoading) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div
+        style={{
+          minHeight: '100vh',
+          backgroundColor: 'var(--bg)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         <p style={{ color: 'var(--text-muted)' }}>로딩 중...</p>
-      </div>
-    )
-  }
-
-  if (!eventId) {
-    return (
-      <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>대회 정보가 없어요</p>
-          <Link href="/events" style={{ color: 'var(--primary)', fontSize: 'var(--font-caption-size)' }}>
-            대회 목록으로
-          </Link>
-        </div>
       </div>
     )
   }
 
   const isValid = verification.status === 'valid'
   const isExpired = verification.status === 'expired'
-  const showForm = !isValid
+  const isExtendFlow = verification.status !== 'none'
+  const pageTitle = isExtendFlow ? '인증 연장' : '주문 인증'
+  const submitLabel = isExtendFlow ? '인증 연장하기' : '인증하기'
 
   return (
     <div
@@ -156,7 +182,7 @@ function VerifyOrderContent() {
     >
       <div style={{ width: '100%', maxWidth: '420px' }}>
         <Link
-          href={`/events/${eventId}`}
+          href={eventId ? `/events/${eventId}` : '/events'}
           style={{
             display: 'inline-block',
             color: 'var(--text-muted)',
@@ -165,7 +191,7 @@ function VerifyOrderContent() {
             marginBottom: '1rem',
           }}
         >
-          ← 대회로 돌아가기
+          {eventId ? '← 대회로 돌아가기' : '← 대회 목록으로'}
         </Link>
 
         <div
@@ -213,23 +239,37 @@ function VerifyOrderContent() {
             </div>
           )}
 
-          <div style={{ textAlign: 'center', marginBottom: showForm ? '1.5rem' : '1.25rem' }}>
+          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🛒</div>
-            <h1 style={{ fontSize: 'var(--font-h2-size)', fontWeight: 700, lineHeight: 'var(--font-h2-line-height)', color: 'var(--text)', margin: '0 0 0.5rem' }}>
-              주문 인증
+            <h1
+              style={{
+                fontSize: 'var(--font-h2-size)',
+                fontWeight: 700,
+                lineHeight: 'var(--font-h2-line-height)',
+                color: 'var(--text)',
+                margin: '0 0 0.5rem',
+              }}
+            >
+              {pageTitle}
             </h1>
-            {showForm && (
-              <p style={{ color: 'var(--text-muted)', fontSize: 'var(--font-body-size)', margin: 0, lineHeight: 'var(--font-body-line-height)' }}>
-                네이버 주문번호를 입력해주세요
-              </p>
-            )}
+            <p
+              style={{
+                color: 'var(--text-muted)',
+                fontSize: 'var(--font-body-size)',
+                margin: 0,
+                lineHeight: 'var(--font-body-line-height)',
+              }}
+            >
+              {isExtendFlow
+                ? '추가 주문번호로 인증하면 만료일이 연장돼요'
+                : '네이버 주문번호를 입력해주세요'}
+            </p>
           </div>
 
-          {isValid ? (
+          {isValid && albumBUrl ? (
             <button
               type="button"
               onClick={handleOpenAlbumB}
-              disabled={!albumBUrl}
               style={{
                 display: 'block',
                 width: '100%',
@@ -237,93 +277,96 @@ function VerifyOrderContent() {
                 padding: '12px 14px',
                 borderRadius: '8px',
                 border: 'none',
-                backgroundColor: albumBUrl ? 'var(--primary)' : 'var(--disabled)',
+                backgroundColor: 'var(--primary)',
                 color: '#ffffff',
                 fontSize: '0.95rem',
                 fontWeight: 600,
-                cursor: albumBUrl ? 'pointer' : 'not-allowed',
+                cursor: 'pointer',
+                marginBottom: '1.25rem',
               }}
             >
               ⭐ 고화질 앨범 열기
             </button>
-          ) : (
-            <form onSubmit={handleSubmit}>
-              <label
-                htmlFor="order-input"
+          ) : null}
+
+          <form onSubmit={e => void handleSubmit(e)}>
+            <label
+              htmlFor="order-input"
+              style={{
+                display: 'block',
+                fontSize: 'var(--font-body-size)',
+                fontWeight: 600,
+                color: 'var(--text)',
+                marginBottom: '0.5rem',
+              }}
+            >
+              네이버 주문번호
+            </label>
+            <OrderNumberGuide />
+            <input
+              id="order-input"
+              type="text"
+              value={orderInput}
+              onChange={e => setOrderInput(e.target.value)}
+              placeholder={NAVER_ORDER_PLACEHOLDER}
+              autoComplete="off"
+              style={{
+                display: 'block',
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '12px 14px',
+                borderRadius: '8px',
+                border: `1px solid ${errorMsg ? 'var(--danger)' : 'var(--border)'}`,
+                backgroundColor: 'var(--bg-card)',
+                color: 'var(--text)',
+                fontSize: 'var(--font-body-size)',
+                lineHeight: 'var(--font-body-line-height)',
+                outline: 'none',
+                marginBottom: '0.5rem',
+                marginTop: '0.5rem',
+              }}
+            />
+
+            {errorMsg ? (
+              <p
                 style={{
-                  display: 'block',
+                  color: '#ff6b52',
                   fontSize: 'var(--font-body-size)',
-                  fontWeight: 600,
-                  color: 'var(--text)',
-                  marginBottom: '0.5rem',
+                  margin: '0 0 1rem',
+                  padding: '0.5rem 0.75rem',
+                  backgroundColor: 'var(--color-danger-bg)',
+                  borderRadius: '6px',
+                  border: '1px solid var(--color-danger-border)',
                 }}
               >
-                네이버 주문번호
-              </label>
-              <input
-                id="order-input"
-                type="text"
-                value={orderInput}
-                onChange={e => setOrderInput(e.target.value)}
-                placeholder={NAVER_ORDER_PLACEHOLDER}
-                autoComplete="off"
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  padding: '12px 14px',
-                  borderRadius: '8px',
-                  border: `1px solid ${errorMsg ? 'var(--danger)' : 'var(--border)'}`,
-                  backgroundColor: 'var(--bg-card)',
-                  color: 'var(--text)',
-                  fontSize: 'var(--font-body-size)',
-                  lineHeight: 'var(--font-body-line-height)',
-                  outline: 'none',
-                  marginBottom: '0.5rem',
-                }}
-              />
+                {errorMsg}
+              </p>
+            ) : null}
 
-              {errorMsg && (
-                <p
-                  style={{
-                    color: '#ff6b52',
-                    fontSize: 'var(--font-body-size)',
-                    margin: '0 0 1rem',
-                    padding: '0.5rem 0.75rem',
-                    backgroundColor: 'var(--color-danger-bg)',
-                    borderRadius: '6px',
-                    border: '1px solid var(--color-danger-border)',
-                  }}
-                >
-                  {errorMsg}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  padding: '12px 14px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: loading ? 'var(--disabled)' : 'var(--primary)',
-                  color: '#ffffff',
-                  fontSize: '0.95rem',
-                  fontWeight: 600,
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {loading ? '인증 중...' : '인증하기'}
-              </button>
-            </form>
-          )}
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                display: 'block',
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '12px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: loading ? 'var(--disabled)' : 'var(--primary)',
+                color: '#ffffff',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {loading ? '인증 중...' : submitLabel}
+            </button>
+          </form>
         </div>
       </div>
 
-      {albumBUrl && (
+      {albumBUrl ? (
         <AlbumAccessModal
           visible={showAlbumModal}
           onClose={() => setShowAlbumModal(false)}
@@ -331,7 +374,7 @@ function VerifyOrderContent() {
           albumBUrl={albumBUrl}
           albumAUrl={albumAUrl}
         />
-      )}
+      ) : null}
     </div>
   )
 }
@@ -340,7 +383,15 @@ export default function VerifyOrderPage() {
   return (
     <Suspense
       fallback={
-        <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div
+          style={{
+            minHeight: '100vh',
+            backgroundColor: 'var(--bg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <p style={{ color: 'var(--text-muted)' }}>로딩 중...</p>
         </div>
       }

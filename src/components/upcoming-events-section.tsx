@@ -21,7 +21,6 @@ const PlayerLocationPreviewMap = dynamic(
 )
 
 function UpcomingEventItem({ event }: { event: EventsListUpcomingEvent }) {
-  const [mapOpen, setMapOpen] = useState(false)
   const [trackingEnabled] = useGpsTrackingEnabled(event.id)
 
   const isMultiMode = event.is_loop_course || event.locations.length > 1
@@ -64,18 +63,11 @@ function UpcomingEventItem({ event }: { event: EventsListUpcomingEvent }) {
         </div>
       )}
 
-      {event.locations.length > 0 && (
-        <div className="event-upcoming-map-toggle">
-          <button
-            type="button"
-            className="events-location-preview-toggle"
-            onClick={() => setMapOpen(open => !open)}
-          >
-            {mapOpen ? '📍 촬영 위치 닫기' : '📍 촬영 위치 보기'}
-          </button>
-          {mapOpen && <PlayerLocationPreviewMap locations={event.locations} />}
+      {event.locations.length > 0 ? (
+        <div className="event-upcoming-map">
+          <PlayerLocationPreviewMap locations={event.locations} />
         </div>
-      )}
+      ) : null}
     </li>
   )
 }

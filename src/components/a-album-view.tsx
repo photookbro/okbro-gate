@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { FRUIT_STORE_URL } from '@/lib/fruit-store'
 
 type AAlbumViewProps = {
   albumAUrl: string | null
@@ -73,28 +72,18 @@ export function AAlbumView({
         <p className="text-sm text-muted">사진이 아직 도착하지 않았습니다. 조금만 기다려 주세요</p>
       )}
 
-      <a
-        href={FRUIT_STORE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="btn-primary block w-full text-center no-underline"
-        data-guest-allowed
-      >
-        이 순간, 인증하고 받기
-      </a>
-
-      <p className="text-center text-sm text-muted">
+      <p className="pt-1 text-center text-sm text-muted">
         만기가 다되었거나 과일구매인증이 경험이 없으시네요
       </p>
 
-      {eventId && (
+      {eventId ? (
         <Link
           href={`/verify-order?eventId=${encodeURIComponent(eventId)}`}
           className="btn-primary block w-full text-center text-base no-underline"
         >
-          과일구매인증해서 고화소 앨범 열람하기
+          인증하고 고화질 앨범 보기
         </Link>
-      )}
+      ) : null}
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { NAVER_ORDER_PLACEHOLDER } from '@/lib/naver-order-number'
 import { markOnboardingVerificationSkipped } from '@/lib/app-permissions'
 import { buildLoginHref } from '@/components/login-required-modal'
+import { OrderNumberGuide } from '@/components/order-number-guide'
 
 type VerificationModalProps = {
   open: boolean
@@ -114,6 +115,7 @@ export function VerificationModal({ open, onComplete, onSkip }: VerificationModa
               <span className="mb-1 block text-xs font-medium text-muted">
                 주문번호
               </span>
+              <OrderNumberGuide className="mb-2" />
               <input
                 type="text"
                 value={orderInput}
