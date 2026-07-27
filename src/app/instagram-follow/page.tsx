@@ -108,17 +108,37 @@ function InstagramFollowContent() {
 
         {status?.state === 'active' ? (
           <div className="card mb-4">
+            <p className="mb-2 text-center text-sm font-semibold text-success">
+              이미 인증되었습니다
+            </p>
             <p className="mb-2 text-center text-sm text-muted">무료 열람 기간</p>
             <p className="mypage-dday mypage-dday-success mb-2 text-center">
               D-{status.days_remaining ?? 0}
             </p>
             <p className="mb-0 text-center text-sm text-muted">
-              @{status.instagram_handle} · {status.period_label}
+              @{status.instagram_handle}
+              {status.period_label ? ` · ${status.period_label}` : ''}
             </p>
           </div>
         ) : null}
 
-        {status?.state === 'expired' ? null : (
+        {status?.state === 'expired' ? (
+          <div className="card mb-4">
+            <p className="mb-2 text-center text-sm font-semibold text-muted">혜택이 만료되었어요</p>
+            <p className="mypage-dday mypage-dday-muted mb-2 text-center">만료됨</p>
+            <p className="mb-0 text-center text-sm text-muted">
+              {status.instagram_handle ? `@${status.instagram_handle}` : null}
+              {status.period_label
+                ? `${status.instagram_handle ? ' · ' : ''}${status.period_label}`
+                : null}
+            </p>
+            <p className="mt-4 mb-0 text-center text-sm text-muted">
+              인스타 팔로우 무료 열람은 1회만 적용돼요. 이후에는 과일 인증으로 열람할 수 있어요.
+            </p>
+          </div>
+        ) : null}
+
+        {canSubmit ? (
           <div className="card mb-4">
             <p className="mb-3 text-base leading-relaxed text-[var(--text)]">
               인스타그램(
@@ -138,31 +158,29 @@ function InstagramFollowContent() {
               </p>
             ) : null}
 
-            {canSubmit ? (
-              <form onSubmit={e => void handleSubmit(e)}>
-                <label htmlFor="instagram-handle-input" className="label-field">
-                  인스타 아이디
-                </label>
-                <input
-                  id="instagram-handle-input"
-                  type="text"
-                  value={handleInput}
-                  onChange={e => setHandleInput(e.target.value)}
-                  placeholder="예: your_id"
-                  autoComplete="off"
-                  className={`input-field mb-3 ${errorMsg ? 'input-field-error' : ''}`}
-                />
+            <form onSubmit={e => void handleSubmit(e)}>
+              <label htmlFor="instagram-handle-input" className="label-field">
+                인스타 아이디
+              </label>
+              <input
+                id="instagram-handle-input"
+                type="text"
+                value={handleInput}
+                onChange={e => setHandleInput(e.target.value)}
+                placeholder="예: your_id"
+                autoComplete="off"
+                className={`input-field mb-3 ${errorMsg ? 'input-field-error' : ''}`}
+              />
 
-                {errorMsg ? <p className="alert-danger">{errorMsg}</p> : null}
-                {successMsg ? <p className="alert-success">{successMsg}</p> : null}
+              {errorMsg ? <p className="alert-danger">{errorMsg}</p> : null}
+              {successMsg ? <p className="alert-success">{successMsg}</p> : null}
 
-                <button type="submit" disabled={submitting} className="btn-primary mt-3">
-                  {submitting ? '확인 중...' : '제출하기'}
-                </button>
-              </form>
-            ) : null}
+              <button type="submit" disabled={submitting} className="btn-primary mt-3">
+                {submitting ? '확인 중...' : '제출하기'}
+              </button>
+            </form>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   )
