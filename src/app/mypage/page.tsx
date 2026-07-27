@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { authFetch, resolveClientUser } from '@/lib/supabase/auth-client'
 import { NAVER_ORDER_PLACEHOLDER } from '@/lib/naver-order-number'
@@ -14,6 +13,8 @@ import {
 } from '@/lib/events-list-client'
 import { ensurePushSubscription } from '@/lib/push-client'
 import { OrderNumberGuide } from '@/components/order-number-guide'
+import { MypageAlbumAccessStatus } from '@/components/mypage-album-access-status'
+import type { InstagramFollowBonusStatus } from '@/lib/instagram-follow-bonus'
 
 type PhotoAccess = {
   purchase_days_remaining: number
@@ -42,18 +43,6 @@ type GpsEventPasses = {
   locations: GpsLocationGroup[]
 }
 
-function formatPhotoAccessDday(daysRemaining: number, status: string): string {
-  if (status === 'none' || status === 'expired' || daysRemaining <= 0) return '만료됨'
-  if (daysRemaining === 0) return 'D-Day'
-  return `D-${daysRemaining}`
-}
-
-function ddayClass(status: string, expiringSoon: boolean): string {
-  if (status === 'none' || status === 'expired') return 'mypage-dday mypage-dday-muted'
-  if (expiringSoon) return 'mypage-dday mypage-dday-danger'
-  return 'mypage-dday mypage-dday-success'
-}
-
 export default function MyPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -61,6 +50,8 @@ export default function MyPage() {
   const [email, setEmail] = useState('')
   const [photoAccess, setPhotoAccess] = useState<PhotoAccess | null>(null)
   const [gpsEventPasses, setGpsEventPasses] = useState<GpsEventPasses[]>([])
+  const [instagramFollowBonus, setInstagramFollowBonus] =
+    useState<InstagramFollowBonusStatus | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
 
   const [orderInput, setOrderInput] = useState('')
@@ -75,17 +66,48 @@ export default function MyPage() {
   const [notificationMsg, setNotificationMsg] = useState('')
 
   const loadMypage = useCallback(async () => {
-    const res = await authFetch('/api/mypage')
-    const data = await res.json()
-    if (!res.ok) {
-      setErrorMsg(data.error ?? '정보를 불러오지 못했어요')
+    try {
+      const res = await authFetch('/api/mypage')
+      const text = await res.text()
+      let data: {
+        error?: string
+        email?: string
+        photo_access?: PhotoAccess | null
+        gps_event_passes?: GpsEventPasses[]
+        instagram_follow_bonus?: InstagramFollowBonusStatus | null
+      } = {}
+
+      if (text.trim()) {
+        try {
+          data = JSON.parse(text) as typeof data
+        } catch {
+          setErrorMsg(
+            res.ok
+              ? '응답을 해석하지 못했어요'
+              : `정보를 불러오지 못했어요 (${res.status})`
+          )
+          return false
+        }
+      } else if (!res.ok) {
+        setErrorMsg(`정보를 불러오지 못했어요 (${res.status})`)
+        return false
+      }
+
+      if (!res.ok) {
+        setErrorMsg(data.error ?? '정보를 불러오지 못했어요')
+        return false
+      }
+
+      setEmail(data.email ?? '')
+      setPhotoAccess(data.photo_access ?? null)
+      setGpsEventPasses(data.gps_event_passes ?? [])
+      setInstagramFollowBonus(data.instagram_follow_bonus ?? null)
+      setErrorMsg('')
+      return true
+    } catch {
+      setErrorMsg('정보를 불러오지 못했어요')
       return false
     }
-    setEmail(data.email ?? '')
-    setPhotoAccess(data.photo_access ?? null)
-    setGpsEventPasses(data.gps_event_passes ?? [])
-    setErrorMsg('')
-    return true
   }, [])
 
   useEffect(() => {
@@ -208,21 +230,6 @@ export default function MyPage() {
     )
   }
 
-  const totalDays = photoAccess?.photo_access_days_remaining ?? 0
-  const status = photoAccess?.status ?? 'none'
-  const isExpired = status === 'expired'
-  const isExpiringSoon = photoAccess?.expiring_soon ?? false
-  const hasAccess = status === 'valid' && totalDays > 0
-  const activeVerifications = [
-    photoAccess && photoAccess.purchase_days_remaining > 0
-      ? {
-          label: '구매 인증',
-          daysRemaining: photoAccess.purchase_days_remaining,
-          validityLabel: photoAccess.purchase_validity_label,
-        }
-      : null,
-  ].filter((item): item is NonNullable<typeof item> => item != null)
-
   return (
     <div className="page-shell mypage-page">
       <div className="page-container">
@@ -231,54 +238,10 @@ export default function MyPage() {
 
         {errorMsg && <p className="alert-danger">{errorMsg}</p>}
 
-        <div className="card mb-4 mypage-status-card">
-          <h2 className="section-title">사진 열람 만기 현황</h2>
-
-          {status === 'none' ? (
-            <div>
-              <p className="mypage-dday mypage-dday-muted mb-3 text-center">인증 없음</p>
-              <p className="mb-4 text-center text-sm text-muted">인증 기록이 없어요</p>
-              <Link href="/events" className="btn-primary-inline inline-flex no-underline">
-                대회 목록에서 인증하기
-              </Link>
-            </div>
-          ) : (
-            <div className="text-center">
-              <p className="mypage-status-label">사진 열람 가능</p>
-              <p className={ddayClass(status, isExpiringSoon)}>
-                {formatPhotoAccessDday(totalDays, status)}
-              </p>
-              <p className="mypage-status-sub">
-                {hasAccess ? `사진 열람 가능: ${totalDays}일` : '사진 열람 가능: 0일'}
-              </p>
-
-              {activeVerifications.length > 0 ? (
-                <div className="mt-4 space-y-2 text-left text-sm text-muted">
-                  {activeVerifications.map(item => (
-                    <p key={item.label}>
-                      {item.label}: {formatPhotoAccessDday(item.daysRemaining, 'valid')}
-                      {item.validityLabel && item.validityLabel !== '-'
-                        ? ` · ${item.validityLabel}`
-                        : ''}
-                    </p>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-4 text-sm text-muted">현재 유효한 인증이 없어요</p>
-              )}
-
-              {isExpiringSoon && hasAccess && (
-                <div className="alert-warning mt-4 mb-0">⚠️ 곧 만료</div>
-              )}
-
-              {isExpired && (
-                <div className="alert-danger mt-4 mb-0">
-                  ❌ 만료됨. 주문번호로 다시 인증해주세요
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <MypageAlbumAccessStatus
+          photoAccess={photoAccess}
+          instagramFollowBonus={instagramFollowBonus}
+        />
 
         <div className="card mb-4">
           <h2 className="section-title">인증 연장</h2>

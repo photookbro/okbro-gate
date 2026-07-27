@@ -3,8 +3,11 @@
 import { useEffect, useState } from 'react'
 import { GpsPermissionModal } from '@/components/gps-permission-modal'
 import { NotificationPermissionModal } from '@/components/notification-permission-modal'
+import { InstagramFollowOnboardingModal } from '@/components/instagram-follow-onboarding-modal'
 import { VerificationModal } from '@/components/verification-modal'
 import { markFirstAppLaunchDone, isFirstAppLaunchPending } from '@/lib/app-first-launch'
+import { markInstagramFollowOnboardingDone } from '@/lib/instagram-follow-onboarding'
+import { createClient } from '@/lib/supabase/client'
 import {
   getPermissionSnapshot,
   markNotificationPermissionAsked,
@@ -18,10 +21,11 @@ import {
 } from '@/lib/geolocation-request'
 import { ensurePushSubscription } from '@/lib/push-client'
 
-type OnboardingStep = 'gps' | 'notification' | 'verification' | null
+type OnboardingStep = 'gps' | 'notification' | 'instagram' | 'verification' | null
 
 export function AppFirstLaunchPermissions() {
   const [step, setStep] = useState<OnboardingStep>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const [requestingGps, setRequestingGps] = useState(false)
   const [gpsError, setGpsError] = useState('')
   const [gpsSettingsGuide, setGpsSettingsGuide] = useState(false)
@@ -30,6 +34,11 @@ export function AppFirstLaunchPermissions() {
   useEffect(() => {
     if (!isFirstAppLaunchPending()) return
     setStep('gps')
+
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserId(session?.user?.id ?? null)
+    })
   }, [])
 
   function finishOnboarding() {
@@ -73,12 +82,17 @@ export function AppFirstLaunchPermissions() {
     } finally {
       markNotificationPermissionAsked()
       setRequestingNotification(false)
-      setStep('verification')
+      setStep('instagram')
     }
   }
 
   function handleNotificationSkip() {
     markNotificationPermissionAsked()
+    setStep('instagram')
+  }
+
+  function handleInstagramComplete() {
+    if (userId) markInstagramFollowOnboardingDone(userId)
     setStep('verification')
   }
 
@@ -110,6 +124,12 @@ export function AppFirstLaunchPermissions() {
         requesting={requestingNotification}
         onAllow={() => void handleNotificationAllow()}
         onSkip={handleNotificationSkip}
+      />
+
+      <InstagramFollowOnboardingModal
+        open={step === 'instagram'}
+        onComplete={handleInstagramComplete}
+        onSkip={handleInstagramComplete}
       />
 
       <VerificationModal

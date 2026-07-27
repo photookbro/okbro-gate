@@ -315,12 +315,16 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  const [{ data: termsRows }, { data: orders }, { data: gpsLogs }, { data: prefRows }] =
+  const [{ data: termsRows }, { data: orders }, { data: gpsLogs }, { data: prefRows }, { data: instagramBonuses }] =
     await Promise.all([
       admin.from('terms_agreements').select('user_id, agreed_at'),
       admin.from('orders').select('user_id, order_number, used_at, created_at, expires_at'),
       admin.from('gps_logs').select('user_id, passed_at'),
       admin.from('user_gps_tracking_prefs').select('user_id, updated_at'),
+      admin
+        .from('instagram_follow_bonus')
+        .select('user_id, instagram_handle, status, approved_at, expires_at')
+        .eq('status', 'approved'),
     ])
 
   const termsByUser = new Map<string, string>()
@@ -419,6 +423,23 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  const instagramBonusByUser = new Map<
+    string,
+    {
+      instagram_handle: string
+      approved_at: string | null
+      expires_at: string | null
+    }
+  >()
+  for (const row of instagramBonuses ?? []) {
+    if (!row.user_id) continue
+    instagramBonusByUser.set(row.user_id, {
+      instagram_handle: row.instagram_handle,
+      approved_at: row.approved_at,
+      expires_at: row.expires_at,
+    })
+  }
+
   const now = new Date()
 
   const players = authUsers.map(user => {
@@ -431,6 +452,22 @@ export async function GET(req: NextRequest) {
     )
     const verification = latestPurchaseByUser.get(user.id)
     const access = buildPhotoAccessSummary(ordersByUser.get(user.id) ?? [], verifiedPeriodDays, now)
+    const instagramBonus = instagramBonusByUser.get(user.id)
+    const instagramBonusActive =
+      !!instagramBonus?.expires_at && new Date(instagramBonus.expires_at) >= now
+    const instagramBonusDaysRemaining =
+      instagramBonus?.expires_at && instagramBonusActive
+        ? getDaysRemaining(new Date(instagramBonus.expires_at), now)
+        : null
+
+    let instagramBenefitLabel = '-'
+    if (instagramBonus?.expires_at) {
+      if (instagramBonusActive && instagramBonusDaysRemaining != null) {
+        instagramBenefitLabel = `D-${instagramBonusDaysRemaining}`
+      } else {
+        instagramBenefitLabel = '만료됨'
+      }
+    }
 
     return {
       id: user.id,
@@ -441,6 +478,14 @@ export async function GET(req: NextRequest) {
       terms_agreed: termsByUser.has(user.id),
       purchase_verified: purchaseValidByUser.has(user.id),
       gps_record: gpsByUser.has(user.id),
+      instagram_follow_verified: !!instagramBonus,
+      instagram_handle: instagramBonus?.instagram_handle ?? null,
+      instagram_benefit_label: instagramBenefitLabel,
+      instagram_benefit_period_display:
+        instagramBonus?.approved_at && instagramBonus?.expires_at
+          ? `${formatVerificationDate(instagramBonus.approved_at)} ~ ${formatVerificationDate(instagramBonus.expires_at)}`
+          : '-',
+      instagram_bonus_active: instagramBonusActive,
       verified_at_display: verification ? formatVerificationDate(verification.verified_at) : '-',
       expires_at_display: verification ? formatVerificationDate(verification.expires_at) : '-',
       days_remaining: verification ? getDaysRemaining(verification.expires_at, now) : null,
@@ -450,18 +495,32 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  const summary = {
-    total_signups: players.length,
-    terms_agreed: players.filter(player => player.terms_agreed).length,
-    purchase_verified: players.filter(player => player.purchase_verified).length,
-    gps_users: players.filter(player => player.gps_record).length,
+  const instagramFollowOnly = new URL(req.url).searchParams.get('instagram_follow_only') === '1'
+  const instagramBonusActiveOnly =
+    new URL(req.url).searchParams.get('instagram_bonus_active_only') === '1'
+
+  let filteredPlayers = players
+  if (instagramFollowOnly) {
+    filteredPlayers = filteredPlayers.filter(player => player.instagram_follow_verified)
+  }
+  if (instagramBonusActiveOnly) {
+    filteredPlayers = filteredPlayers.filter(player => player.instagram_bonus_active)
   }
 
-  players.sort((a, b) => {
+  const summary = {
+    total_signups: filteredPlayers.length,
+    terms_agreed: filteredPlayers.filter(player => player.terms_agreed).length,
+    purchase_verified: filteredPlayers.filter(player => player.purchase_verified).length,
+    gps_users: filteredPlayers.filter(player => player.gps_record).length,
+    instagram_follow_verified: filteredPlayers.filter(player => player.instagram_follow_verified).length,
+    instagram_bonus_active: filteredPlayers.filter(player => player.instagram_bonus_active).length,
+  }
+
+  filteredPlayers.sort((a, b) => {
     const aMs = a.last_activity ? new Date(a.last_activity).getTime() : 0
     const bMs = b.last_activity ? new Date(b.last_activity).getTime() : 0
     return bMs - aMs
   })
 
-  return NextResponse.json({ players, summary })
+  return NextResponse.json({ players: filteredPlayers, summary })
 }

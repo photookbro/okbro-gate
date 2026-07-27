@@ -27,23 +27,32 @@ export async function GET(req: NextRequest) {
     verified_period_days: Number.isFinite(settings.verifiedPeriodDays)
       ? String(settings.verifiedPeriodDays)
       : '',
+    instagram_follow_bonus_days: String(settings.instagramFollowBonusDays),
   })
 }
 
 export async function PUT(req: NextRequest) {
   if (!verifyAdminToken(req)) return unauthorizedResponse()
 
-  const { verified_period_days } = await req.json()
+  const { verified_period_days, instagram_follow_bonus_days } = await req.json()
 
   const purchaseDays = Number(verified_period_days)
   if (!Number.isFinite(purchaseDays) || purchaseDays <= 0) {
     return NextResponse.json({ error: '구매 인증 유효기간(일)이 올바르지 않아요' }, { status: 400 })
   }
 
+  const instagramBonusDays = Number(instagram_follow_bonus_days)
+  if (!Number.isFinite(instagramBonusDays) || instagramBonusDays <= 0) {
+    return NextResponse.json({ error: '인스타 팔로우 혜택 기간(일)이 올바르지 않아요' }, { status: 400 })
+  }
+
   const admin = supabaseAdmin()
   const previousSettings = await loadVerificationSettings(admin)
 
-  const rows = [{ key: 'verified_period_days', value: String(purchaseDays) }]
+  const rows = [
+    { key: 'verified_period_days', value: String(purchaseDays) },
+    { key: 'instagram_follow_bonus_days', value: String(instagramBonusDays) },
+  ]
 
   const { error } = await admin.from('settings').upsert(rows, { onConflict: 'key' })
 
@@ -66,6 +75,7 @@ export async function PUT(req: NextRequest) {
 
   return NextResponse.json({
     verified_period_days: String(purchaseDays),
+    instagram_follow_bonus_days: String(instagramBonusDays),
     purchase_orders_extended: purchaseOrdersExtended,
   })
 }

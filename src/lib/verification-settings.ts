@@ -3,10 +3,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export const VERIFICATION_SETTING_KEYS = [
   'verified_period_days',
   'verified_period_months',
+  'instagram_follow_bonus_days',
 ] as const
 
 export type VerificationSettings = {
   verifiedPeriodDays: number
+  instagramFollowBonusDays: number
 }
 
 export function parseVerificationSettings(
@@ -19,8 +21,14 @@ export function parseVerificationSettings(
       Number.isFinite(legacyMonths) && legacyMonths > 0 ? legacyMonths * 30 : NaN
   }
 
+  let instagramFollowBonusDays = Number(settingsMap.instagram_follow_bonus_days)
+  if (!Number.isFinite(instagramFollowBonusDays) || instagramFollowBonusDays <= 0) {
+    instagramFollowBonusDays = 5
+  }
+
   return {
     verifiedPeriodDays,
+    instagramFollowBonusDays,
   }
 }
 

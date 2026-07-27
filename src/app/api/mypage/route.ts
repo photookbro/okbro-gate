@@ -13,6 +13,12 @@ import { buildPhotoAccessSummary } from '@/lib/verification-access'
 import { groupGpsLogsByLocation, formatGpsPassDisplay } from '@/lib/gps-access'
 import { buildDuplicateInfoByOrderNumber } from '@/lib/order-duplicate'
 import { loadVerificationSettings } from '@/lib/verification-settings'
+import {
+  buildInstagramFollowBonusStatus,
+  getApprovedInstagramFollowBonus,
+  getLatestInstagramFollowBonusAttempt,
+} from '@/lib/instagram-follow-bonus'
+import { ensureUserProfile } from '@/lib/user-profile-server'
 
 type OrderRow = {
   id: string
@@ -26,6 +32,18 @@ type OrderRow = {
 }
 
 export async function GET(req: NextRequest) {
+  try {
+    return await getMypage(req)
+  } catch (error) {
+    console.error('[mypage]', error)
+    return NextResponse.json(
+      { error: '마이페이지 정보를 불러오지 못했어요' },
+      { status: 500 }
+    )
+  }
+}
+
+async function getMypage(req: NextRequest) {
   const user = await getAuthenticatedUser(req)
   if (!user) {
     return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
@@ -52,6 +70,31 @@ export async function GET(req: NextRequest) {
   )
 
   const now = new Date()
+
+  let instagramFollowBonus = buildInstagramFollowBonusStatus(
+    null,
+    null,
+    settings.instagramFollowBonusDays,
+    now
+  )
+
+  try {
+    await ensureUserProfile(admin, user.id, user.created_at ?? new Date().toISOString())
+    const [approvedInstagramBonus, latestInstagramAttempt] = await Promise.all([
+      getApprovedInstagramFollowBonus(admin, user.id),
+      getLatestInstagramFollowBonusAttempt(admin, user.id),
+    ])
+    instagramFollowBonus = buildInstagramFollowBonusStatus(
+      approvedInstagramBonus,
+      latestInstagramAttempt,
+      settings.instagramFollowBonusDays,
+      now
+    )
+  } catch (error) {
+    // profiles / instagram_follow_bonus 마이그레이션 미적용 시에도 마이페이지는 로드
+    console.error('[mypage] instagram follow bonus unavailable:', error)
+  }
+
   const photoAccess = buildPhotoAccessSummary(userOrders, verifiedPeriodDays, now)
 
   const verifications = userOrders.map(order => {
@@ -249,6 +292,7 @@ export async function GET(req: NextRequest) {
     event_stats: eventStats,
     gps_event_passes,
     shoot_records: shootRecords,
+    instagram_follow_bonus: instagramFollowBonus,
     formatted: {
       latest_expires_at: latest?.expires_at
         ? formatVerificationDate(latest.expires_at)

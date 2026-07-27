@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
 import { getAuthenticatedUser } from '@/lib/auth-server'
 import {
   getVerificationInfo,
   isUserExpiringSoon,
   resolveExpiresAt,
+  getDaysRemaining,
   type VerificationInfo,
 } from '@/lib/order-verification'
+import { isInstagramBonusActive, getApprovedInstagramFollowBonus } from '@/lib/instagram-follow-bonus'
 import { loadVerificationSettings } from '@/lib/verification-settings'
+import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET(req: NextRequest) {
   const user = await getAuthenticatedUser()
@@ -18,7 +20,7 @@ export async function GET(req: NextRequest) {
   const eventId = new URL(req.url).searchParams.get('event_id')
   const admin = supabaseAdmin()
 
-  const [{ data: order }, settings] = await Promise.all([
+  const [{ data: order }, settings, instagramBonus] = await Promise.all([
     admin
       .from('orders')
       .select('order_number, used_at, created_at, expires_at')
@@ -27,6 +29,7 @@ export async function GET(req: NextRequest) {
       .limit(1)
       .maybeSingle(),
     loadVerificationSettings(admin),
+    getApprovedInstagramFollowBonus(admin, user.id),
   ])
 
   const verifiedPeriodDays = settings.verifiedPeriodDays
@@ -61,6 +64,23 @@ export async function GET(req: NextRequest) {
         show_expiry_warning: showExpiryWarning,
       })
     }
+  }
+
+  if (isInstagramBonusActive(instagramBonus)) {
+    const bonusExpiresAt = instagramBonus!.expires_at!
+    const instagramAccess: VerificationInfo = {
+      status: 'valid',
+      access_source: 'instagram_follow',
+      purchase_verified: false,
+      instagram_follow_verified: true,
+      verified_at: instagramBonus!.approved_at ?? undefined,
+      expires_at: bonusExpiresAt,
+      days_remaining: getDaysRemaining(new Date(bonusExpiresAt)),
+    }
+    return NextResponse.json({
+      ...instagramAccess,
+      show_expiry_warning: false,
+    })
   }
 
   if (purchaseInfo.status === 'valid') {

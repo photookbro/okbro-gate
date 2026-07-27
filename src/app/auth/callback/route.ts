@@ -6,6 +6,8 @@ import {
 } from '@/lib/supabase/cookie-options'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler-client'
 import { sendKakaoNotify } from '@/lib/kakao-notify'
+import { supabaseAdmin } from '@/lib/supabase'
+import { ensureUserProfile } from '@/lib/user-profile-server'
 
 /** 첫 로그인(=최초 가입)인지 판단: 생성 시각과 최근 로그인 시각이 거의 같으면 신규 가입 */
 function isFirstLogin(user: User): boolean {
@@ -110,6 +112,16 @@ export async function GET(request: NextRequest) {
       '알 수 없음'
     after(() => sendKakaoNotify(`[오켱GATE] 신규 가입: ${displayName}`))
   }
+
+  after(() =>
+    ensureUserProfile(
+      supabaseAdmin(),
+      data.session.user.id,
+      data.session.user.created_at ?? new Date().toISOString()
+    ).catch(error => {
+      console.error('[auth/callback] ensureUserProfile failed', error)
+    })
+  )
 
   response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private')
   response.headers.set('Pragma', 'no-cache')

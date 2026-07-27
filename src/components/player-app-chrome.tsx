@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { AppFirstLaunchPermissions } from '@/components/app-first-launch-permissions'
+import { InstagramFollowSignupPrompt } from '@/components/instagram-follow-signup-prompt'
 import { FixedFruitCta } from '@/components/fixed-fruit-cta'
 import { GuestAuthGate, useGuestAuth } from '@/components/guest-auth-gate'
 import { InappBrowserWarning } from '@/components/inapp-browser-warning'
@@ -12,7 +13,12 @@ function PlayerChromeBody({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {authReady && isLoggedIn ? <AppFirstLaunchPermissions /> : null}
+      {authReady && isLoggedIn ? (
+        <>
+          <AppFirstLaunchPermissions />
+          <InstagramFollowSignupPrompt />
+        </>
+      ) : null}
       <InappBrowserWarning />
       <SiteNav />
       <div className="page-with-bottom-cta">{children}</div>

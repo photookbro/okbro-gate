@@ -20,6 +20,8 @@
   --color-danger: #ff2800;
   --color-danger-bg: #2a1210;
   --color-danger-border: #7a2118;
+  --color-info: #3b82f6;
+  --color-info-hover: #2563eb;
   --color-disabled: #6b6b6b;
   --color-text: #ffffff;
   --color-text-muted: #b8b8b8;
@@ -39,6 +41,8 @@
   --success: #2e7d32;
   --warning: #d4a017;
   --danger: #ff2800;
+  --info: #3b82f6;
+  --info-hover: #2563eb;
   --disabled: #6b6b6b;
   --text: #ffffff;
   --text-muted: #b8b8b8;
@@ -166,6 +170,24 @@ body {
 
 .btn-danger-inline {
   @apply inline-flex items-center justify-center rounded-lg bg-danger px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.btn-info {
+  @apply inline-flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+  background-color: var(--info);
+}
+
+.btn-info:hover:not(:disabled) {
+  background-color: var(--info-hover);
+}
+
+.btn-info-inline {
+  @apply inline-flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+  background-color: var(--info);
+}
+
+.btn-info-inline:hover:not(:disabled) {
+  background-color: var(--info-hover);
 }
 
 .btn-row {
@@ -540,6 +562,28 @@ body {
 
 .mypage-status-card {
   @apply py-6;
+}
+
+.mypage-access-rows {
+  @apply space-y-4;
+}
+
+.mypage-access-row {
+  @apply rounded-xl border border-[var(--border)] bg-[var(--bg)] px-4 py-5;
+}
+
+.mypage-access-row-label {
+  @apply mb-4 font-semibold uppercase tracking-wide text-[var(--text-muted)];
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line-height);
+}
+
+.mypage-access-caption-muted {
+  margin: 0;
+  font-size: var(--font-caption-size);
+  font-weight: var(--font-caption-weight);
+  line-height: var(--font-caption-line-height);
+  color: #b8b8b8;
 }
 
 .mypage-status-label {

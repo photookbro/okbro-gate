@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAdminToken } from './admin-auth-context'
 import { AdminDateInput } from '@/components/admin-date-input'
 import { EventPhotoUpload } from '@/components/admin/event-photo-upload'
+import { InstagramFollowersUpload } from '@/components/admin/instagram-followers-upload'
 import { NotificationsAdminPanel } from '@/components/admin/notifications-admin-panel'
 import {
   AdminGpsLocationMap,
@@ -74,6 +75,11 @@ type PlayerRow = {
   expires_at_display: string
   days_remaining: number | null
   photo_access_days_remaining: number
+  instagram_follow_verified: boolean
+  instagram_handle: string | null
+  instagram_benefit_label: string
+  instagram_benefit_period_display: string
+  instagram_bonus_active: boolean
   last_activity: string | null
   last_activity_display: string
 }
@@ -186,6 +192,7 @@ export default function AdminPage() {
   const [eventError, setEventError] = useState('')
 
   const [verifiedPeriodDays, setVerifiedPeriodDays] = useState('')
+  const [instagramFollowBonusDays, setInstagramFollowBonusDays] = useState('5')
   const [loadingSettings, setLoadingSettings] = useState(true)
   const [settingsError, setSettingsError] = useState('')
   const [settingsMsg, setSettingsMsg] = useState('')
@@ -214,10 +221,15 @@ export default function AdminPage() {
   const [players, setPlayers] = useState<PlayerRow[]>([])
   const [loadingPlayers, setLoadingPlayers] = useState(false)
   const [playersError, setPlayersError] = useState('')
+  const [playerInstagramFilter, setPlayerInstagramFilter] = useState<'all' | 'follow' | 'active'>(
+    'all'
+  )
   const [playerDetail, setPlayerDetail] = useState<PlayerDetail | null>(null)
   const [loadingPlayerDetail, setLoadingPlayerDetail] = useState(false)
   const [playerDetailError, setPlayerDetailError] = useState('')
   const [revokingAccess, setRevokingAccess] = useState(false)
+  const [resettingTestData, setResettingTestData] = useState(false)
+  const [resetGpsWithTest, setResetGpsWithTest] = useState(false)
   const [expandedGpsEventId, setExpandedGpsEventId] = useState<string | null>(null)
   const [duplicateModalUsers, setDuplicateModalUsers] = useState<
     { user_id: string; email: string }[]
@@ -268,6 +280,7 @@ export default function AdminPage() {
       return
     }
     setVerifiedPeriodDays(data.verified_period_days ?? '')
+    setInstagramFollowBonusDays(data.instagram_follow_bonus_days ?? '5')
     setLoadingSettings(false)
   }, [adminFetch])
 
@@ -331,7 +344,11 @@ export default function AdminPage() {
   const loadPlayers = useCallback(async () => {
     setLoadingPlayers(true)
     setPlayersError('')
-    const res = await adminFetch('/api/admin/players')
+    const params = new URLSearchParams()
+    if (playerInstagramFilter === 'follow') params.set('instagram_follow_only', '1')
+    if (playerInstagramFilter === 'active') params.set('instagram_bonus_active_only', '1')
+    const query = params.toString()
+    const res = await adminFetch(`/api/admin/players${query ? `?${query}` : ''}`)
     const data = await res.json()
     if (!res.ok) {
       setPlayersError(data.error ?? '선수 목록을 불러오지 못했어요')
@@ -340,7 +357,7 @@ export default function AdminPage() {
     }
     setPlayers(data.players ?? [])
     setLoadingPlayers(false)
-  }, [adminFetch])
+  }, [adminFetch, playerInstagramFilter])
 
   async function openPlayerDetail(userId: string) {
     setPlayerDetail(null)
@@ -383,10 +400,42 @@ export default function AdminPage() {
     await loadPlayers()
   }
 
+  async function handleTestReset(userId: string) {
+    if (
+      !confirm(
+        '이 계정의 테스트 데이터를 초기화하시겠습니까? (계정 자체는 유지되며, 가입일도 초기화되어 완전히 새로 가입한 것처럼 됩니다)'
+      )
+    ) {
+      return
+    }
+
+    setResettingTestData(true)
+    const res = await adminFetch('/api/admin/players/test-reset', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: userId,
+        reset_gps: resetGpsWithTest,
+      }),
+    })
+    const data = await res.json()
+    setResettingTestData(false)
+
+    if (!res.ok) {
+      alert(data.error ?? '테스트 리셋 실패')
+      return
+    }
+
+    alert(data.message ?? '테스트 데이터가 초기화되었습니다 (가입일 포함)')
+    setResetGpsWithTest(false)
+    await openPlayerDetail(userId)
+    await loadPlayers()
+  }
+
   function closePlayerDetail() {
     setPlayerDetail(null)
     setPlayerDetailError('')
     setExpandedGpsEventId(null)
+    setResetGpsWithTest(false)
   }
 
   async function openGpsLogsModal(event: Event) {
@@ -671,6 +720,7 @@ export default function AdminPage() {
       method: 'PUT',
       body: JSON.stringify({
         verified_period_days: verifiedPeriodDays,
+        instagram_follow_bonus_days: instagramFollowBonusDays,
       }),
     })
 
@@ -682,6 +732,7 @@ export default function AdminPage() {
     }
 
     setVerifiedPeriodDays(data.verified_period_days ?? '')
+    setInstagramFollowBonusDays(data.instagram_follow_bonus_days ?? '5')
 
     setSettingsMsg(
       typeof data.purchase_orders_extended === 'number' && data.purchase_orders_extended > 0
@@ -816,6 +867,17 @@ export default function AdminPage() {
                     />
                   </label>
 
+                  <label className="mb-4 block">
+                    <span className={labelStyle}>인스타 팔로우 시 무료 열람 기간 (일)</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={instagramFollowBonusDays}
+                      onChange={e => setInstagramFollowBonusDays(e.target.value)}
+                      className={inputStyle}
+                    />
+                  </label>
+
                   {settingsError && <p className="alert-danger">{settingsError}</p>}
                   {settingsMsg && <p className="alert-success">{settingsMsg}</p>}
 
@@ -824,6 +886,11 @@ export default function AdminPage() {
                   </button>
                 </form>
               )}
+            </section>
+
+            <section className="card-section">
+              <h3 className="mb-3 text-base font-semibold text-[var(--text)]">INSTAGRAM FOLLOWERS</h3>
+              <InstagramFollowersUpload token={token} />
             </section>
 
             <section className="card-section">
@@ -845,6 +912,25 @@ export default function AdminPage() {
 
             {playersError && <p className="alert-danger">{playersError}</p>}
 
+            <div className="mb-4 flex flex-wrap gap-2">
+              {[
+                { id: 'all', label: '전체' },
+                { id: 'follow', label: '인스타 팔로우 확인' },
+                { id: 'active', label: '혜택 유효' },
+              ].map(option => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={
+                    playerInstagramFilter === option.id ? 'btn-primary-inline' : 'btn-secondary-inline'
+                  }
+                  onClick={() => setPlayerInstagramFilter(option.id as 'all' | 'follow' | 'active')}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
             {loadingPlayers ? (
               <p className="text-muted">로딩 중...</p>
             ) : (
@@ -860,6 +946,9 @@ export default function AdminPage() {
                         '약관 동의',
                         '구매 인증',
                         'GPS 기록',
+                        '인스타 팔로우',
+                        '인스타 아이디',
+                        '혜택 적용 기간',
                         '구매 인증일',
                         '구매 만료일',
                         '열람 가능(합산)',
@@ -882,6 +971,13 @@ export default function AdminPage() {
                         <td><OxBadge value={player.terms_agreed} /></td>
                         <td><OxBadge value={player.purchase_verified} /></td>
                         <td><OxBadge value={player.gps_record} /></td>
+                        <td><OxBadge value={player.instagram_follow_verified} /></td>
+                        <td className="text-muted">{player.instagram_handle ?? '-'}</td>
+                        <td className="whitespace-nowrap text-muted">
+                          {player.instagram_benefit_period_display !== '-'
+                            ? player.instagram_benefit_period_display
+                            : player.instagram_benefit_label}
+                        </td>
                         <td className="whitespace-nowrap text-muted">{player.verified_at_display}</td>
                         <td className="whitespace-nowrap text-muted">{player.expires_at_display}</td>
                         <td className="whitespace-nowrap font-medium">
@@ -894,7 +990,7 @@ export default function AdminPage() {
                     ))}
                     {players.length === 0 && (
                       <tr>
-                        <td colSpan={10} className="py-8 text-center text-muted">
+                        <td colSpan={13} className="py-8 text-center text-muted">
                           등록된 선수가 없어요
                         </td>
                       </tr>
@@ -1445,6 +1541,30 @@ export default function AdminPage() {
                       ))}
                     </div>
                   )}
+                </section>
+
+                <section className="card-section mb-4">
+                  <h4 className="mb-2 text-sm font-semibold">🧪 테스트 리셋</h4>
+                  <p className="mb-3 text-sm text-muted">
+                    인스타 팔로우 혜택·구매 인증·가입일(profiles.first_created_at)을 초기화해
+                    완전히 새로 가입한 것처럼 테스트할 수 있어요. 로그인 계정은 유지됩니다.
+                  </p>
+                  <label className="mb-3 flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={resetGpsWithTest}
+                      onChange={e => setResetGpsWithTest(e.target.checked)}
+                    />
+                    GPS 기록도 함께 초기화
+                  </label>
+                  <button
+                    type="button"
+                    className="btn-info-inline"
+                    disabled={resettingTestData}
+                    onClick={() => void handleTestReset(playerDetail.id)}
+                  >
+                    {resettingTestData ? '초기화 중...' : '테스트 리셋'}
+                  </button>
                 </section>
               </>
             )}
