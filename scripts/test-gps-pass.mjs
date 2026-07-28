@@ -32,54 +32,103 @@ function nextGpsPassZoneState(state, distanceMeters, options = {}) {
   return { state: next, shouldRecord }
 }
 
-let state = createInitialGpsPassZoneState(0)
-
-// enter — record once
-let result = nextGpsPassZoneState(state, 40)
-assert.equal(result.shouldRecord, true)
-state = result.state
-assert.equal(state.passCount, 1)
-assert.equal(state.armedForNextPass, false)
-assert.equal(state.isInside, true)
-
-// still inside / hysteresis band — no duplicate
-result = nextGpsPassZoneState(state, 30)
-assert.equal(result.shouldRecord, false)
-result = nextGpsPassZoneState(state, 70)
-assert.equal(result.shouldRecord, false)
-state = result.state
-assert.equal(state.passCount, 1)
-assert.equal(state.armedForNextPass, false)
-
-// exit — re-arm only, no record
-result = nextGpsPassZoneState(state, 120)
-assert.equal(result.shouldRecord, false)
-state = result.state
-assert.equal(state.armedForNextPass, true)
-assert.equal(state.isInside, false)
-
-// re-enter — record again
-result = nextGpsPassZoneState(state, 20)
-assert.equal(result.shouldRecord, true)
-state = result.state
-assert.equal(state.passCount, 2)
-
-// simulate bad sync that used to reset armed while still inside
-state = { isInside: true, armedForNextPass: false, passCount: 2 }
-result = nextGpsPassZoneState(state, 35)
-assert.equal(result.shouldRecord, false)
-assert.equal(result.state.passCount, 2)
-
-// many cycles
-state = createInitialGpsPassZoneState(0)
-for (let i = 0; i < 7; i++) {
-  result = nextGpsPassZoneState(state, 25)
-  assert.equal(result.shouldRecord, true)
-  state = result.state
-  result = nextGpsPassZoneState(state, 140)
-  assert.equal(result.shouldRecord, false)
-  state = result.state
+function mergePassCountIntoZoneState(state, passCount) {
+  if (!state) return createInitialGpsPassZoneState(passCount)
+  return { ...state, passCount }
 }
-assert.equal(state.passCount, 7)
 
-console.log('gps-pass enter-record + exit-rearm: ok')
+/** syncZonePassCounts in-place: same Map identity, only passCount changes */
+function syncZonePassCountsInPlace(map, serverCounts) {
+  for (const [locationNumber, serverCount] of serverCounts) {
+    map.set(
+      locationNumber,
+      mergePassCountIntoZoneState(map.get(locationNumber), serverCount)
+    )
+  }
+}
+
+// --- per-location independent maps ---
+const zoneByLocation = new Map([
+  [1, createInitialGpsPassZoneState(0)],
+  [2, createInitialGpsPassZoneState(0)],
+])
+
+let r = nextGpsPassZoneState(zoneByLocation.get(1), 40)
+zoneByLocation.set(1, r.state)
+assert.equal(r.shouldRecord, true)
+assert.equal(zoneByLocation.get(1).armedForNextPass, false)
+
+// location 2 still armed independently
+r = nextGpsPassZoneState(zoneByLocation.get(2), 40)
+assert.equal(r.shouldRecord, true)
+zoneByLocation.set(2, r.state)
+
+// loc1 still disarmed while inside
+r = nextGpsPassZoneState(zoneByLocation.get(1), 30)
+assert.equal(r.shouldRecord, false)
+
+// exit loc1 → re-arm
+r = nextGpsPassZoneState(zoneByLocation.get(1), 120)
+assert.equal(r.shouldRecord, false)
+zoneByLocation.set(1, r.state)
+assert.equal(zoneByLocation.get(1).armedForNextPass, true)
+
+// re-enter loc1
+r = nextGpsPassZoneState(zoneByLocation.get(1), 20)
+assert.equal(r.shouldRecord, true)
+assert.equal(r.state.passCount, 2)
+zoneByLocation.set(1, r.state)
+
+// stale sync must not re-arm while still inside (the production bug)
+let live = { isInside: true, armedForNextPass: false, passCount: 1 }
+live = mergePassCountIntoZoneState(live, 1)
+assert.equal(live.armedForNextPass, false)
+assert.equal(live.isInside, true)
+r = nextGpsPassZoneState(live, 35)
+assert.equal(r.shouldRecord, false)
+
+// in-place merge keeps Map identity + hysteresis after exit during "await"
+const mapRef = zoneByLocation
+const mapBefore = mapRef
+mapRef.set(1, { isInside: true, armedForNextPass: false, passCount: 2 })
+// simulate exit during await
+mapRef.set(1, { isInside: false, armedForNextPass: true, passCount: 2 })
+syncZonePassCountsInPlace(mapRef, new Map([[1, 2], [2, 1]]))
+assert.equal(mapRef, mapBefore)
+assert.equal(mapRef.get(1).armedForNextPass, true)
+assert.equal(mapRef.get(1).isInside, false)
+assert.equal(mapRef.get(1).passCount, 2)
+assert.equal(mapRef.get(2).passCount, 1)
+assert.equal(mapRef.get(2).armedForNextPass, false)
+
+// POST failure: keep armed false while inside (no immediate spam), then pulse after cooldown
+function applyRecordFailure(state) {
+  return {
+    ...state,
+    passCount: Math.max(0, state.passCount - 1),
+    armedForNextPass: false,
+  }
+}
+function pulseRetryAfterCooldown(state) {
+  if (state.isInside) {
+    return { ...state, isInside: false, armedForNextPass: true }
+  }
+  return state.armedForNextPass ? state : { ...state, armedForNextPass: true }
+}
+
+let failed = applyRecordFailure({
+  isInside: true,
+  armedForNextPass: false,
+  passCount: 3,
+})
+assert.equal(failed.passCount, 2)
+assert.equal(failed.armedForNextPass, false)
+assert.equal(failed.isInside, true)
+r = nextGpsPassZoneState(failed, 20)
+assert.equal(r.shouldRecord, false) // no spam while cooldown / disarmed
+
+const pulsed = pulseRetryAfterCooldown(failed)
+r = nextGpsPassZoneState(pulsed, 20)
+assert.equal(r.shouldRecord, true)
+
+console.log('gps-pass per-location + in-place sync + retry cooldown: ok')

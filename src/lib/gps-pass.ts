@@ -24,6 +24,8 @@ export function createInitialGpsPassZoneState(passCount = 0): GpsPassZoneState {
 /**
  * 진입(enterRadius) 시점에 1회 기록 → 이탈(exitRadius) 전까지 재무장 안 함.
  * enter~exit 히스테리시스 밴드에서는 상태를 바꾸지 않아 GPS 흔들림 중복을 막음.
+ *
+ * 모든 location_number에 동일하게 적용 — 위치별 독립 상태는 호출측 Map에서 관리.
  */
 export function nextGpsPassZoneState(
   state: GpsPassZoneState,
@@ -49,4 +51,18 @@ export function nextGpsPassZoneState(
   }
 
   return { state: next, shouldRecord }
+}
+
+/** 서버 passCount만 반영. isInside/armed 히스테리시스는 절대 덮어쓰지 않음 */
+export function mergePassCountIntoZoneState(
+  state: GpsPassZoneState | undefined,
+  passCount: number
+): GpsPassZoneState {
+  if (!state) {
+    return createInitialGpsPassZoneState(passCount)
+  }
+  return {
+    ...state,
+    passCount,
+  }
 }

@@ -15,6 +15,7 @@ import { GpsPermissionEmphasisNotice } from '@/components/gps-permission-emphasi
 import {
   createInitialGpsPassZoneState,
   GPS_EXIT_RADIUS_METERS,
+  mergePassCountIntoZoneState,
   nextGpsPassZoneState,
   type GpsPassZoneState,
 } from '@/lib/gps-pass'
@@ -62,6 +63,17 @@ function createZoneStateMap(locations: EventGpsLocation[]) {
 /** 근접 구역(반경×3) 안에서 위치를 더 자주 확인하는 보조 폴링 주기 */
 const NEAR_ZONE_POLL_INTERVAL_MS = 3000
 
+/** POST 실패 후 같은 위치 재시도 쿨다운 (연속 실패 시 연장) */
+const RECORD_FAIL_COOLDOWN_MS = 5_000
+const RECORD_FAIL_COOLDOWN_ESCALATED_MS = 30_000
+const RECORD_FAIL_ESCALATE_AFTER = 3
+
+type RecordRetryState = {
+  failCount: number
+  cooldownUntil: number
+  timerId: number | null
+}
+
 export function GpsDetector({
   eventId,
   eventName,
@@ -77,6 +89,7 @@ export function GpsDetector({
     createZoneStateMap(locations)
   )
   const recordingRef = useRef<Set<string>>(new Set())
+  const recordRetryRef = useRef<Map<GpsLocationNumber, RecordRetryState>>(new Map())
   const autoStartedRef = useRef(false)
   const nearZoneIntervalRef = useRef<number | null>(null)
   const handlePositionRef = useRef<(position: GeolocationPosition) => void>(() => {})
@@ -92,9 +105,17 @@ export function GpsDetector({
   const [currentLng, setCurrentLng] = useState<number | null>(null)
   const [distanceByLocation, setDistanceByLocation] = useState<Record<number, number>>({})
   const [passLog, setPassLog] = useState<GpsPassLogGroup[]>([])
+  const locationsKey = locations
+    .map(
+      location =>
+        `${location.locationNumber}:${location.lat}:${location.lng}:${location.radiusMeters}`
+    )
+    .join('|')
   const activeLocations = useMemo(
-    () => (locations.length > 0 ? locations : []),
-    [locations]
+    () => (locations.length > 0 ? [...locations] : []),
+    // locations 배열 참조가 매 렌더 바뀌어도 좌표가 같으면 존/동기화 effect를 재실행하지 않음
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [locationsKey]
   )
 
   const stopNearZonePolling = useCallback(() => {
@@ -153,7 +174,13 @@ export function GpsDetector({
 
   // 페이지 이탈 시 watch만 정리. 토글 OFF로 저장하면 재진입 시 자동 추적이 풀림.
   useEffect(() => {
-    return () => clearWatchOnly()
+    return () => {
+      clearWatchOnly()
+      for (const retry of recordRetryRef.current.values()) {
+        if (retry.timerId != null) window.clearTimeout(retry.timerId)
+      }
+      recordRetryRef.current.clear()
+    }
   }, [clearWatchOnly])
 
   const canUseGps =
@@ -177,6 +204,17 @@ export function GpsDetector({
     setDistanceByLocation({})
     autoStartedRef.current = false
   }, [liveTrackingAllowed, clearWatchOnly])
+
+  // 목록/다른 탭에서 토글 OFF → 상세의 watch도 즉시 중단 (이력이 거리 UI에 가려지지 않게)
+  useEffect(() => {
+    if (storedEnabled) return
+    clearWatchOnly()
+    setTracking(false)
+    setCurrentLat(null)
+    setCurrentLng(null)
+    setDistanceByLocation({})
+    autoStartedRef.current = false
+  }, [storedEnabled, clearWatchOnly])
 
   // 로그아웃·인증 만료 등으로 사용 불가해지면 watchPosition을 즉시 중단
   useEffect(() => {
@@ -220,18 +258,22 @@ export function GpsDetector({
     return () => window.removeEventListener(AUTH_LOGOUT_EVENT, onAuthLogout)
   }, [stopTracking])
 
-  const syncPasses = useCallback(async () => {
+  /** gps_logs → 통과 이력 UI. 토글/armed/isInside와 무관 */
+  const syncPassHistory = useCallback(async () => {
     try {
       const res = await authFetch(`/api/gps-log?event_id=${encodeURIComponent(eventId)}`)
       const data = await res.json()
       if (!res.ok) return
 
-      const prevZone = zoneStateRef.current
-      const nextState = createZoneStateMap(activeLocations)
+      const configuredNumbers = new Set(
+        activeLocations.map(location => location.locationNumber)
+      )
       const nextPassLog: GpsPassLogGroup[] = []
 
       for (const group of data.locations ?? []) {
         const locationNumber = parseLocationNumber(group.location_number)
+        if (!configuredNumbers.has(locationNumber)) continue
+
         const passes = (group.passes ?? [])
           .filter((row: { passed_at?: string }) => row.passed_at)
           .map((row: { pass_count?: number; passed_at: string }) => ({
@@ -240,50 +282,142 @@ export function GpsDetector({
           }))
           .sort((a: { pass_count: number }, b: { pass_count: number }) => a.pass_count - b.pass_count)
 
-        const prev = prevZone.get(locationNumber)
-        // passCount만 서버 기준으로 맞추고, isInside/armed 히스테리시스는 절대 리셋하지 않음
-        nextState.set(locationNumber, {
-          isInside: prev?.isInside ?? false,
-          armedForNextPass: prev?.armedForNextPass ?? true,
-          passCount: group.pass_count ?? passes.length,
-        })
-
         if (passes.length > 0) {
           nextPassLog.push({ location_number: locationNumber, passes })
         }
       }
       nextPassLog.sort((a, b) => a.location_number - b.location_number)
-
-      // 서버에 없는 위치도 기존 히스테리시스 유지
-      for (const location of activeLocations) {
-        if (!nextState.has(location.locationNumber)) {
-          const prev = prevZone.get(location.locationNumber)
-          nextState.set(
-            location.locationNumber,
-            prev ?? createInitialGpsPassZoneState(0)
-          )
-        }
-      }
-
-      zoneStateRef.current = nextState
       setPassLog(nextPassLog)
+    } catch {
+      // ignore — 기존 이력 UI 유지
+    }
+  }, [activeLocations, eventId])
+
+  /**
+   * 서버 passCount만 기존 Map 엔트리에 in-place 병합.
+   * Map 통째 교체 금지 — await 사이 handlePosition의 armed/isInside를 덮지 않음.
+   */
+  const syncZonePassCounts = useCallback(async () => {
+    try {
+      const res = await authFetch(`/api/gps-log?event_id=${encodeURIComponent(eventId)}`)
+      const data = await res.json()
+      if (!res.ok) return
+
+      const configuredNumbers = new Set(
+        activeLocations.map(location => location.locationNumber)
+      )
+
+      for (const group of data.locations ?? []) {
+        const locationNumber = parseLocationNumber(group.location_number)
+        if (!configuredNumbers.has(locationNumber)) continue
+        const serverCount = group.pass_count ?? (group.passes ?? []).length
+        // 매 set 시점의 최신 ref를 읽어 병합 (루프 중 handlePosition 반영 유지)
+        const map = zoneStateRef.current
+        map.set(
+          locationNumber,
+          mergePassCountIntoZoneState(map.get(locationNumber), serverCount)
+        )
+      }
     } catch {
       // ignore
     }
   }, [activeLocations, eventId])
 
-  // 토글/실시간 추적 여부와 무관하게, 로그인 사용자는 통과 이력을 항상 불러옴
+  const syncPasses = useCallback(async () => {
+    await Promise.all([syncPassHistory(), syncZonePassCounts()])
+  }, [syncPassHistory, syncZonePassCounts])
+
+  // 토글·실시간 추적과 무관하게, 로그인 사용자는 통과 이력을 항상 불러옴
   useEffect(() => {
     if (!userId) {
       setPassLog([])
       return
     }
-    void syncPasses()
-  }, [userId, syncPasses])
+    void syncPassHistory()
+  }, [userId, syncPassHistory])
+
+  const clearRecordRetry = useCallback((locationNumber: GpsLocationNumber) => {
+    const prev = recordRetryRef.current.get(locationNumber)
+    if (prev?.timerId != null) {
+      window.clearTimeout(prev.timerId)
+    }
+    recordRetryRef.current.delete(locationNumber)
+  }, [])
+
+  /** POST 실패 후: 즉시 재무장하지 않고 쿨다운 뒤 한 번만 재시도 펄스 */
+  const scheduleRecordRetry = useCallback((locationNumber: GpsLocationNumber) => {
+    const prev = recordRetryRef.current.get(locationNumber)
+    if (prev?.timerId != null) {
+      window.clearTimeout(prev.timerId)
+    }
+
+    const failCount = (prev?.failCount ?? 0) + 1
+    const cooldownMs =
+      failCount >= RECORD_FAIL_ESCALATE_AFTER
+        ? RECORD_FAIL_COOLDOWN_ESCALATED_MS
+        : RECORD_FAIL_COOLDOWN_MS
+    const cooldownUntil = Date.now() + cooldownMs
+
+    const timerId = window.setTimeout(() => {
+      const current = recordRetryRef.current.get(locationNumber)
+      if (!current || current.cooldownUntil > Date.now()) return
+
+      const state = zoneStateRef.current.get(locationNumber)
+      if (!state) return
+
+      // 아직 반경 안이면 진입 판정을 한 번 더 열어둠 (스팸 없이 쿨다운 후 1회)
+      if (state.isInside) {
+        zoneStateRef.current.set(locationNumber, {
+          ...state,
+          isInside: false,
+          armedForNextPass: true,
+        })
+      } else if (!state.armedForNextPass) {
+        zoneStateRef.current.set(locationNumber, {
+          ...state,
+          armedForNextPass: true,
+        })
+      }
+
+      recordRetryRef.current.set(locationNumber, {
+        ...current,
+        timerId: null,
+        cooldownUntil: 0,
+      })
+    }, cooldownMs)
+
+    recordRetryRef.current.set(locationNumber, {
+      failCount,
+      cooldownUntil,
+      timerId,
+    })
+  }, [])
+
+  const applyRecordFailure = useCallback(
+    (locationNumber: GpsLocationNumber) => {
+      const state = zoneStateRef.current.get(locationNumber)
+      if (state) {
+        // 카운트만 롤백. isInside는 유지하고 armed는 꺼 두어 폴링마다 재POST하지 않음.
+        zoneStateRef.current.set(locationNumber, {
+          ...state,
+          passCount: Math.max(0, state.passCount - 1),
+          armedForNextPass: false,
+        })
+      }
+      scheduleRecordRetry(locationNumber)
+    },
+    [scheduleRecordRetry]
+  )
+
+  const isRecordCooldownActive = useCallback((locationNumber: GpsLocationNumber) => {
+    const retry = recordRetryRef.current.get(locationNumber)
+    return !!retry && Date.now() < retry.cooldownUntil
+  }, [])
 
   const recordPass = useCallback(
     async (latitude: number, longitude: number, locationNumber: GpsLocationNumber) => {
       if (!canUseGpsRef.current) return
+      if (isRecordCooldownActive(locationNumber)) return
 
       // 위치당 in-flight 1건만 — watchPosition/폴링 중복 POST 차단
       const lockKey = String(locationNumber)
@@ -304,37 +438,40 @@ export function GpsDetector({
         const data = await res.json()
 
         if (!res.ok) {
-          const state = zoneStateRef.current.get(locationNumber)
-          if (state) {
-            // 진입 기록 실패 시: 카운트 롤백 + 재진입 기록 가능하도록 재무장
-            zoneStateRef.current.set(locationNumber, {
-              ...state,
-              passCount: Math.max(0, state.passCount - 1),
-              armedForNextPass: true,
-              isInside: false,
-            })
-          }
+          applyRecordFailure(locationNumber)
           setErrorMsg(data.error ?? '통과 기록 저장 실패')
           return
         }
 
-        void syncPasses()
-      } catch {
-        const state = zoneStateRef.current.get(locationNumber)
-        if (state) {
-          zoneStateRef.current.set(locationNumber, {
-            ...state,
-            passCount: Math.max(0, state.passCount - 1),
-            armedForNextPass: true,
-            isInside: false,
-          })
+        clearRecordRetry(locationNumber)
+
+        // 히스테리시스는 이미 진입 시점에 반영됨. 이력 UI만 갱신.
+        const serverCount =
+          typeof data.pass_count === 'number'
+            ? data.pass_count
+            : zoneStateRef.current.get(locationNumber)?.passCount
+        if (typeof serverCount === 'number') {
+          const map = zoneStateRef.current
+          map.set(
+            locationNumber,
+            mergePassCountIntoZoneState(map.get(locationNumber), serverCount)
+          )
         }
+        void syncPassHistory()
+      } catch {
+        applyRecordFailure(locationNumber)
         setErrorMsg('통과 기록 저장 중 오류가 발생했어요')
       } finally {
         recordingRef.current.delete(lockKey)
       }
     },
-    [eventId, syncPasses]
+    [
+      applyRecordFailure,
+      clearRecordRetry,
+      eventId,
+      isRecordCooldownActive,
+      syncPassHistory,
+    ]
   )
 
   const handlePosition = useCallback(
@@ -351,6 +488,7 @@ export function GpsDetector({
       setCurrentLat(latitude)
       setCurrentLng(longitude)
 
+      // 설정된 1·2·3차 위치를 동일 규칙으로 독립 순회
       for (const location of activeLocations) {
         const distance = haversineDistanceMeters(latitude, longitude, location.lat, location.lng)
         nextDistances[location.locationNumber] = Math.round(distance)
@@ -361,29 +499,38 @@ export function GpsDetector({
           isNearAnyZone = true
         }
 
-        // 이 위치에 이미 POST 중이면 판정만 유지하고 추가 기록은 건너뜀
-        if (recordingRef.current.has(String(location.locationNumber))) {
-          continue
-        }
-
         const currentState =
           zoneStateRef.current.get(location.locationNumber) ??
           createInitialGpsPassZoneState(0)
+
+        // POST 중이어도 이탈/재무장 판정은 반드시 진행 (continue로 스킵하면 재진입이 막힘)
         const { state, shouldRecord } = nextGpsPassZoneState(currentState, distance, {
           enterRadius: location.radiusMeters,
           exitRadius,
         })
-        zoneStateRef.current.set(location.locationNumber, state)
 
-        if (shouldRecord) {
-          void recordPass(latitude, longitude, location.locationNumber)
+        if (shouldRecord && isRecordCooldownActive(location.locationNumber)) {
+          // 쿨다운 중: 진입으로 간주하되 카운트/POST는 하지 않음
+          zoneStateRef.current.set(location.locationNumber, {
+            ...currentState,
+            isInside: true,
+            armedForNextPass: false,
+          })
+        } else {
+          zoneStateRef.current.set(location.locationNumber, state)
+
+          if (
+            shouldRecord &&
+            !recordingRef.current.has(String(location.locationNumber))
+          ) {
+            void recordPass(latitude, longitude, location.locationNumber)
+          }
         }
       }
 
       setDistanceByLocation(nextDistances)
 
-      // 근접 구역 안에서는 위치를 더 자주 확인해 통과 판정 정밀도를 높이고,
-      // 벗어나면 배터리 절약을 위해 보조 폴링을 멈춤 (watchPosition은 계속 유지)
+      // 어느 위치든 반경×3 근접이면 폴링 강화 (위치 공통, 판정은 위 루프에서 각각)
       if (isNearAnyZone) {
         startNearZonePolling()
       } else {
@@ -393,6 +540,7 @@ export function GpsDetector({
     [
       activeLocations,
       clearWatchOnly,
+      isRecordCooldownActive,
       recordPass,
       startNearZonePolling,
       stopNearZonePolling,
@@ -478,9 +626,12 @@ export function GpsDetector({
     return null
   }
 
-  // 비로그인·어드민 GPS OFF 시 로컬 플래그만으로 CAPTURING이 남지 않게 함
-  const isTrackingOn =
-    liveTrackingAllowed && !!userId && (tracking || storedEnabled)
+  // 실시간 거리: 토글 ON + 실제 watch 중일 때만
+  // 통과 이력: gps_logs 있으면 토글 OFF·추적 중단 상태에서도 항상 (armed/isInside와 무관)
+  const showLiveTracking =
+    liveTrackingAllowed && !!userId && tracking && storedEnabled
+  const showPassHistory = !showLiveTracking && passLog.length > 0
+  const isTrackingOn = showLiveTracking || (liveTrackingAllowed && !!userId && storedEnabled)
 
   return (
     <>
@@ -499,7 +650,7 @@ export function GpsDetector({
           </span>
         </div>
 
-        {tracking ? (
+        {showLiveTracking ? (
           <div className="gps-distance-panel" aria-live="polite">
             {currentLat != null && currentLng != null ? (
               activeLocations.map(location => {
@@ -564,7 +715,9 @@ export function GpsDetector({
               <p className="gps-distance-line gps-distance-waiting">위치 확인 중입니다</p>
             )}
           </div>
-        ) : passLog.length > 0 ? (
+        ) : null}
+
+        {showPassHistory ? (
           <div className="gps-pass-history" aria-label="촬영 통과 기록">
             {passLog.map(group => {
               const multiLocation = activeLocations.length > 1 || passLog.length > 1
