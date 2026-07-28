@@ -2,10 +2,14 @@ export const GPS_ENTER_RADIUS_METERS = 50
 export const GPS_EXIT_RADIUS_METERS = 100
 
 export type GpsPassZoneState = {
+  /** enterRadius 안 — exitRadius 밖 사이에서의 구역 상태 */
   isInside: boolean
-  /** false면 반경 안에 있어도 기록하지 않음 — 이탈 후에만 다시 true */
+  /**
+   * true일 때만 다음 진입을 기록할 수 있음.
+   * 진입 기록 직후 false, exitRadius 이탈 후에만 다시 true.
+   */
   armedForNextPass: boolean
-  /** 이 세션(또는 동기화)에서 기록된 통과 횟수. 상한 없음 */
+  /** 누적 통과 횟수(상한 없음). 서버 동기화 시 갱신 */
   passCount: number
 }
 
@@ -18,8 +22,8 @@ export function createInitialGpsPassZoneState(passCount = 0): GpsPassZoneState {
 }
 
 /**
- * 진입(enterRadius) → 이탈(exitRadius) 사이클마다 1회 카운트.
- * 상한·날짜 리셋 없음 — 이탈 후 재진입만 되면 계속 기록.
+ * 진입(enterRadius) 시점에 1회 기록 → 이탈(exitRadius) 전까지 재무장 안 함.
+ * enter~exit 히스테리시스 밴드에서는 상태를 바꾸지 않아 GPS 흔들림 중복을 막음.
  */
 export function nextGpsPassZoneState(
   state: GpsPassZoneState,

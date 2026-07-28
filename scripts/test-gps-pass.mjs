@@ -34,33 +34,52 @@ function nextGpsPassZoneState(state, distanceMeters, options = {}) {
 
 let state = createInitialGpsPassZoneState(0)
 
+// enter — record once
 let result = nextGpsPassZoneState(state, 40)
 assert.equal(result.shouldRecord, true)
 state = result.state
 assert.equal(state.passCount, 1)
 assert.equal(state.armedForNextPass, false)
+assert.equal(state.isInside, true)
 
-// still inside — no second record
+// still inside / hysteresis band — no duplicate
 result = nextGpsPassZoneState(state, 30)
 assert.equal(result.shouldRecord, false)
+result = nextGpsPassZoneState(state, 70)
+assert.equal(result.shouldRecord, false)
+state = result.state
+assert.equal(state.passCount, 1)
+assert.equal(state.armedForNextPass, false)
 
+// exit — re-arm only, no record
 result = nextGpsPassZoneState(state, 120)
+assert.equal(result.shouldRecord, false)
 state = result.state
 assert.equal(state.armedForNextPass, true)
+assert.equal(state.isInside, false)
 
-result = nextGpsPassZoneState(state, 30)
+// re-enter — record again
+result = nextGpsPassZoneState(state, 20)
 assert.equal(result.shouldRecord, true)
 state = result.state
 assert.equal(state.passCount, 2)
 
-// unlimited: keep cycling past former max of 3
-for (let i = 0; i < 5; i++) {
-  result = nextGpsPassZoneState(state, 150)
-  state = result.state
-  result = nextGpsPassZoneState(state, 20)
+// simulate bad sync that used to reset armed while still inside
+state = { isInside: true, armedForNextPass: false, passCount: 2 }
+result = nextGpsPassZoneState(state, 35)
+assert.equal(result.shouldRecord, false)
+assert.equal(result.state.passCount, 2)
+
+// many cycles
+state = createInitialGpsPassZoneState(0)
+for (let i = 0; i < 7; i++) {
+  result = nextGpsPassZoneState(state, 25)
   assert.equal(result.shouldRecord, true)
+  state = result.state
+  result = nextGpsPassZoneState(state, 140)
+  assert.equal(result.shouldRecord, false)
   state = result.state
 }
 assert.equal(state.passCount, 7)
 
-console.log('gps-pass unlimited enter/exit cycles: ok')
+console.log('gps-pass enter-record + exit-rearm: ok')

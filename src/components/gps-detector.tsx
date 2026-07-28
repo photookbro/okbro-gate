@@ -142,7 +142,13 @@ export function GpsDetector({
   )
 
   useEffect(() => {
-    zoneStateRef.current = createZoneStateMap(activeLocations)
+    const prev = zoneStateRef.current
+    const next = createZoneStateMap(activeLocations)
+    for (const location of activeLocations) {
+      const existing = prev.get(location.locationNumber)
+      if (existing) next.set(location.locationNumber, existing)
+    }
+    zoneStateRef.current = next
   }, [activeLocations])
 
   // 페이지 이탈 시 watch만 정리. 토글 OFF로 저장하면 재진입 시 자동 추적이 풀림.
@@ -220,8 +226,10 @@ export function GpsDetector({
       const data = await res.json()
       if (!res.ok) return
 
+      const prevZone = zoneStateRef.current
       const nextState = createZoneStateMap(activeLocations)
       const nextPassLog: GpsPassLogGroup[] = []
+
       for (const group of data.locations ?? []) {
         const locationNumber = parseLocationNumber(group.location_number)
         const passes = (group.passes ?? [])
@@ -232,16 +240,30 @@ export function GpsDetector({
           }))
           .sort((a: { pass_count: number }, b: { pass_count: number }) => a.pass_count - b.pass_count)
 
-        nextState.set(
-          locationNumber,
-          createInitialGpsPassZoneState(group.pass_count ?? passes.length)
-        )
+        const prev = prevZone.get(locationNumber)
+        // passCount만 서버 기준으로 맞추고, isInside/armed 히스테리시스는 절대 리셋하지 않음
+        nextState.set(locationNumber, {
+          isInside: prev?.isInside ?? false,
+          armedForNextPass: prev?.armedForNextPass ?? true,
+          passCount: group.pass_count ?? passes.length,
+        })
 
         if (passes.length > 0) {
           nextPassLog.push({ location_number: locationNumber, passes })
         }
       }
       nextPassLog.sort((a, b) => a.location_number - b.location_number)
+
+      // 서버에 없는 위치도 기존 히스테리시스 유지
+      for (const location of activeLocations) {
+        if (!nextState.has(location.locationNumber)) {
+          const prev = prevZone.get(location.locationNumber)
+          nextState.set(
+            location.locationNumber,
+            prev ?? createInitialGpsPassZoneState(0)
+          )
+        }
+      }
 
       zoneStateRef.current = nextState
       setPassLog(nextPassLog)
@@ -260,18 +282,14 @@ export function GpsDetector({
   }, [userId, syncPasses])
 
   const recordPass = useCallback(
-    async (
-      latitude: number,
-      longitude: number,
-      locationNumber: GpsLocationNumber,
-      passCount: number
-    ) => {
+    async (latitude: number, longitude: number, locationNumber: GpsLocationNumber) => {
       if (!canUseGpsRef.current) return
 
-      const key = `${locationNumber}-${passCount}`
-      if (recordingRef.current.has(key)) return
+      // 위치당 in-flight 1건만 — watchPosition/폴링 중복 POST 차단
+      const lockKey = String(locationNumber)
+      if (recordingRef.current.has(lockKey)) return
+      recordingRef.current.add(lockKey)
 
-      recordingRef.current.add(key)
       try {
         const res = await authFetch('/api/gps-log', {
           method: 'POST',
@@ -288,10 +306,12 @@ export function GpsDetector({
         if (!res.ok) {
           const state = zoneStateRef.current.get(locationNumber)
           if (state) {
+            // 진입 기록 실패 시: 카운트 롤백 + 재진입 기록 가능하도록 재무장
             zoneStateRef.current.set(locationNumber, {
               ...state,
               passCount: Math.max(0, state.passCount - 1),
               armedForNextPass: true,
+              isInside: false,
             })
           }
           setErrorMsg(data.error ?? '통과 기록 저장 실패')
@@ -306,11 +326,12 @@ export function GpsDetector({
             ...state,
             passCount: Math.max(0, state.passCount - 1),
             armedForNextPass: true,
+            isInside: false,
           })
         }
         setErrorMsg('통과 기록 저장 중 오류가 발생했어요')
       } finally {
-        recordingRef.current.delete(key)
+        recordingRef.current.delete(lockKey)
       }
     },
     [eventId, syncPasses]
@@ -340,6 +361,11 @@ export function GpsDetector({
           isNearAnyZone = true
         }
 
+        // 이 위치에 이미 POST 중이면 판정만 유지하고 추가 기록은 건너뜀
+        if (recordingRef.current.has(String(location.locationNumber))) {
+          continue
+        }
+
         const currentState =
           zoneStateRef.current.get(location.locationNumber) ??
           createInitialGpsPassZoneState(0)
@@ -350,7 +376,7 @@ export function GpsDetector({
         zoneStateRef.current.set(location.locationNumber, state)
 
         if (shouldRecord) {
-          void recordPass(latitude, longitude, location.locationNumber, state.passCount)
+          void recordPass(latitude, longitude, location.locationNumber)
         }
       }
 
