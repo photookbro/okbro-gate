@@ -2,7 +2,6 @@ import type { User } from '@supabase/supabase-js'
 import { getMonitorStatus, resolveExpiresAt } from '@/lib/order-verification'
 import { formatPassTimeSeconds } from '@/lib/geo'
 import { getGpsLocationLabel, type GpsLocationNumber } from '@/lib/gps-locations'
-import { MAX_GPS_PASSES_PER_DAY } from '@/lib/gps-pass'
 
 export type GpsPassSlot = {
   pass_count: number
@@ -23,7 +22,6 @@ export function buildGpsLogsByLocation(
     passed_at?: string | null
     notified?: boolean | null
   }[],
-  maxPasses: number,
   locationNumbers: number[]
 ): GpsLocationPassGroup[] {
   const numbers = locationNumbers.length > 0 ? locationNumbers : [1]
@@ -34,14 +32,14 @@ export function buildGpsLogsByLocation(
     return {
       location_number: locationNumber as GpsLocationNumber,
       label: getGpsLocationLabel(locationNumber, locationCount),
-      passes: buildGpsPassSlots(locationLogs, maxPasses),
+      passes: buildGpsPassSlots(locationLogs),
     }
   })
 }
 
+/** 실제 기록된 통과만 반환 (상한 패딩 없음) */
 export function buildGpsPassSlots(
-  logs: { pass_count?: number | null; passed_at?: string | null; notified?: boolean | null }[],
-  maxPasses: number
+  logs: { pass_count?: number | null; passed_at?: string | null; notified?: boolean | null }[]
 ): GpsPassSlot[] {
   const byPassCount = new Map<number, { passed_at: string; notified: boolean }>()
   for (const log of logs) {
@@ -50,22 +48,13 @@ export function buildGpsPassSlots(
     byPassCount.set(count, { passed_at: log.passed_at, notified: log.notified === true })
   }
 
-  return Array.from({ length: maxPasses }, (_, i) => {
-    const passCount = i + 1
-    const found = byPassCount.get(passCount)
-    if (!found) {
-      return { pass_count: passCount, passed_at_display: null, notified: null }
-    }
-    return {
+  return [...byPassCount.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([passCount, found]) => ({
       pass_count: passCount,
       passed_at_display: formatPassTimeSeconds(new Date(found.passed_at)),
       notified: found.notified,
-    }
-  })
-}
-
-export function maxPassesForEvent(isLoopCourse: boolean): number {
-  return isLoopCourse ? MAX_GPS_PASSES_PER_DAY : 1
+    }))
 }
 
 export function getUserDisplayName(user: User): string {

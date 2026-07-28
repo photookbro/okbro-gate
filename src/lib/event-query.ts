@@ -8,24 +8,24 @@ import {
 export { hasEventAlbum } from '@/lib/events-list-classify'
 
 export const EVENT_DETAIL_FIELDS =
-  'id, name, date, album_a_url, album_b_url, gps_enabled, is_loop_course, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_lat, gps_lng, gps_radius_meters'
+  'id, name, date, album_a_url, album_b_url, gps_enabled, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_3_lat, gps_3_lng, gps_3_radius_meters, gps_lat, gps_lng, gps_radius_meters'
 
 export const EVENT_DETAIL_FIELDS_LEGACY =
-  'id, name, date, album_a_url, album_b_url, gps_enabled, is_loop_course, gps_lat, gps_lng, gps_radius_meters'
+  'id, name, date, album_a_url, album_b_url, gps_enabled, gps_lat, gps_lng, gps_radius_meters'
 
 export const EVENT_LIST_PAST_FIELDS = 'id, name, date, gps_enabled, album_b_url, photo_url'
 
 export const EVENT_LIST_FIELDS =
-  'id, name, date, gps_enabled, album_a_url, album_b_url, photo_url, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_lat, gps_lng, gps_radius_meters, is_loop_course'
+  'id, name, date, gps_enabled, album_a_url, album_b_url, photo_url, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_3_lat, gps_3_lng, gps_3_radius_meters, gps_lat, gps_lng, gps_radius_meters'
 
 export const EVENT_LIST_FIELDS_LEGACY =
-  'id, name, date, gps_enabled, album_b_url, gps_lat, gps_lng, gps_radius_meters, is_loop_course'
+  'id, name, date, gps_enabled, album_b_url, gps_lat, gps_lng, gps_radius_meters'
 
 export const EVENT_LIST_UPCOMING_FIELDS =
-  'id, name, date, gps_enabled, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_lat, gps_lng, gps_radius_meters, is_loop_course'
+  'id, name, date, gps_enabled, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_3_lat, gps_3_lng, gps_3_radius_meters, gps_lat, gps_lng, gps_radius_meters'
 
 export const EVENT_LIST_UPCOMING_FIELDS_LEGACY =
-  'id, name, date, gps_enabled, gps_lat, gps_lng, gps_radius_meters, is_loop_course'
+  'id, name, date, gps_enabled, gps_lat, gps_lng, gps_radius_meters'
 
 export type EventRow = {
   id: string
@@ -42,6 +42,9 @@ export type EventRow = {
   gps_2_lat?: number | null
   gps_2_lng?: number | null
   gps_2_radius_meters?: number | null
+  gps_3_lat?: number | null
+  gps_3_lng?: number | null
+  gps_3_radius_meters?: number | null
   gps_lat?: number | null
   gps_lng?: number | null
   gps_radius_meters?: number | null

@@ -23,7 +23,7 @@ const PlayerLocationPreviewMap = dynamic(
 function UpcomingEventItem({ event }: { event: EventsListUpcomingEvent }) {
   const [trackingEnabled] = useGpsTrackingEnabled(event.id)
 
-  const isMultiMode = event.is_loop_course || event.locations.length > 1
+  const isMultiMode = event.locations.length > 1
   const hasPassData = isMultiMode ? event.gps_pass_groups.length > 0 : !!event.shoot_record
 
   return (

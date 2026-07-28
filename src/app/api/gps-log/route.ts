@@ -3,10 +3,6 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getAuthenticatedUser } from '@/lib/auth-server'
 import { haversineDistance } from '@/lib/geo'
 import { getEventGpsLocations, parseLocationNumber } from '@/lib/gps-locations'
-import {
-  getTodayRange,
-  MAX_GPS_PASSES_PER_DAY,
-} from '@/lib/gps-pass'
 
 function parseCoordinate(value: unknown): number | null {
   const num = Number(value)
@@ -14,7 +10,7 @@ function parseCoordinate(value: unknown): number | null {
 }
 
 const EVENT_GPS_FIELDS =
-  'gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_lat, gps_lng, gps_radius_meters, gps_enabled, is_loop_course'
+  'gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_3_lat, gps_3_lng, gps_3_radius_meters, gps_lat, gps_lng, gps_radius_meters, gps_enabled'
 
 export async function GET(req: NextRequest) {
   const user = await getAuthenticatedUser(req)
@@ -27,12 +23,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'event_id가 필요해요' }, { status: 400 })
   }
 
-  const { start, end } = getTodayRange()
   const admin = supabaseAdmin()
 
   const { data: event, error: eventError } = await admin
     .from('events')
-    .select(`id, is_loop_course, ${EVENT_GPS_FIELDS}`)
+    .select(`id, ${EVENT_GPS_FIELDS}`)
     .eq('id', eventId)
     .maybeSingle()
 
@@ -40,7 +35,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: '대회를 찾을 수 없어요' }, { status: 404 })
   }
 
-  const maxPasses = event.is_loop_course === true ? MAX_GPS_PASSES_PER_DAY : 1
   const locations = getEventGpsLocations(event)
 
   const { data: passes, error } = await admin
@@ -48,10 +42,9 @@ export async function GET(req: NextRequest) {
     .select('id, passed_at, pass_count, location_number')
     .eq('user_id', user.id)
     .eq('event_id', eventId)
-    .gte('passed_at', start)
-    .lt('passed_at', end)
     .order('location_number', { ascending: true })
     .order('pass_count', { ascending: true })
+    .order('passed_at', { ascending: true })
 
   if (error) {
     console.error('[gps-log] list failed:', error)
@@ -59,16 +52,21 @@ export async function GET(req: NextRequest) {
   }
 
   const locationNumbers =
-    locations.length > 0 ? locations.map(location => location.locationNumber) : [1]
+    locations.length > 0
+      ? locations.map(location => location.locationNumber)
+      : [...new Set((passes ?? []).map(row => row.location_number ?? 1))].sort(
+          (a, b) => Number(a) - Number(b)
+        )
 
-  const grouped = locationNumbers.map(locationNumber => {
+  const numbers = locationNumbers.length > 0 ? locationNumbers : [1]
+
+  const grouped = numbers.map(locationNumber => {
     const locationPasses = (passes ?? []).filter(
       row => (row.location_number ?? 1) === locationNumber
     )
     return {
       location_number: locationNumber,
       pass_count: locationPasses.length,
-      max_passes: maxPasses,
       passes: locationPasses,
     }
   })
@@ -76,7 +74,6 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     locations: grouped,
     pass_count: passes?.length ?? 0,
-    max_passes: maxPasses,
   })
 }
 
@@ -142,38 +139,21 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { start, end } = getTodayRange()
-
   const { data: existingPasses, error: countError } = await admin
     .from('gps_logs')
-    .select('id, pass_count')
+    .select('pass_count')
     .eq('user_id', user.id)
     .eq('event_id', event_id)
     .eq('location_number', locationNumber)
-    .gte('passed_at', start)
-    .lt('passed_at', end)
-    .order('pass_count', { ascending: true })
+    .order('pass_count', { ascending: false })
+    .limit(1)
 
   if (countError) {
     console.error('[gps-log] count failed:', countError)
     return NextResponse.json({ error: 'GPS 로그 조회 실패' }, { status: 500 })
   }
 
-  const maxPasses = event.is_loop_course === true ? MAX_GPS_PASSES_PER_DAY : 1
-  const passCountToday = existingPasses?.length ?? 0
-  if (passCountToday >= maxPasses) {
-    return NextResponse.json(
-      {
-        error: `오늘 이 위치에서 최대 ${maxPasses}회까지 기록할 수 있어요`,
-        pass_count: passCountToday,
-        max_passes: maxPasses,
-        location_number: locationNumber,
-      },
-      { status: 400 }
-    )
-  }
-
-  const nextPassCount = passCountToday + 1
+  const nextPassCount = (existingPasses?.[0]?.pass_count ?? 0) + 1
 
   const { data, error } = await admin
     .from('gps_logs')
@@ -197,10 +177,7 @@ export async function POST(req: NextRequest) {
     passed_at: data.passed_at,
     pass_count: data.pass_count,
     location_number: data.location_number ?? locationNumber,
-    passes_today: nextPassCount,
-    max_passes: maxPasses,
     distance_meters: Math.round(distanceMeters),
     radius_meters: targetLocation.radiusMeters,
   })
 }
-

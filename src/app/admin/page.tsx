@@ -28,8 +28,11 @@ type Event = {
   gps_2_lat: number | null
   gps_2_lng: number | null
   gps_2_radius_meters: number | null
+  gps_3_lat: number | null
+  gps_3_lng: number | null
+  gps_3_radius_meters: number | null
   gps_enabled: boolean | null
-  is_loop_course: boolean | null
+  is_loop_course?: boolean | null
 }
 
 type EventForm = {
@@ -45,6 +48,9 @@ type EventForm = {
   gps_2_lat: string
   gps_2_lng: string
   gps_2_radius_meters: string
+  gps_3_lat: string
+  gps_3_lng: string
+  gps_3_radius_meters: string
 }
 
 const emptyForm: EventForm = {
@@ -60,6 +66,9 @@ const emptyForm: EventForm = {
   gps_2_lat: '',
   gps_2_lng: '',
   gps_2_radius_meters: '50',
+  gps_3_lat: '',
+  gps_3_lng: '',
+  gps_3_radius_meters: '50',
 }
 
 type PlayerRow = {
@@ -102,10 +111,10 @@ type PlayerDetail = {
     date: string
     passed: boolean
     gps_pass_count: number
-    is_loop_course: boolean
+    is_loop_course?: boolean
     location_count: number
-    course_label: string
-    max_passes: number
+    course_label?: string
+    max_passes?: number
     locations: {
       location_number: number
       label: string
@@ -571,6 +580,10 @@ export default function AdminPage() {
       gps_2_lng: event.gps_2_lng != null ? String(event.gps_2_lng) : '',
       gps_2_radius_meters:
         event.gps_2_radius_meters != null ? String(event.gps_2_radius_meters) : '50',
+      gps_3_lat: event.gps_3_lat != null ? String(event.gps_3_lat) : '',
+      gps_3_lng: event.gps_3_lng != null ? String(event.gps_3_lng) : '',
+      gps_3_radius_meters:
+        event.gps_3_radius_meters != null ? String(event.gps_3_radius_meters) : '50',
     }
     setForm(nextForm)
     formSnapshotRef.current = nextForm
@@ -613,13 +626,15 @@ export default function AdminPage() {
       album_a_url: sourceForm.album_a_url,
       album_b_url: sourceForm.album_b_url,
       gps_enabled: sourceForm.gps_enabled,
-      is_loop_course: sourceForm.is_loop_course,
       gps_1_lat: sourceForm.gps_1_lat || null,
       gps_1_lng: sourceForm.gps_1_lng || null,
       gps_1_radius_meters: sourceForm.gps_1_radius_meters || 50,
       gps_2_lat: sourceForm.gps_2_lat || null,
       gps_2_lng: sourceForm.gps_2_lng || null,
       gps_2_radius_meters: sourceForm.gps_2_radius_meters || 50,
+      gps_3_lat: sourceForm.gps_3_lat || null,
+      gps_3_lng: sourceForm.gps_3_lng || null,
+      gps_3_radius_meters: sourceForm.gps_3_radius_meters || 50,
       ...overrides,
     }
   }
@@ -632,7 +647,9 @@ export default function AdminPage() {
     const nextForm: EventForm =
       slot === 1
         ? { ...form, gps_1_lat: lat, gps_1_lng: lng }
-        : { ...form, gps_2_lat: lat, gps_2_lng: lng }
+        : slot === 2
+          ? { ...form, gps_2_lat: lat, gps_2_lng: lng }
+          : { ...form, gps_3_lat: lat, gps_3_lng: lng }
 
     setForm(nextForm)
 
@@ -1189,15 +1206,6 @@ export default function AdminPage() {
                   지난 대회는 GPS 감지를 켤 수 없어요
                 </p>
               )}
-              <label className="mb-4 flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={form.is_loop_course}
-                  onChange={e => setForm(f => ({ ...f, is_loop_course: e.target.checked }))}
-                />
-                <span className="text-sm font-semibold text-[var(--text)]">순환 코스</span>
-              </label>
-
               <AdminGpsLocationMap
                 visible={modalOpen}
                 activeSlot={gpsMapSlot}
@@ -1206,6 +1214,8 @@ export default function AdminPage() {
                 slot1Lng={form.gps_1_lng}
                 slot2Lat={form.gps_2_lat}
                 slot2Lng={form.gps_2_lng}
+                slot3Lat={form.gps_3_lat}
+                slot3Lng={form.gps_3_lng}
                 onApply={handleApplyGpsLocation}
                 applying={gpsMapSaving}
                 statusMessage={gpsMapMessage}
@@ -1280,6 +1290,42 @@ export default function AdminPage() {
                       min={1}
                       value={form.gps_2_radius_meters}
                       onChange={e => setForm(f => ({ ...f, gps_2_radius_meters: e.target.value }))}
+                      className={inputStyle}
+                    />
+                  </label>
+                </div>
+
+                <div className="admin-gps-location-card">
+                  <p className="admin-gps-location-title">3차 촬영</p>
+                  <label className="mb-3 block">
+                    <span className={labelStyle}>위도</span>
+                    <input
+                      type="number"
+                      step="any"
+                      value={form.gps_3_lat}
+                      onChange={e => setForm(f => ({ ...f, gps_3_lat: e.target.value }))}
+                      className={inputStyle}
+                      placeholder="선택 입력"
+                    />
+                  </label>
+                  <label className="mb-3 block">
+                    <span className={labelStyle}>경도</span>
+                    <input
+                      type="number"
+                      step="any"
+                      value={form.gps_3_lng}
+                      onChange={e => setForm(f => ({ ...f, gps_3_lng: e.target.value }))}
+                      className={inputStyle}
+                      placeholder="선택 입력"
+                    />
+                  </label>
+                  <label className="mb-0 block">
+                    <span className={labelStyle}>반경</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={form.gps_3_radius_meters}
+                      onChange={e => setForm(f => ({ ...f, gps_3_radius_meters: e.target.value }))}
                       className={inputStyle}
                     />
                   </label>
@@ -1437,21 +1483,16 @@ export default function AdminPage() {
                                       [{location.label}]
                                     </p>
                                     <ul className="space-y-1">
-                                      {location.passes.map(slot => (
-                                        <li key={slot.pass_count} className="text-[var(--text)]">
-                                          {slot.pass_count}차:{' '}
-                                          {slot.passed_at_display ? (
-                                            <>
-                                              {slot.passed_at_display}{' '}
-                                              <span className="text-muted">
-                                                (notified: {slot.notified ? 'O' : 'X'})
-                                              </span>
-                                            </>
-                                          ) : (
-                                            <span className="text-muted">(없음)</span>
-                                          )}
-                                        </li>
-                                      ))}
+                                      {location.passes
+                                        .filter(slot => slot.passed_at_display)
+                                        .map(slot => (
+                                          <li key={slot.pass_count} className="text-[var(--text)]">
+                                            {slot.pass_count}차: {slot.passed_at_display}{' '}
+                                            <span className="text-muted">
+                                              (notified: {slot.notified ? 'O' : 'X'})
+                                            </span>
+                                          </li>
+                                        ))}
                                     </ul>
                                   </div>
                                 ))}

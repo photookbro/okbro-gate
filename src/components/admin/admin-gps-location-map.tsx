@@ -22,7 +22,7 @@ const defaultIcon = L.icon({
   shadowSize: [41, 41],
 })
 
-export type GpsMapSlot = 1 | 2
+export type GpsMapSlot = 1 | 2 | 3
 
 type AdminGpsLocationMapProps = {
   activeSlot: GpsMapSlot
@@ -31,6 +31,8 @@ type AdminGpsLocationMapProps = {
   slot1Lng: string
   slot2Lat: string
   slot2Lng: string
+  slot3Lat: string
+  slot3Lng: string
   onApply: (slot: GpsMapSlot, lat: string, lng: string) => void | Promise<void>
   visible?: boolean
   applying?: boolean
@@ -43,12 +45,17 @@ function getSlotCoordinates(
   slot1Lat: string,
   slot1Lng: string,
   slot2Lat: string,
-  slot2Lng: string
+  slot2Lng: string,
+  slot3Lat: string,
+  slot3Lng: string
 ) {
   if (slot === 1) {
     return { lat: slot1Lat, lng: slot1Lng }
   }
-  return { lat: slot2Lat, lng: slot2Lng }
+  if (slot === 2) {
+    return { lat: slot2Lat, lng: slot2Lng }
+  }
+  return { lat: slot3Lat, lng: slot3Lng }
 }
 
 export function AdminGpsLocationMap({
@@ -58,6 +65,8 @@ export function AdminGpsLocationMap({
   slot1Lng,
   slot2Lat,
   slot2Lng,
+  slot3Lat,
+  slot3Lng,
   onApply,
   visible = true,
   applying = false,
@@ -81,12 +90,20 @@ export function AdminGpsLocationMap({
 
   const syncDraftFromSlot = useCallback(
     (slot: GpsMapSlot) => {
-      const { lat, lng } = getSlotCoordinates(slot, slot1Lat, slot1Lng, slot2Lat, slot2Lng)
+      const { lat, lng } = getSlotCoordinates(
+        slot,
+        slot1Lat,
+        slot1Lng,
+        slot2Lat,
+        slot2Lng,
+        slot3Lat,
+        slot3Lng
+      )
       const center = resolveMapCenter(lat, lng)
       setDraftLat(formatCoordinate(center.lat))
       setDraftLng(formatCoordinate(center.lng))
     },
-    [slot1Lat, slot1Lng, slot2Lat, slot2Lng]
+    [slot1Lat, slot1Lng, slot2Lat, slot2Lng, slot3Lat, slot3Lng]
   )
 
   const placeMarker = useCallback((lat: number, lng: number, moveView = false) => {
@@ -111,7 +128,15 @@ export function AdminGpsLocationMap({
   useEffect(() => {
     if (!visible || !mapContainerRef.current || mapRef.current) return
 
-    const { lat, lng } = getSlotCoordinates(activeSlot, slot1Lat, slot1Lng, slot2Lat, slot2Lng)
+    const { lat, lng } = getSlotCoordinates(
+      activeSlot,
+      slot1Lat,
+      slot1Lng,
+      slot2Lat,
+      slot2Lng,
+      slot3Lat,
+      slot3Lng
+    )
     const center = resolveMapCenter(lat, lng)
 
     const map = L.map(mapContainerRef.current, {
@@ -148,7 +173,7 @@ export function AdminGpsLocationMap({
       mapRef.current = null
       markerRef.current = null
     }
-  }, [visible, activeSlot, slot1Lat, slot1Lng, slot2Lat, slot2Lng, placeMarker])
+  }, [visible, activeSlot, slot1Lat, slot1Lng, slot2Lat, slot2Lng, slot3Lat, slot3Lng, placeMarker])
 
   useEffect(() => {
     if (!visible) {
@@ -156,7 +181,15 @@ export function AdminGpsLocationMap({
       return
     }
 
-    const { lat, lng } = getSlotCoordinates(activeSlot, slot1Lat, slot1Lng, slot2Lat, slot2Lng)
+    const { lat, lng } = getSlotCoordinates(
+      activeSlot,
+      slot1Lat,
+      slot1Lng,
+      slot2Lat,
+      slot2Lng,
+      slot3Lat,
+      slot3Lng
+    )
     if (hasValidCoordinates(lat, lng) || autoLocatedSlotsRef.current.has(activeSlot)) return
     if (!navigator.geolocation) return
 
@@ -182,7 +215,7 @@ export function AdminGpsLocationMap({
     return () => {
       cancelled = true
     }
-  }, [visible, activeSlot, slot1Lat, slot1Lng, slot2Lat, slot2Lng])
+  }, [visible, activeSlot, slot1Lat, slot1Lng, slot2Lat, slot2Lng, slot3Lat, slot3Lng])
 
   useEffect(() => {
     if (!visible || !mapRef.current) return
@@ -284,7 +317,7 @@ export function AdminGpsLocationMap({
           </p>
         </div>
         <div className="admin-gps-map-slot-tabs" role="tablist" aria-label="촬영 위치 선택">
-          {([1, 2] as const).map(slot => (
+          {([1, 2, 3] as const).map(slot => (
             <button
               key={slot}
               type="button"

@@ -489,7 +489,7 @@ body {
 }
 
 .admin-gps-location-grid {
-  @apply grid grid-cols-1 gap-4 md:grid-cols-2;
+  @apply grid grid-cols-1 gap-4 md:grid-cols-3;
 }
 
 .admin-gps-location-card {
@@ -1695,6 +1695,20 @@ body {
   line-height: 1.25;
   letter-spacing: -0.02em;
   word-break: keep-all;
+}
+
+.gps-pass-history {
+  margin: 0 0 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.gps-pass-history-location {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .gps-athlete-checklist-title {

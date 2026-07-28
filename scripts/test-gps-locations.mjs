@@ -20,15 +20,23 @@ function getEventGpsLocations(event) {
       radiusMeters: event.gps_2_radius_meters ?? 50,
     })
   }
+  if (event.gps_3_lat != null && event.gps_3_lng != null) {
+    locations.push({
+      locationNumber: 3,
+      lat: event.gps_3_lat,
+      lng: event.gps_3_lng,
+      radiusMeters: event.gps_3_radius_meters ?? 50,
+    })
+  }
   return locations
 }
 
 function getGpsLocationLabel(locationNumber, locationCount) {
   if (locationCount <= 1) return '촬영 위치'
-  return locationNumber === 1 ? '1차 촬영 위치' : '2차 촬영 위치'
+  return `${locationNumber}차 촬영 위치`
 }
 
-function buildGpsLogsByLocation(logs, maxPasses, locationNumbers) {
+function buildGpsLogsByLocation(logs, locationNumbers) {
   const numbers = locationNumbers.length > 0 ? locationNumbers : [1]
   const locationCount = numbers.length
   return numbers.map(locationNumber => {
@@ -39,14 +47,12 @@ function buildGpsLogsByLocation(logs, maxPasses, locationNumbers) {
       if (!log.passed_at || byPassCount.has(count)) continue
       byPassCount.set(count, log.passed_at)
     }
-    const passes = Array.from({ length: maxPasses }, (_, i) => {
-      const passCount = i + 1
-      const passedAt = byPassCount.get(passCount)
-      return {
+    const passes = [...byPassCount.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([passCount, passedAt]) => ({
         pass_count: passCount,
-        passed_at_display: passedAt ? passedAt.slice(11, 19) : null,
-      }
-    })
+        passed_at_display: passedAt.slice(11, 19),
+      }))
     return {
       location_number: locationNumber,
       label: getGpsLocationLabel(locationNumber, locationCount),
@@ -60,24 +66,32 @@ const locations = getEventGpsLocations({
   gps_1_lng: 127.1,
   gps_2_lat: 37.2,
   gps_2_lng: 127.2,
+  gps_3_lat: 37.3,
+  gps_3_lng: 127.3,
 })
-assert.equal(locations.length, 2)
-assert.equal(locations[0].locationNumber, 1)
+assert.equal(locations.length, 3)
+assert.equal(locations[2].locationNumber, 3)
+
+const without3 = getEventGpsLocations({
+  gps_1_lat: 37.1,
+  gps_1_lng: 127.1,
+})
+assert.equal(without3.length, 1)
 
 const grouped = buildGpsLogsByLocation(
   [
     { location_number: 1, pass_count: 1, passed_at: '2025-06-08T04:20:30.000Z' },
     { location_number: 1, pass_count: 2, passed_at: '2025-06-08T05:45:15.000Z' },
+    { location_number: 1, pass_count: 4, passed_at: '2025-06-08T06:00:00.000Z' },
     { location_number: 2, pass_count: 1, passed_at: '2025-06-08T04:35:10.000Z' },
   ],
-  3,
   [1, 2]
 )
 
 assert.equal(grouped.length, 2)
 assert.equal(grouped[0].label, '1차 촬영 위치')
-assert.equal(grouped[0].passes[0].passed_at_display, '04:20:30')
+assert.equal(grouped[0].passes.length, 3)
+assert.equal(grouped[0].passes[2].pass_count, 4)
 assert.equal(grouped[1].label, '2차 촬영 위치')
-assert.equal(grouped[1].passes[0].passed_at_display, '04:35:10')
 
-console.log('dual gps locations: ok')
+console.log('gps locations 1/2/3 + unlimited passes: ok')

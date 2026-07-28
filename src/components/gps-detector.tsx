@@ -15,11 +15,14 @@ import { GpsPermissionEmphasisNotice } from '@/components/gps-permission-emphasi
 import {
   createInitialGpsPassZoneState,
   GPS_EXIT_RADIUS_METERS,
-  MAX_GPS_PASSES_PER_DAY,
   nextGpsPassZoneState,
   type GpsPassZoneState,
 } from '@/lib/gps-pass'
-import type { EventGpsLocation, GpsLocationNumber } from '@/lib/gps-locations'
+import {
+  parseLocationNumber,
+  type EventGpsLocation,
+  type GpsLocationNumber,
+} from '@/lib/gps-locations'
 import {
   AUTH_LOGOUT_EVENT,
   isGpsTrackingEnabled,
@@ -35,10 +38,11 @@ type GpsDetectorProps = {
   eventId: string
   eventName: string
   locations: EventGpsLocation[]
-  isLoopCourse?: boolean
   userId: string | null
   purchaseVerified: boolean
   verificationChecked: boolean
+  /** 어드민 gps_enabled — false면 실시간 추적만 막고, 통과 이력은 표시 */
+  liveTrackingAllowed?: boolean
   headless?: boolean
 }
 
@@ -47,10 +51,10 @@ type GpsPassLogGroup = {
   passes: { pass_count: number; display_time: string }[]
 }
 
-function createZoneStateMap(locations: EventGpsLocation[], maxPasses: number) {
+function createZoneStateMap(locations: EventGpsLocation[]) {
   const map = new Map<GpsLocationNumber, GpsPassZoneState>()
   for (const location of locations) {
-    map.set(location.locationNumber, createInitialGpsPassZoneState(0, { maxPasses }))
+    map.set(location.locationNumber, createInitialGpsPassZoneState(0))
   }
   return map
 }
@@ -62,15 +66,15 @@ export function GpsDetector({
   eventId,
   eventName,
   locations,
-  isLoopCourse = false,
   userId,
   purchaseVerified,
   verificationChecked,
+  liveTrackingAllowed = true,
   headless = false,
 }: GpsDetectorProps) {
   const watchIdRef = useRef<number | null>(null)
   const zoneStateRef = useRef<Map<GpsLocationNumber, GpsPassZoneState>>(
-    createZoneStateMap(locations, isLoopCourse ? MAX_GPS_PASSES_PER_DAY : 1)
+    createZoneStateMap(locations)
   )
   const recordingRef = useRef<Set<string>>(new Set())
   const autoStartedRef = useRef(false)
@@ -88,7 +92,6 @@ export function GpsDetector({
   const [currentLng, setCurrentLng] = useState<number | null>(null)
   const [distanceByLocation, setDistanceByLocation] = useState<Record<number, number>>({})
   const [passLog, setPassLog] = useState<GpsPassLogGroup[]>([])
-  const maxPasses = isLoopCourse ? MAX_GPS_PASSES_PER_DAY : 1
   const activeLocations = useMemo(
     () => (locations.length > 0 ? locations : []),
     [locations]
@@ -139,8 +142,8 @@ export function GpsDetector({
   )
 
   useEffect(() => {
-    zoneStateRef.current = createZoneStateMap(activeLocations, maxPasses)
-  }, [activeLocations, maxPasses])
+    zoneStateRef.current = createZoneStateMap(activeLocations)
+  }, [activeLocations])
 
   // 페이지 이탈 시 watch만 정리. 토글 OFF로 저장하면 재진입 시 자동 추적이 풀림.
   useEffect(() => {
@@ -148,11 +151,26 @@ export function GpsDetector({
   }, [clearWatchOnly])
 
   const canUseGps =
-    verificationChecked && !!userId && purchaseVerified && activeLocations.length > 0
+    liveTrackingAllowed &&
+    verificationChecked &&
+    !!userId &&
+    purchaseVerified &&
+    activeLocations.length > 0
 
   useEffect(() => {
     canUseGpsRef.current = canUseGps
   }, [canUseGps])
+
+  // 어드민이 GPS를 끄면 진행 중 추적만 중단 (이력 UI는 유지)
+  useEffect(() => {
+    if (liveTrackingAllowed) return
+    clearWatchOnly()
+    setTracking(false)
+    setCurrentLat(null)
+    setCurrentLng(null)
+    setDistanceByLocation({})
+    autoStartedRef.current = false
+  }, [liveTrackingAllowed, clearWatchOnly])
 
   // 로그아웃·인증 만료 등으로 사용 불가해지면 watchPosition을 즉시 중단
   useEffect(() => {
@@ -196,19 +214,16 @@ export function GpsDetector({
     return () => window.removeEventListener(AUTH_LOGOUT_EVENT, onAuthLogout)
   }, [stopTracking])
 
-  const syncTodayPasses = useCallback(async () => {
+  const syncPasses = useCallback(async () => {
     try {
       const res = await authFetch(`/api/gps-log?event_id=${encodeURIComponent(eventId)}`)
       const data = await res.json()
       if (!res.ok) return
 
-      const nextState = createZoneStateMap(activeLocations, maxPasses)
+      const nextState = createZoneStateMap(activeLocations)
       const nextPassLog: GpsPassLogGroup[] = []
       for (const group of data.locations ?? []) {
-        const locationNumber = Number(group.location_number) === 2 ? 2 : 1
-        const count = group.pass_count ?? group.passes?.length ?? 0
-        nextState.set(locationNumber, createInitialGpsPassZoneState(count, { maxPasses }))
-
+        const locationNumber = parseLocationNumber(group.location_number)
         const passes = (group.passes ?? [])
           .filter((row: { passed_at?: string }) => row.passed_at)
           .map((row: { pass_count?: number; passed_at: string }) => ({
@@ -216,6 +231,11 @@ export function GpsDetector({
             display_time: formatGpsPassDisplay(row.passed_at),
           }))
           .sort((a: { pass_count: number }, b: { pass_count: number }) => a.pass_count - b.pass_count)
+
+        nextState.set(
+          locationNumber,
+          createInitialGpsPassZoneState(group.pass_count ?? passes.length)
+        )
 
         if (passes.length > 0) {
           nextPassLog.push({ location_number: locationNumber, passes })
@@ -228,13 +248,16 @@ export function GpsDetector({
     } catch {
       // ignore
     }
-  }, [activeLocations, eventId, maxPasses])
+  }, [activeLocations, eventId])
 
-  // 토글이 꺼져있어도 참고용으로 오늘 통과 기록은 항상 불러와 보여줌
+  // 토글/실시간 추적 여부와 무관하게, 로그인 사용자는 통과 이력을 항상 불러옴
   useEffect(() => {
-    if (!canUseGps) return
-    void syncTodayPasses()
-  }, [canUseGps, syncTodayPasses])
+    if (!userId) {
+      setPassLog([])
+      return
+    }
+    void syncPasses()
+  }, [userId, syncPasses])
 
   const recordPass = useCallback(
     async (
@@ -267,7 +290,7 @@ export function GpsDetector({
           if (state) {
             zoneStateRef.current.set(locationNumber, {
               ...state,
-              passCountToday: Math.max(0, state.passCountToday - 1),
+              passCount: Math.max(0, state.passCount - 1),
               armedForNextPass: true,
             })
           }
@@ -275,13 +298,13 @@ export function GpsDetector({
           return
         }
 
-        void syncTodayPasses()
+        void syncPasses()
       } catch {
         const state = zoneStateRef.current.get(locationNumber)
         if (state) {
           zoneStateRef.current.set(locationNumber, {
             ...state,
-            passCountToday: Math.max(0, state.passCountToday - 1),
+            passCount: Math.max(0, state.passCount - 1),
             armedForNextPass: true,
           })
         }
@@ -290,7 +313,7 @@ export function GpsDetector({
         recordingRef.current.delete(key)
       }
     },
-    [eventId, syncTodayPasses]
+    [eventId, syncPasses]
   )
 
   const handlePosition = useCallback(
@@ -319,16 +342,15 @@ export function GpsDetector({
 
         const currentState =
           zoneStateRef.current.get(location.locationNumber) ??
-          createInitialGpsPassZoneState(0, { maxPasses })
+          createInitialGpsPassZoneState(0)
         const { state, shouldRecord } = nextGpsPassZoneState(currentState, distance, {
           enterRadius: location.radiusMeters,
           exitRadius,
-          maxPasses,
         })
         zoneStateRef.current.set(location.locationNumber, state)
 
         if (shouldRecord) {
-          void recordPass(latitude, longitude, location.locationNumber, state.passCountToday)
+          void recordPass(latitude, longitude, location.locationNumber, state.passCount)
         }
       }
 
@@ -345,7 +367,6 @@ export function GpsDetector({
     [
       activeLocations,
       clearWatchOnly,
-      maxPasses,
       recordPass,
       startNearZonePolling,
       stopNearZonePolling,
@@ -365,7 +386,7 @@ export function GpsDetector({
     }
 
     setErrorMsg('')
-    void syncTodayPasses()
+    void syncPasses()
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       handlePosition,
@@ -384,7 +405,7 @@ export function GpsDetector({
     setGpsTrackingEnabled(eventId, true)
     void syncGpsTrackingPref(eventId, true)
     void ensurePushSubscription()
-  }, [canUseGps, eventId, handlePosition, stopTracking, syncTodayPasses])
+  }, [canUseGps, eventId, handlePosition, stopTracking, syncPasses])
 
   const beginTrackingWithPermission = useCallback(async () => {
     if (!canUseGps) return
@@ -431,8 +452,9 @@ export function GpsDetector({
     return null
   }
 
-  // 비로그인 시 로컬 플래그만으로 CAPTURING이 남지 않게 함
-  const isTrackingOn = !!userId && (tracking || storedEnabled)
+  // 비로그인·어드민 GPS OFF 시 로컬 플래그만으로 CAPTURING이 남지 않게 함
+  const isTrackingOn =
+    liveTrackingAllowed && !!userId && (tracking || storedEnabled)
 
   return (
     <>
@@ -441,8 +463,7 @@ export function GpsDetector({
           <div>
             <p className="text-sm font-semibold text-[var(--text)]">📍 촬영 감지</p>
             <p className="mt-1 text-xs text-muted">
-              촬영 위치 {activeLocations.length}곳 · 위치별 {maxPasses}회까지 기록
-              {isLoopCourse ? ` (순환 코스 최대 ${MAX_GPS_PASSES_PER_DAY}회)` : ' (대회당 1회)'}
+              촬영 위치 {activeLocations.length}곳 · 진입/이탈마다 통과 기록
             </p>
           </div>
           <span
@@ -516,6 +537,32 @@ export function GpsDetector({
             ) : (
               <p className="gps-distance-line gps-distance-waiting">위치 확인 중입니다</p>
             )}
+          </div>
+        ) : passLog.length > 0 ? (
+          <div className="gps-pass-history" aria-label="촬영 통과 기록">
+            {passLog.map(group => {
+              const multiLocation = activeLocations.length > 1 || passLog.length > 1
+              const multiPass = group.passes.length > 1
+              return (
+                <div key={group.location_number} className="gps-distance-block">
+                  {multiLocation ? (
+                    <p className="gps-pass-history-location">
+                      {group.location_number}차 촬영 위치
+                    </p>
+                  ) : null}
+                  {group.passes.map(pass => (
+                    <p
+                      key={`${group.location_number}-${pass.pass_count}-${pass.display_time}`}
+                      className="gps-pass-complete-time"
+                    >
+                      {multiPass
+                        ? `${pass.pass_count}차 ${pass.display_time} 촬영 완료`
+                        : `${pass.display_time} 촬영 완료`}
+                    </p>
+                  ))}
+                </div>
+              )
+            })}
           </div>
         ) : null}
 

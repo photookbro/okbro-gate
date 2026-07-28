@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
       date: event.date,
       gps_enabled: event.gps_enabled,
       photo_url: event.photo_url ?? null,
-      is_loop_course: event.is_loop_course === true,
+      is_loop_course: false,
       locations: getEventGpsLocations(event).map(location => ({
         location_number: location.locationNumber,
         lat: location.lat,

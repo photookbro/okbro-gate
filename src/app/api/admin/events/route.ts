@@ -4,7 +4,7 @@ import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
 import { disableAllUserGpsTrackingPrefsForEvent } from '@/lib/user-gps-tracking-prefs-server'
 
 const EVENT_FIELDS =
-  'id, name, date, album_a_url, album_b_url, photo_url, gps_lat, gps_lng, gps_radius_meters, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_enabled, is_loop_course'
+  'id, name, date, album_a_url, album_b_url, photo_url, gps_lat, gps_lng, gps_radius_meters, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_3_lat, gps_3_lng, gps_3_radius_meters, gps_enabled'
 
 const LEGACY_EVENT_FIELDS =
   'id, name, date, album_a_url, album_b_url, gps_lat, gps_lng, gps_radius_meters, gps_enabled'
@@ -23,8 +23,10 @@ type EventPayload = {
   gps_2_lat?: number | string | null
   gps_2_lng?: number | string | null
   gps_2_radius_meters?: number | string
+  gps_3_lat?: number | string | null
+  gps_3_lng?: number | string | null
+  gps_3_radius_meters?: number | string
   gps_enabled?: boolean
-  is_loop_course?: boolean
 }
 
 type EventRow = {
@@ -43,8 +45,10 @@ type EventRow = {
   gps_2_lat?: number | null
   gps_2_lng?: number | null
   gps_2_radius_meters?: number | null
+  gps_3_lat?: number | null
+  gps_3_lng?: number | null
+  gps_3_radius_meters?: number | null
   gps_enabled: boolean | null
-  is_loop_course: boolean | null
 }
 
 function parseOptionalNumber(value: number | string | null | undefined): number | null {
@@ -61,13 +65,15 @@ function parseRadius(value: number | string | undefined, fallback = 50): number 
 function normalizeEventRow(event: EventRow) {
   return {
     ...event,
-    is_loop_course: event.is_loop_course ?? false,
     gps_1_lat: event.gps_1_lat ?? event.gps_lat ?? null,
     gps_1_lng: event.gps_1_lng ?? event.gps_lng ?? null,
     gps_1_radius_meters: event.gps_1_radius_meters ?? event.gps_radius_meters ?? 50,
     gps_2_lat: event.gps_2_lat ?? null,
     gps_2_lng: event.gps_2_lng ?? null,
     gps_2_radius_meters: event.gps_2_radius_meters ?? 50,
+    gps_3_lat: event.gps_3_lat ?? null,
+    gps_3_lng: event.gps_3_lng ?? null,
+    gps_3_radius_meters: event.gps_3_radius_meters ?? 50,
   }
 }
 
@@ -78,6 +84,9 @@ function buildEventRow(body: EventPayload) {
   const gps2Lat = parseOptionalNumber(body.gps_2_lat)
   const gps2Lng = parseOptionalNumber(body.gps_2_lng)
   const gps2Radius = parseRadius(body.gps_2_radius_meters)
+  const gps3Lat = parseOptionalNumber(body.gps_3_lat)
+  const gps3Lng = parseOptionalNumber(body.gps_3_lng)
+  const gps3Radius = parseRadius(body.gps_3_radius_meters)
 
   return {
     name: body.name?.trim(),
@@ -90,11 +99,13 @@ function buildEventRow(body: EventPayload) {
     gps_2_lat: gps2Lat,
     gps_2_lng: gps2Lng,
     gps_2_radius_meters: gps2Radius,
+    gps_3_lat: gps3Lat,
+    gps_3_lng: gps3Lng,
+    gps_3_radius_meters: gps3Radius,
     gps_lat: gps1Lat,
     gps_lng: gps1Lng,
     gps_radius_meters: gps1Radius,
     gps_enabled: !!body.gps_enabled,
-    is_loop_course: body.is_loop_course === true,
   }
 }
 

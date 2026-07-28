@@ -9,7 +9,6 @@ import {
   formatValidityPeriod,
   getUserDisplayName,
   maxIsoDate,
-  maxPassesForEvent,
   orderStatusLabel,
 } from '@/lib/admin-players'
 import { getEventCourseLabel, getEventGpsLocations, type EventGpsFields } from '@/lib/gps-locations'
@@ -91,7 +90,7 @@ export async function GET(req: NextRequest) {
         .eq('user_id', userId),
       admin
         .from('events')
-        .select('id, name, date, is_loop_course')
+        .select('id, name, date')
         .not('album_b_url', 'is', null)
         .neq('album_b_url', '')
         .gte('date', cutoff)
@@ -117,7 +116,7 @@ export async function GET(req: NextRequest) {
       }))
     }
 
-    let pastEvents: { id: string; name: string; date: string; is_loop_course?: boolean | null }[] | null =
+    let pastEvents: { id: string; name: string; date: string }[] | null =
       pastEventsResult.data
     if (pastEventsResult.error) {
       const fallback = await admin
@@ -136,21 +135,15 @@ export async function GET(req: NextRequest) {
         ? await admin
             .from('events')
             .select(
-              'id, name, date, is_loop_course, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_lat, gps_lng, gps_radius_meters'
+              'id, name, date, gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_3_lat, gps_3_lng, gps_3_radius_meters, gps_lat, gps_lng, gps_radius_meters'
             )
             .in('id', gpsEventIds)
         : {
-            data: [] as {
-              id: string
-              name: string
-              date: string
-              is_loop_course?: boolean | null
-            }[],
+            data: [] as { id: string; name: string; date: string }[],
             error: null,
           }
 
-    let resolvedGpsEvents: { id: string; name: string; date: string; is_loop_course?: boolean | null }[] | null =
-      gpsEvents
+    let resolvedGpsEvents: { id: string; name: string; date: string }[] | null = gpsEvents
     if (gpsEventsError && gpsEventIds.length > 0) {
       const fallback = await admin.from('events').select('id, name, date').in('id', gpsEventIds)
       resolvedGpsEvents = fallback.data
@@ -169,11 +162,7 @@ export async function GET(req: NextRequest) {
         location_number?: number | null
       }[]
     >()
-    const loopCourseByEvent = new Map<string, boolean>()
-    const eventsFromGps = new Map<
-      string,
-      { id: string; name: string; date: string; is_loop_course?: boolean | null }
-    >()
+    const eventsFromGps = new Map<string, { id: string; name: string; date: string }>()
 
     for (const log of gpsLogs ?? []) {
       if (!log.event_id) continue
@@ -183,11 +172,7 @@ export async function GET(req: NextRequest) {
           id: log.event_id,
           name: meta.name,
           date: meta.date,
-          is_loop_course: meta.is_loop_course,
         })
-      }
-      if (meta?.is_loop_course != null) {
-        loopCourseByEvent.set(log.event_id, meta.is_loop_course === true)
       }
       const list = gpsLogsByEvent.get(log.event_id) ?? []
       list.push({
@@ -199,10 +184,7 @@ export async function GET(req: NextRequest) {
       gpsLogsByEvent.set(log.event_id, list)
     }
 
-    const historyEventsMap = new Map<
-      string,
-      { id: string; name: string; date: string; is_loop_course?: boolean | null }
-    >()
+    const historyEventsMap = new Map<string, { id: string; name: string; date: string }>()
     for (const event of pastEvents ?? []) {
       historyEventsMap.set(event.id, event)
     }
@@ -243,19 +225,15 @@ export async function GET(req: NextRequest) {
         event_history: historyEvents.map(event => {
           const eventLogs = gpsLogsByEvent.get(event.id) ?? []
           const eventMeta = (eventMetaById.get(event.id) ?? event) as EventGpsFields
-          const isLoopCourse =
-            event.is_loop_course === true || loopCourseByEvent.get(event.id) === true
-          const maxPasses = maxPassesForEvent(isLoopCourse)
           const configuredLocations = getEventGpsLocations(eventMeta)
           const locationNumbers =
             configuredLocations.length > 0
               ? configuredLocations.map(location => location.locationNumber)
-              : [...new Set(eventLogs.map(log => log.location_number ?? 1))].sort()
-          const locations = buildGpsLogsByLocation(eventLogs, maxPasses, locationNumbers)
-          const gpsPassCount = locations.reduce(
-            (sum, location) => sum + location.passes.filter(slot => slot.passed_at_display).length,
-            0
-          )
+              : [...new Set(eventLogs.map(log => log.location_number ?? 1))].sort(
+                  (a, b) => Number(a) - Number(b)
+                )
+          const locations = buildGpsLogsByLocation(eventLogs, locationNumbers)
+          const gpsPassCount = locations.reduce((sum, location) => sum + location.passes.length, 0)
 
           return {
             event_id: event.id,
@@ -263,10 +241,8 @@ export async function GET(req: NextRequest) {
             date: event.date,
             passed: gpsPassCount > 0,
             gps_pass_count: gpsPassCount,
-            is_loop_course: isLoopCourse,
             location_count: locationNumbers.length || 1,
-            course_label: getEventCourseLabel(isLoopCourse, locationNumbers.length || 1),
-            max_passes: maxPasses,
+            course_label: getEventCourseLabel(locationNumbers.length || 1),
             locations,
           }
         }),

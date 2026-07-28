@@ -39,7 +39,6 @@ type GpsEventPasses = {
   event_id: string
   event_name: string
   event_date: string | null
-  is_loop_course: boolean
   locations: GpsLocationGroup[]
 }
 
@@ -334,7 +333,7 @@ export default function MyPage() {
                           <p key={pass.pass_count}>
                             {formatOkcamPassSentence(
                               pass.display_time,
-                              event.is_loop_course ? pass.pass_count : undefined
+                              location.passes.length > 1 ? pass.pass_count : undefined
                             )}
                           </p>
                         ))}

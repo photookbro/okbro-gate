@@ -1,61 +1,47 @@
-import { startOfKstDay } from '@/lib/date-input'
-
 export const GPS_ENTER_RADIUS_METERS = 50
 export const GPS_EXIT_RADIUS_METERS = 100
-export const MAX_GPS_PASSES_PER_DAY = 3
-
-/** "오늘" 경계를 KST 기준으로 계산 — 서버가 UTC(Vercel)여도 한국 자정 기준 유지 */
-export function getTodayRange() {
-  const start = startOfKstDay()
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
-  return { start: start.toISOString(), end: end.toISOString() }
-}
 
 export type GpsPassZoneState = {
   isInside: boolean
+  /** false면 반경 안에 있어도 기록하지 않음 — 이탈 후에만 다시 true */
   armedForNextPass: boolean
-  passCountToday: number
+  /** 이 세션(또는 동기화)에서 기록된 통과 횟수. 상한 없음 */
+  passCount: number
 }
 
-export function createInitialGpsPassZoneState(
-  passCountToday = 0,
-  options?: { maxPasses?: number }
-): GpsPassZoneState {
-  const maxPasses = options?.maxPasses ?? MAX_GPS_PASSES_PER_DAY
+export function createInitialGpsPassZoneState(passCount = 0): GpsPassZoneState {
   return {
     isInside: false,
-    armedForNextPass: passCountToday < maxPasses,
-    passCountToday,
+    armedForNextPass: true,
+    passCount,
   }
 }
 
-/** 진입/이탈 거리로 다음 POST 가능 여부 갱신 */
+/**
+ * 진입(enterRadius) → 이탈(exitRadius) 사이클마다 1회 카운트.
+ * 상한·날짜 리셋 없음 — 이탈 후 재진입만 되면 계속 기록.
+ */
 export function nextGpsPassZoneState(
   state: GpsPassZoneState,
   distanceMeters: number,
-  options?: { enterRadius?: number; exitRadius?: number; maxPasses?: number }
+  options?: { enterRadius?: number; exitRadius?: number }
 ): { state: GpsPassZoneState; shouldRecord: boolean } {
   const enterRadius = options?.enterRadius ?? GPS_ENTER_RADIUS_METERS
   const exitRadius = options?.exitRadius ?? GPS_EXIT_RADIUS_METERS
-  const maxPasses = options?.maxPasses ?? MAX_GPS_PASSES_PER_DAY
 
   const next = { ...state }
   let shouldRecord = false
 
   if (distanceMeters <= enterRadius) {
-    if (
-      !next.isInside &&
-      next.armedForNextPass &&
-      next.passCountToday < maxPasses
-    ) {
+    if (!next.isInside && next.armedForNextPass) {
       shouldRecord = true
-      next.passCountToday += 1
+      next.passCount += 1
       next.armedForNextPass = false
     }
     next.isInside = true
   } else if (distanceMeters >= exitRadius) {
     next.isInside = false
-    next.armedForNextPass = next.passCountToday < maxPasses
+    next.armedForNextPass = true
   }
 
   return { state: next, shouldRecord }

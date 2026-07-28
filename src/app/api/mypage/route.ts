@@ -183,7 +183,7 @@ async function getMypage(req: NextRequest) {
   const { data: gpsLogs } = await admin
     .from('gps_logs')
     .select(
-      'id, event_id, passed_at, pass_count, location_number, notified, events(name, date, is_loop_course)'
+      'id, event_id, passed_at, pass_count, location_number, notified, events(name, date)'
     )
     .eq('user_id', user.id)
     .order('passed_at', { ascending: true })
@@ -192,7 +192,6 @@ async function getMypage(req: NextRequest) {
     event_id: string
     event_name: string
     event_date: string | null
-    is_loop_course: boolean
     logs: { location_number: number | null; pass_count: number | null; passed_at: string | null }[]
   }
 
@@ -200,8 +199,8 @@ async function getMypage(req: NextRequest) {
 
   for (const log of gpsLogs ?? []) {
     const joined = log.events as
-      | { name: string | null; date: string | null; is_loop_course: boolean | null }
-      | { name: string | null; date: string | null; is_loop_course: boolean | null }[]
+      | { name: string | null; date: string | null }
+      | { name: string | null; date: string | null }[]
       | null
     const eventMeta = Array.isArray(joined) ? joined[0] : joined
     if (!log.event_id || !log.passed_at) continue
@@ -212,7 +211,6 @@ async function getMypage(req: NextRequest) {
         event_id: log.event_id,
         event_name: eventMeta?.name ?? '알 수 없는 대회',
         event_date: typeof eventMeta?.date === 'string' ? eventMeta.date : null,
-        is_loop_course: eventMeta?.is_loop_course === true,
         logs: [],
       }
       gpsEventPassMap.set(log.event_id, group)
@@ -237,7 +235,6 @@ async function getMypage(req: NextRequest) {
           event_id: group.event_id,
           event_name: group.event_name,
           event_date: group.event_date,
-          is_loop_course: group.is_loop_course,
           locations,
         },
         latestPassedAt,
