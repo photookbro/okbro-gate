@@ -47,8 +47,11 @@ export function AlbumAccessSection({
     return (
       <div className="card-section space-y-4">
         <div className="alert-warning mb-0">
-          <p className="font-semibold">⚠️ 이 링크는 공유하지 마세요!</p>
-          <p className="mt-1 text-sm">당신의 개인 정보가 포함되어 있어요.</p>
+          <p className="font-semibold">⚠️ 본인 확인용 링크입니다.</p>
+          <p className="mt-1 text-sm">
+            무단 공유 시 법적 문제가 발생할 수 있고, 개인정보보호법에 따라 책임을
+            물을 수 있습니다.
+          </p>
         </div>
         <button type="button" onClick={handleOpenAlbumB} className="btn-primary w-full">
           고화질 앨범 열기
