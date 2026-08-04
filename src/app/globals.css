@@ -280,6 +280,27 @@ body {
   @apply font-semibold text-primary;
 }
 
+.nav-chat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.nav-chat-badge {
+  display: inline-flex;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #e11d48;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .nav-btn-logout {
   @apply border-none bg-transparent p-0 text-base font-medium tracking-wide text-[var(--text-muted)] transition-colors hover:text-danger disabled:opacity-60;
 }
@@ -538,7 +559,7 @@ body {
 }
 
 .mypage-chat-list {
-  max-height: 20rem;
+  max-height: min(55vh, 28rem);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
