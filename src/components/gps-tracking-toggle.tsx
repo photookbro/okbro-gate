@@ -75,12 +75,14 @@ export function GpsTrackingToggle({
 
   function handleClick(e: React.MouseEvent) {
     stopNavigation(e)
-    if (disabled) return
 
+    // OFF는 자격과 무관하게 허용. ON만 자격(disabled=false) 필요.
     if (enabled) {
       void disableTracking()
       return
     }
+
+    if (disabled) return
 
     setPermissionError('')
     setPermissionOpen(true)

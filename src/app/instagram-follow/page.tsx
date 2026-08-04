@@ -106,6 +106,10 @@ function InstagramFollowContent() {
 
         <h1 className="page-title mt-3">인스타 팔로우 혜택</h1>
 
+        <p className="mb-4 text-sm font-medium text-[var(--text)]">
+          인스타그램 팔로우 혜택은 최초 1회만 제공됩니다.
+        </p>
+
         {status?.state === 'active' ? (
           <div className="card mb-4">
             <p className="mb-2 text-center text-sm font-semibold text-success">

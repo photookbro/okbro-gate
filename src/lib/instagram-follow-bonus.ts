@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { getDaysRemaining } from '@/lib/order-verification'
-import { formatVerificationDate } from '@/lib/order-verification'
+import {
+  formatVerificationDate,
+  getDaysRemaining,
+  inclusiveKstPeriodEndsAt,
+  isExpiryActive,
+} from '@/lib/order-verification'
 
 export type InstagramFollowBonusRow = {
   id: string
@@ -30,20 +34,6 @@ export type InstagramFollowBonusStatus = {
   period_label: string | null
 }
 
-function getKstDateParts(date: Date): { year: number; month: number; day: number } {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date)
-
-  const year = Number(parts.find(part => part.type === 'year')?.value)
-  const month = Number(parts.find(part => part.type === 'month')?.value)
-  const day = Number(parts.find(part => part.type === 'day')?.value)
-  return { year, month, day }
-}
-
 /** 가입일 포함 N일 — 마지막 유효일 23:59:59.999 KST */
 export function calculateInstagramBonusExpiresAt(
   firstCreatedAt: string | Date,
@@ -54,9 +44,7 @@ export function calculateInstagramBonusExpiresAt(
     return base
   }
 
-  const { year, month, day } = getKstDateParts(base)
-  const lastValidUtc = new Date(Date.UTC(year, month - 1, day + bonusDays - 1, 14, 59, 59, 999))
-  return lastValidUtc
+  return inclusiveKstPeriodEndsAt(base, bonusDays)
 }
 
 export function isInstagramBonusActive(
@@ -66,7 +54,7 @@ export function isInstagramBonusActive(
   if (!row || row.status !== 'approved' || !row.expires_at) return false
   const expiresAt = new Date(row.expires_at)
   if (Number.isNaN(expiresAt.getTime())) return false
-  return now <= expiresAt
+  return isExpiryActive(expiresAt, now)
 }
 
 export async function getApprovedInstagramFollowBonus(

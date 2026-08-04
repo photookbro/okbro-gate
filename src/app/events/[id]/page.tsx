@@ -119,7 +119,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   }, [userId, id])
 
   const albumBranch = verificationChecked ? resolveEventAlbumBranch(verification) : null
-  const purchaseVerified = verification.status === 'valid'
+  // 앨범 접근: status===valid (구매|GPS로그|인스타). GPS 토글은 별도 게이트.
+  const gpsTrackingEligible = verification.gps_tracking_eligible === true
 
   if (!termsReady || eventLoading) {
     return (
@@ -196,7 +197,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                   eventName={event.name}
                   locations={locations}
                   userId={userId}
-                  purchaseVerified={purchaseVerified}
+                  gpsTrackingEligible={gpsTrackingEligible}
                   verificationChecked={verificationChecked}
                   liveTrackingAllowed={event.gps_enabled === true}
                 />

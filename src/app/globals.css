@@ -912,6 +912,19 @@ body {
   @apply ml-auto flex shrink-0 items-center gap-1.5;
 }
 
+.events-gps-switch-col {
+  @apply ml-auto flex shrink-0 flex-col items-end gap-1;
+}
+
+.events-gps-purchase-hint {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line-height);
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  white-space: nowrap;
+}
+
 .events-gps-switch-label-on {
   font-size: var(--font-caption-size);
   font-weight: 600;

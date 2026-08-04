@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { haversineDistanceMeters } from '@/lib/geo'
 import {
   geolocationFailureMessage,
@@ -40,7 +41,11 @@ type GpsDetectorProps = {
   eventName: string
   locations: EventGpsLocation[]
   userId: string | null
-  purchaseVerified: boolean
+  /**
+   * GPS 토글/추적 허용 — 구매 인증 OR 인스타 혜택 유효.
+   * 앨범 접근(status===valid, gps_logs 포함)과는 별개 게이트.
+   */
+  gpsTrackingEligible: boolean
   verificationChecked: boolean
   /** 어드민 gps_enabled — false면 실시간 추적만 막고, 통과 이력은 표시 */
   liveTrackingAllowed?: boolean
@@ -79,7 +84,7 @@ export function GpsDetector({
   eventName,
   locations,
   userId,
-  purchaseVerified,
+  gpsTrackingEligible,
   verificationChecked,
   liveTrackingAllowed = true,
   headless = false,
@@ -187,7 +192,7 @@ export function GpsDetector({
     liveTrackingAllowed &&
     verificationChecked &&
     !!userId &&
-    purchaseVerified &&
+    gpsTrackingEligible &&
     activeLocations.length > 0
 
   useEffect(() => {
@@ -236,14 +241,14 @@ export function GpsDetector({
       return
     }
 
-    if (userId && verificationChecked && !purchaseVerified) {
+    if (userId && verificationChecked && !gpsTrackingEligible) {
       setGpsTrackingEnabled(eventId, false)
       void syncGpsTrackingPref(eventId, false)
     }
   }, [
     canUseGps,
     userId,
-    purchaseVerified,
+    gpsTrackingEligible,
     verificationChecked,
     clearWatchOnly,
     eventId,
@@ -754,8 +759,12 @@ export function GpsDetector({
           </ul>
         </div>
 
-        {verificationChecked && !purchaseVerified && (
-          <p className="text-xs text-muted">과일 구매 인증 후 사용 가능합니다</p>
+        {verificationChecked && !gpsTrackingEligible && (
+          <p className="text-xs text-muted">
+            <Link href="/verify-order" className="text-xs text-muted underline">
+              구매 인증 후 이용 가능해요
+            </Link>
+          </p>
         )}
 
         {!userId && verificationChecked && (

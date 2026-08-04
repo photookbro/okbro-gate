@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
-  addDays,
+  calculateNewExpiresAt,
   formatVerificationDate,
   getDaysRemaining,
   resolveExpiresAt,
@@ -96,7 +96,7 @@ export async function extendActiveOrdersForPeriodChange(
   }
 ): Promise<number> {
   const now = options.now ?? new Date()
-  const newExpiresAt = addDays(now, options.periodDays).toISOString()
+  const newExpiresAt = calculateNewExpiresAt(null, options.periodDays, now).toISOString()
 
   const { data: orders, error } = await admin
     .from('orders')

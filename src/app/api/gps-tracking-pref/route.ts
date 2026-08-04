@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getAuthenticatedUser } from '@/lib/auth-server'
 import { USER_GPS_TRACKING_PREFS_TABLE } from '@/lib/user-gps-tracking-prefs-server'
 import { sendKakaoNotify } from '@/lib/kakao-notify'
+import { resolveGpsTrackingEligible } from '@/lib/gps-tracking-eligibility'
 
 async function notifyGpsTrackingEnabled(
   admin: ReturnType<typeof supabaseAdmin>,
@@ -52,6 +53,14 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = supabaseAdmin()
+
+  // 토글 ON만 제한 — OFF는 언제든 허용. 앨범 접근 게이트와 별개.
+  if (enabled) {
+    const eligible = await resolveGpsTrackingEligible(admin, user.id)
+    if (!eligible) {
+      return NextResponse.json({ error: '구매 인증 후 이용 가능해요' }, { status: 403 })
+    }
+  }
 
   const { data: existingPref } = await admin
     .from(USER_GPS_TRACKING_PREFS_TABLE)

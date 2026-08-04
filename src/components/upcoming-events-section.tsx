@@ -20,7 +20,13 @@ const PlayerLocationPreviewMap = dynamic(
   { ssr: false }
 )
 
-function UpcomingEventItem({ event }: { event: EventsListUpcomingEvent }) {
+function UpcomingEventItem({
+  event,
+  gpsTrackingEligible,
+}: {
+  event: EventsListUpcomingEvent
+  gpsTrackingEligible: boolean
+}) {
   const [trackingEnabled] = useGpsTrackingEnabled(event.id)
 
   const isMultiMode = event.locations.length > 1
@@ -37,7 +43,22 @@ function UpcomingEventItem({ event }: { event: EventsListUpcomingEvent }) {
           </span>
         </Link>
         {event.show_gps_toggle ? (
-          <GpsTrackingToggle eventId={event.id} variant="events-list" />
+          <div className="events-gps-switch-col">
+            <GpsTrackingToggle
+              eventId={event.id}
+              variant="events-list"
+              disabled={!gpsTrackingEligible}
+            />
+            {!gpsTrackingEligible ? (
+              <Link
+                href="/verify-order"
+                className="events-gps-purchase-hint"
+                onClick={e => e.stopPropagation()}
+              >
+                구매 인증 후 이용 가능해요
+              </Link>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
@@ -78,6 +99,25 @@ export function UpcomingEventsSection() {
   const [upcoming, setUpcoming] = useState<EventsListUpcomingEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [gpsTrackingEligible, setGpsTrackingEligible] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    authFetch('/api/verify-order/status')
+      .then(async res => {
+        const data = await res.json()
+        if (cancelled) return
+        setGpsTrackingEligible(res.ok && data?.gps_tracking_eligible === true)
+      })
+      .catch(() => {
+        if (!cancelled) setGpsTrackingEligible(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -133,7 +173,13 @@ export function UpcomingEventsSection() {
           {upcoming.length === 0 ? (
             <li className="events-empty">예정된 대회가 없어요</li>
           ) : (
-            upcoming.map(event => <UpcomingEventItem key={event.id} event={event} />)
+            upcoming.map(event => (
+              <UpcomingEventItem
+                key={event.id}
+                event={event}
+                gpsTrackingEligible={gpsTrackingEligible}
+              />
+            ))
           )}
         </ul>
       )}
