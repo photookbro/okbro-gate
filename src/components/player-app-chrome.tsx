@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { AppFirstLaunchPermissions } from '@/components/app-first-launch-permissions'
 import { InstagramFollowSignupPrompt } from '@/components/instagram-follow-signup-prompt'
+import { ChatUnreadPrompt } from '@/components/chat-unread-prompt'
 import { FixedFruitCta } from '@/components/fixed-fruit-cta'
 import { GuestAuthGate, useGuestAuth } from '@/components/guest-auth-gate'
 import { InappBrowserWarning } from '@/components/inapp-browser-warning'
@@ -17,6 +18,7 @@ function PlayerChromeBody({ children }: { children: React.ReactNode }) {
         <>
           <AppFirstLaunchPermissions />
           <InstagramFollowSignupPrompt />
+          <ChatUnreadPrompt />
         </>
       ) : null}
       <InappBrowserWarning />
