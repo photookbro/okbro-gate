@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          '아직 팔로워 목록에서 확인되지 않았어요. 매주 금요일 업데이트되니 그 이후 다시 시도해주세요.',
+          '아직 확인되지 않았어요. 매주 금요일 오후에 확인 후 반영되니, 그 이후 다시 시도해주세요.',
         status,
       },
       { status: 400 }

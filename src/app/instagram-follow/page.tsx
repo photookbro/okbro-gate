@@ -151,13 +151,13 @@ function InstagramFollowContent() {
               없이 사진을 확인하실 수 있어요.
             </p>
             <p className="mb-4 text-sm text-muted">
-              팔로워 목록은 매주 금요일 업데이트돼요. 방금 팔로우하셨다면 다음 금요일 이후 다시
-              시도해주세요.
+              인스타그램 팔로우는 매주 금요일 오후에 확인 후 사용 권한이 부여돼요. 팔로우 즉시 바로
+              되는 게 아니니 참고해주세요.
             </p>
 
             {status?.state === 'not_matched' ? (
               <p className="alert-warning mb-4">
-                아직 팔로워 목록에서 확인되지 않았어요. 매주 금요일 업데이트되니 그 이후 다시
+                아직 확인되지 않았어요. 매주 금요일 오후에 확인 후 반영되니, 그 이후 다시
                 시도해주세요.
               </p>
             ) : null}

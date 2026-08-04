@@ -108,7 +108,7 @@ export function InstagramFollowOnboardingModal({
             </h2>
             <p className="mb-4 text-sm leading-relaxed text-muted">
               @photo_ok_bro를 팔로우하고 계시면 가입일 포함 {bonusDays}일간 별도 인증 없이 사진을
-              확인하실 수 있어요.
+              확인하실 수 있어요. 매주 금요일 오후에 확인 후 반영돼요.
             </p>
             <div className="btn-row">
               <button type="button" className="btn-secondary" onClick={onSkip}>
@@ -125,8 +125,8 @@ export function InstagramFollowOnboardingModal({
               인스타 아이디 입력
             </h2>
             <p className="mb-4 text-sm leading-relaxed text-muted">
-              인스타그램 프로필에 보이는 아이디를 입력해주세요. 팔로워 목록은 매주 금요일
-              업데이트돼요.
+              인스타그램 프로필에 보이는 아이디를 입력해주세요. 매주 금요일 오후에 확인 후
+              반영돼요.
             </p>
             <form onSubmit={e => void handleSubmit(e)} className="space-y-3">
               <input
