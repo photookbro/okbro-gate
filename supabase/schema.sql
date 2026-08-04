@@ -184,6 +184,55 @@ ALTER TABLE instagram_follow_bonus ENABLE ROW LEVEL SECURITY;
 GRANT ALL ON profiles TO service_role;
 GRANT ALL ON instagram_follow_bonus TO service_role;
 
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  sender text NOT NULL CHECK (sender IN ('user', 'admin')),
+  message text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  read_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS chat_messages_user_created_idx
+  ON chat_messages (user_id, created_at ASC);
+
+CREATE INDEX IF NOT EXISTS chat_messages_unread_admin_idx
+  ON chat_messages (user_id, created_at DESC)
+  WHERE sender = 'admin' AND read_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS chat_messages_unread_user_idx
+  ON chat_messages (user_id, created_at DESC)
+  WHERE sender = 'user' AND read_at IS NULL;
+
+ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "chat_messages_select_own"
+  ON chat_messages FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "chat_messages_insert_own_user"
+  ON chat_messages FOR INSERT
+  WITH CHECK (auth.uid() = user_id AND sender = 'user');
+
+CREATE POLICY "chat_messages_update_own_read"
+  ON chat_messages FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+GRANT ALL ON chat_messages TO service_role;
+
+CREATE TABLE IF NOT EXISTS verified_naver_orders (
+  order_number text PRIMARY KEY,
+  imported_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS verified_naver_orders_imported_at_idx
+  ON verified_naver_orders (imported_at DESC);
+
+ALTER TABLE verified_naver_orders ENABLE ROW LEVEL SECURITY;
+
+GRANT ALL ON verified_naver_orders TO service_role;
+
 INSERT INTO settings (key, value)
 VALUES ('instagram_follow_bonus_days', '5')
 ON CONFLICT (key) DO NOTHING;

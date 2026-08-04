@@ -14,6 +14,7 @@ import {
 import { ensurePushSubscription } from '@/lib/push-client'
 import { OrderNumberGuide } from '@/components/order-number-guide'
 import { MypageAlbumAccessStatus } from '@/components/mypage-album-access-status'
+import { MypageChat } from '@/components/mypage-chat'
 import type { InstagramFollowBonusStatus } from '@/lib/instagram-follow-bonus'
 
 type PhotoAccess = {
@@ -63,6 +64,7 @@ export default function MyPage() {
   >('default')
   const [enablingNotification, setEnablingNotification] = useState(false)
   const [notificationMsg, setNotificationMsg] = useState('')
+  const [chatUnreadCount, setChatUnreadCount] = useState(0)
 
   const loadMypage = useCallback(async () => {
     try {
@@ -115,6 +117,23 @@ export default function MyPage() {
       return
     }
     setNotificationPermission(Notification.permission)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    authFetch('/api/chat/unread-count')
+      .then(async res => {
+        const data = await res.json()
+        if (!cancelled && res.ok) {
+          setChatUnreadCount(typeof data.unread_count === 'number' ? data.unread_count : 0)
+        }
+      })
+      .catch(() => {
+        // ignore
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   async function handleEnableNotification() {
@@ -345,6 +364,18 @@ export default function MyPage() {
               ))}
             </div>
           )}
+        </div>
+        <div className="card mb-4">
+          <h2 className="section-title flex items-center gap-2">
+            1:1 문의
+            {chatUnreadCount > 0 ? (
+              <span className="mypage-chat-unread-dot" aria-label="읽지 않은 메시지" />
+            ) : null}
+          </h2>
+          <p className="mb-4 text-sm leading-relaxed text-muted">
+            관리자와 직접 대화할 수 있어요. 답장은 이 화면을 다시 열면 확인할 수 있어요.
+          </p>
+          <MypageChat onUnreadChange={setChatUnreadCount} />
         </div>
       </div>
     </div>

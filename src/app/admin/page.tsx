@@ -6,6 +6,8 @@ import { AdminDateInput } from '@/components/admin-date-input'
 import { EventPhotoUpload } from '@/components/admin/event-photo-upload'
 import { InstagramFollowersUpload } from '@/components/admin/instagram-followers-upload'
 import { NotificationsAdminPanel } from '@/components/admin/notifications-admin-panel'
+import { AdminChatPanel } from '@/components/admin/admin-chat-panel'
+import { NaverOrdersAdminPanel } from '@/components/admin/naver-orders-admin-panel'
 import {
   AdminGpsLocationMap,
   type GpsMapSlot,
@@ -165,6 +167,8 @@ const TAB_LABELS = {
   settings: 'SETTINGS',
   players: 'PLAYERS',
   event_monitoring: 'MONITORING',
+  chat: 'CHAT',
+  naver_orders: 'NAVER ORDERS',
 } as const
 
 function formatDateOnly(date: string | null | undefined): string {
@@ -195,7 +199,10 @@ function OxBadge({ value }: { value: boolean }) {
 
 export default function AdminPage() {
   const token = useAdminToken()
-  const [tab, setTab] = useState<'events' | 'settings' | 'players' | 'event_monitoring'>('events')
+  const [tab, setTab] = useState<
+    'events' | 'settings' | 'players' | 'event_monitoring' | 'chat' | 'naver_orders'
+  >('events')
+  const [chatInitialUserId, setChatInitialUserId] = useState<string | null>(null)
   const [events, setEvents] = useState<Event[]>([])
   const [loadingEvents, setLoadingEvents] = useState(true)
   const [eventError, setEventError] = useState('')
@@ -1127,6 +1134,24 @@ export default function AdminPage() {
           </>
         )}
 
+        {tab === 'chat' && (
+          <AdminChatPanel
+            token={token}
+            initialUserId={chatInitialUserId}
+            onInitialUserConsumed={() => setChatInitialUserId(null)}
+          />
+        )}
+
+        {tab === 'naver_orders' && (
+          <>
+            <h2 className="section-title">NAVER ORDERS</h2>
+            <p className="mb-4 text-sm text-muted">
+              네이버 주문내역 엑셀 업로드와 위조·중복 의심 계정 대조를 여기서 해요.
+            </p>
+            <NaverOrdersAdminPanel token={token} />
+          </>
+        )}
+
       </div>
 
       {modalOpen && (
@@ -1403,6 +1428,18 @@ export default function AdminPage() {
               <>
                 <h3 className="section-title">{playerDetail.name}</h3>
                 <p className="mb-4 text-sm text-muted">{playerDetail.email}</p>
+
+                <button
+                  type="button"
+                  className="btn-primary-inline mb-4"
+                  onClick={() => {
+                    setChatInitialUserId(playerDetail.id)
+                    setTab('chat')
+                    closePlayerDetail()
+                  }}
+                >
+                  채팅하기
+                </button>
 
                 <section className="card-section mb-4">
                   <h4 className="mb-2 text-sm font-semibold">📋 기본 정보</h4>
