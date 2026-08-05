@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { formatWon, type ShopProduct } from '@/lib/shop-products'
 import { resolveShopBuyHref } from '@/lib/shop-naver-intent'
-import { ShopAffiliateFooter } from '@/components/shop-affiliate-footer'
 
 const ALL_CATEGORY = '전체'
 
@@ -95,8 +94,17 @@ export default function ShopPage() {
   return (
     <div className="page-shell shop-page">
       <div className="page-container">
-        <h1 className="page-title">SHOP</h1>
-        <p className="shop-tagline">가성비 장비</p>
+        <header className="shop-header">
+          <h1 className="page-title">SHOP</h1>
+          <p className="shop-header-lead">선수의 사진을 담기 위한 사랑이 필요합니다</p>
+          <p className="shop-header-notice">
+            ※ SHOP 상품 구매는 오켱GATE 앨범 이용 및 선수추적시스템(GPS) 인증과는 무관합니다
+          </p>
+          <p className="shop-header-disclosure">
+            본 SHOP 페이지의 상품 링크는 크리에이터 활동의 일환으로 구성되었으며, 링크를 통한
+            구매 발생 시 일정액의 수수료를 제공받습니다.
+          </p>
+        </header>
 
         {loading ? <p className="text-muted">불러오는 중...</p> : null}
         {error ? <p className="alert-danger">{error}</p> : null}
@@ -195,8 +203,6 @@ export default function ShopPage() {
             )}
           </>
         ) : null}
-
-        <ShopAffiliateFooter />
       </div>
     </div>
   )
