@@ -3,9 +3,9 @@ import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import {
   parseShopProductsCsv,
-  parseShopProductsXlsx,
   type ShopProductCsvRow,
 } from '@/lib/shop-products'
+import { parseShopFileBuffer, upsertShopProductRows } from '@/lib/shop-products-server'
 
 export async function GET(req: NextRequest) {
   if (!verifyAdminToken(req)) return unauthorizedResponse()
@@ -32,7 +32,6 @@ export async function POST(req: NextRequest) {
 
   const contentType = req.headers.get('content-type') || ''
 
-  // 파일 업로드 (xlsx / csv)
   if (contentType.includes('multipart/form-data')) {
     let formData: FormData
     try {
@@ -85,11 +84,7 @@ async function handleUploadedFile(file: File, previewOnly: boolean) {
 
   let parsed: { rows: ShopProductCsvRow[]; errors: string[] }
   try {
-    if (isXlsx) {
-      parsed = parseShopProductsXlsx(await file.arrayBuffer())
-    } else {
-      parsed = parseShopProductsCsv(await file.text())
-    }
+    parsed = parseShopFileBuffer(await file.arrayBuffer(), file.name)
   } catch (error) {
     console.error('[admin/shop] parse file', error)
     return NextResponse.json({ error: '파일을 해석하지 못했어요' }, { status: 400 })
@@ -158,45 +153,34 @@ async function upsertFromParsed(
       { status: 400 }
     )
   }
-  const result = await upsertRows(parsed.rows)
-  const json = await result.json()
-  return NextResponse.json({
-    ...json,
-    file_name: fileName,
-    parse_errors: parsed.errors,
-  })
+
+  try {
+    const result = await upsertShopProductRows(supabaseAdmin(), parsed.rows)
+    return NextResponse.json({
+      success: true,
+      upserted: result.upserted,
+      summary: result.summary,
+      file_name: fileName,
+      parse_errors: parsed.errors,
+    })
+  } catch (error) {
+    console.error('[admin/shop] upsert', error)
+    const message = error instanceof Error ? error.message : '상품 저장 실패'
+    return NextResponse.json({ error: '상품 저장 실패', db_error: message }, { status: 500 })
+  }
 }
 
 async function upsertRows(rows: ShopProductCsvRow[]) {
-  const admin = supabaseAdmin()
-  const payload = rows.map(row => ({
-    product_name: row.product_name,
-    store_name: row.store_name ?? '',
-    image_url: row.image_url ?? '',
-    price_original: row.price_original ?? 0,
-    price_discount: row.price_discount ?? 0,
-    affiliate_url: row.affiliate_url,
-    category: row.category ?? '',
-    display_order: row.display_order ?? 0,
-    is_active: true,
-  }))
-
-  const { data, error } = await admin
-    .from('shop_products')
-    .upsert(payload, {
-      onConflict: 'affiliate_url',
-      ignoreDuplicates: false,
+  try {
+    const result = await upsertShopProductRows(supabaseAdmin(), rows)
+    return NextResponse.json({
+      success: true,
+      upserted: result.upserted,
+      summary: result.summary,
     })
-    .select('id')
-
-  if (error) {
+  } catch (error) {
     console.error('[admin/shop] upsert', error)
-    return NextResponse.json({ error: '상품 저장 실패', db_error: error.message }, { status: 500 })
+    const message = error instanceof Error ? error.message : '상품 저장 실패'
+    return NextResponse.json({ error: '상품 저장 실패', db_error: message }, { status: 500 })
   }
-
-  return NextResponse.json({
-    success: true,
-    upserted: data?.length ?? payload.length,
-    summary: `${payload.length.toLocaleString('ko-KR')}건 등록·갱신됨`,
-  })
 }

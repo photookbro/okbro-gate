@@ -264,6 +264,25 @@ CREATE POLICY "shop_products_select_active"
 GRANT ALL ON shop_products TO service_role;
 GRANT SELECT ON shop_products TO anon, authenticated;
 
+CREATE TABLE IF NOT EXISTS shop_sync_runs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  started_at timestamptz NOT NULL DEFAULT now(),
+  finished_at timestamptz,
+  success boolean NOT NULL DEFAULT false,
+  rows_upserted integer NOT NULL DEFAULT 0,
+  error_message text,
+  source_url text,
+  triggered_by text NOT NULL DEFAULT 'cron',
+  file_name text
+);
+
+CREATE INDEX IF NOT EXISTS shop_sync_runs_started_at_idx
+  ON shop_sync_runs (started_at DESC);
+
+ALTER TABLE shop_sync_runs ENABLE ROW LEVEL SECURITY;
+
+GRANT ALL ON shop_sync_runs TO service_role;
+
 INSERT INTO settings (key, value)
 VALUES ('instagram_follow_bonus_days', '5')
 ON CONFLICT (key) DO NOTHING;

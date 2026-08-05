@@ -1,0 +1,24 @@
+name: Shop OneDrive Sync
+
+on:
+  schedule:
+    # 매시 정각 UTC (= 한국 시간 매시 09분 아님, UTC 0분)
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync shop products from OneDrive
+        env:
+          SHOP_SYNC_SECRET: ${{ secrets.SHOP_SYNC_SECRET }}
+        run: |
+          if [ -z "$SHOP_SYNC_SECRET" ]; then
+            echo "SHOP_SYNC_SECRET secret is missing"
+            exit 1
+          fi
+          curl -f -X POST \
+            -H "Authorization: Bearer ${SHOP_SYNC_SECRET}" \
+            -H "Accept: application/json" \
+            "https://okbro-gate.vercel.app/api/admin/shop-sync"
