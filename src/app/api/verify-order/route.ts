@@ -11,7 +11,6 @@ import {
   ORDER_DUPLICATE_ERROR,
   logDuplicateVerificationAttempt,
 } from '@/lib/order-duplicate'
-import { extendUserOrderVerification } from '@/lib/verify-order-extend'
 import { loadVerificationSettings } from '@/lib/verification-settings'
 import { sendKakaoNotify } from '@/lib/kakao-notify'
 
@@ -74,21 +73,18 @@ export async function POST(req: NextRequest) {
     .eq('order_number', trimmedOrderNumber)
     .eq('platform', platformValue)
 
-  const ownedBySelf = existingOrders?.find(row => row.user_id === user.id)
-  const ownedByOthers = existingOrders?.filter(row => row.user_id !== user.id) ?? []
-
-  // 구매 인증 경로 하드락: 다른 계정이 이미 쓴 (platform, order_number)는 거절
-  // (하이패스 고정코드는 예외 / 본인 재제출은 만기 연장 허용)
-  if (ownedByOthers.length > 0 && !isFixedCode) {
-    const existing = ownedByOthers[0]
+  // 하드락: (platform, order_number) 존재 시 본인/타인 모두 거부 (하이패스 고정코드만 예외)
+  // 만기 연장은 아직 쓰이지 않은 새 주문번호 insert로만 가능
+  const existing = existingOrders?.[0]
+  if (existing && !isFixedCode) {
     after(() =>
       logDuplicateVerificationAttempt(admin, {
         userId: user.id,
         userEmail: user.email,
         orderNumber: trimmedOrderNumber,
         platform: platformValue,
-        existingOrderId: existing?.id,
-        existingUserId: existing?.user_id,
+        existingOrderId: existing.id,
+        existingUserId: existing.user_id,
       })
     )
     return duplicateResponse()
@@ -102,35 +98,6 @@ export async function POST(req: NextRequest) {
   }
 
   const now = new Date()
-
-  if (ownedBySelf) {
-    try {
-      const { expiresAt, extended } = await extendUserOrderVerification(
-        admin,
-        user.id,
-        periodDays,
-        {
-          orderId: ownedBySelf.id,
-          eventId: event_id || null,
-          now,
-        }
-      )
-      after(() => notifyVerifySuccess(admin, user.email, event_id || null, trimmedOrderNumber))
-      return NextResponse.json({
-        success: true,
-        extended,
-        re_verified: true,
-        expires_at: expiresAt.toISOString(),
-      })
-    } catch (error) {
-      const dbError = formatDbError(error as { message?: string; code?: string; details?: string | null })
-      console.error('[verify-order] re-verify extend failed:', dbError)
-      return NextResponse.json(
-        { success: false, error: '인증 연장에 실패했어요', db_error: dbError },
-        { status: 500 }
-      )
-    }
-  }
 
   const { data: userLatestOrder, error: latestOrderError } = await admin
     .from('orders')
@@ -180,7 +147,7 @@ export async function POST(req: NextRequest) {
     const dbError = formatDbError(error)
     console.error('[verify-order] insert failed:', dbError)
 
-    // 레이스로 UNIQUE 충돌 → 하드락과 동일하게 거절
+    // 레이스로 UNIQUE 충돌 → 하드락과 동일하게 거절 (+ 본인 재사용 시도도 로그)
     if (error.code === '23505' && !isFixedCode) {
       after(() =>
         logDuplicateVerificationAttempt(admin, {

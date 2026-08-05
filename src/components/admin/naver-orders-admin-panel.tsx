@@ -301,7 +301,8 @@ export function NaverOrdersAdminPanel({ token }: NaverOrdersAdminPanelProps) {
           </button>
         </div>
         <p className="text-sm text-muted">
-          다른 계정이 이미 쓴 주문번호로 인증을 시도했을 때 기록됩니다. (권한/연장은 부여되지 않음)
+          이미 등록된 주문번호로 인증을 재시도했을 때 기록됩니다. (본인 재사용·타인 도용 포함 /
+          권한·연장 없음)
         </p>
 
         {attemptsError ? <p className="alert-danger mb-0">{attemptsError}</p> : null}
