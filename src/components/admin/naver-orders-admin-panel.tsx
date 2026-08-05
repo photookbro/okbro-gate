@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { SuspectOrderRow } from '@/lib/naver-orders-reconcile'
 
 type UploadResult = {
@@ -9,6 +9,17 @@ type UploadResult = {
   new_count: number
   updated_count: number
   file_name: string
+}
+
+type DuplicateAttempt = {
+  id: string
+  user_id: string | null
+  user_email: string | null
+  order_number: string
+  platform: string | null
+  outcome: string
+  existing_user_id: string | null
+  created_at: string
 }
 
 type NaverOrdersAdminPanelProps = {
@@ -40,11 +51,35 @@ export function NaverOrdersAdminPanel({ token }: NaverOrdersAdminPanelProps) {
   const [forgery, setForgery] = useState<SuspectOrderRow[]>([])
   const [duplicate, setDuplicate] = useState<SuspectOrderRow[]>([])
   const [revokingId, setRevokingId] = useState<string | null>(null)
+  const [attempts, setAttempts] = useState<DuplicateAttempt[]>([])
+  const [attemptsError, setAttemptsError] = useState('')
+  const [attemptsLoading, setAttemptsLoading] = useState(false)
 
-  const headers = useCallback(
-    () => ({ 'x-admin-token': token }),
-    [token]
-  )
+  const headers = useCallback(() => ({ 'x-admin-token': token }), [token])
+
+  const loadAttempts = useCallback(async () => {
+    setAttemptsLoading(true)
+    setAttemptsError('')
+    try {
+      const res = await fetch('/api/admin/naver-orders/attempts?limit=50', {
+        headers: headers(),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setAttemptsError(typeof data.error === 'string' ? data.error : '로그 로드 실패')
+        return
+      }
+      setAttempts((data.attempts as DuplicateAttempt[]) ?? [])
+    } catch {
+      setAttemptsError('로그 로드 실패')
+    } finally {
+      setAttemptsLoading(false)
+    }
+  }, [headers])
+
+  useEffect(() => {
+    void loadAttempts()
+  }, [loadAttempts])
 
   async function handleUpload() {
     if (!selectedFile) {
@@ -111,6 +146,7 @@ export function NaverOrdersAdminPanel({ token }: NaverOrdersAdminPanelProps) {
           ? data.summary
           : `위조 의심 ${data.forgery_count ?? 0}건 · 중복 사용 ${data.duplicate_count ?? 0}건`
       )
+      void loadAttempts()
     } catch {
       setReconcileError('대조 중 오류가 발생했어요')
     } finally {
@@ -245,6 +281,66 @@ export function NaverOrdersAdminPanel({ token }: NaverOrdersAdminPanelProps) {
           onRevoke={handleRevoke}
           showFirstUser
         />
+      </div>
+
+      <div className="space-y-3 border-t border-[var(--border)] pt-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="text-sm font-semibold text-[var(--text)]">
+            중복 제출 시도 로그{' '}
+            <span className="font-normal text-muted">
+              ({attempts.length.toLocaleString('ko-KR')})
+            </span>
+          </h4>
+          <button
+            type="button"
+            className="btn-secondary-inline px-3 py-1.5 text-xs"
+            disabled={attemptsLoading}
+            onClick={() => void loadAttempts()}
+          >
+            {attemptsLoading ? '불러오는 중...' : '새로고침'}
+          </button>
+        </div>
+        <p className="text-sm text-muted">
+          다른 계정이 이미 쓴 주문번호로 인증을 시도했을 때 기록됩니다. (권한/연장은 부여되지 않음)
+        </p>
+
+        {attemptsError ? <p className="alert-danger mb-0">{attemptsError}</p> : null}
+
+        {!attemptsError && attempts.length === 0 && !attemptsLoading ? (
+          <p className="text-sm text-muted">최근 중복 시도 기록이 없어요.</p>
+        ) : null}
+
+        {attempts.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[36rem] text-left text-sm">
+              <thead>
+                <tr className="border-b border-[var(--border)] text-muted">
+                  <th className="py-2 pr-3 font-medium">시도 시각</th>
+                  <th className="py-2 pr-3 font-medium">시도한 사용자</th>
+                  <th className="py-2 pr-3 font-medium">주문번호</th>
+                  <th className="py-2 font-medium">플랫폼</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attempts.map(row => (
+                  <tr key={row.id} className="border-b border-[var(--border)]">
+                    <td className="py-2 pr-3">{formatWhen(row.created_at)}</td>
+                    <td className="py-2 pr-3">
+                      <p className="font-medium">
+                        {row.user_email || row.user_id?.slice(0, 8) || '-'}
+                      </p>
+                      {row.user_id ? (
+                        <p className="font-mono text-xs text-muted">{row.user_id.slice(0, 8)}…</p>
+                      ) : null}
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-xs">{row.order_number}</td>
+                    <td className="py-2">{row.platform || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </div>
     </div>
   )

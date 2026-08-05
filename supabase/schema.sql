@@ -18,6 +18,9 @@ create table orders (
   expiry_notified_at timestamptz
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS orders_platform_order_number_uidx
+  ON orders (platform, order_number);
+
 create table events (
   id uuid primary key default gen_random_uuid(),
   name text,
@@ -232,6 +235,28 @@ CREATE INDEX IF NOT EXISTS verified_naver_orders_imported_at_idx
 ALTER TABLE verified_naver_orders ENABLE ROW LEVEL SECURITY;
 
 GRANT ALL ON verified_naver_orders TO service_role;
+
+CREATE TABLE IF NOT EXISTS order_verification_attempts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid,
+  user_email text,
+  order_number text NOT NULL,
+  platform text,
+  outcome text NOT NULL DEFAULT 'duplicate_rejected',
+  existing_order_id uuid,
+  existing_user_id uuid,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS order_verification_attempts_created_at_idx
+  ON order_verification_attempts (created_at DESC);
+
+CREATE INDEX IF NOT EXISTS order_verification_attempts_order_number_idx
+  ON order_verification_attempts (order_number);
+
+ALTER TABLE order_verification_attempts ENABLE ROW LEVEL SECURITY;
+
+GRANT ALL ON order_verification_attempts TO service_role;
 
 CREATE TABLE IF NOT EXISTS shop_products (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

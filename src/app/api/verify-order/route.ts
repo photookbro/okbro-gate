@@ -7,7 +7,10 @@ import {
 } from '@/lib/order-verification'
 import { validateNaverOrderNumber } from '@/lib/naver-order-number'
 import { isFixedAccessCode } from '@/lib/fixed-access-code'
-import { ORDER_DUPLICATE_ERROR } from '@/lib/order-duplicate'
+import {
+  ORDER_DUPLICATE_ERROR,
+  logDuplicateVerificationAttempt,
+} from '@/lib/order-duplicate'
 import { extendUserOrderVerification } from '@/lib/verify-order-extend'
 import { loadVerificationSettings } from '@/lib/verification-settings'
 import { sendKakaoNotify } from '@/lib/kakao-notify'
@@ -35,6 +38,10 @@ async function notifyVerifySuccess(
   await sendKakaoNotify(`[오켱GATE] 인증 성공: ${eventName} - ${userEmail ?? '알 수 없음'} - 주문번호 ****${last4}`)
 }
 
+function duplicateResponse() {
+  return NextResponse.json({ success: false, error: ORDER_DUPLICATE_ERROR }, { status: 409 })
+}
+
 export async function POST(req: NextRequest) {
   const { order_number, platform, event_id } = await req.json()
 
@@ -48,6 +55,7 @@ export async function POST(req: NextRequest) {
   }
 
   const trimmedOrderNumber = order_number.trim()
+  const platformValue = String(platform).trim() || 'naver'
   const admin = supabaseAdmin()
   const settings = await loadVerificationSettings(admin)
   const periodDays = settings.verifiedPeriodDays
@@ -64,15 +72,26 @@ export async function POST(req: NextRequest) {
     .from('orders')
     .select('id, user_id')
     .eq('order_number', trimmedOrderNumber)
+    .eq('platform', platformValue)
 
   const ownedBySelf = existingOrders?.find(row => row.user_id === user.id)
   const ownedByOthers = existingOrders?.filter(row => row.user_id !== user.id) ?? []
 
+  // 구매 인증 경로 하드락: 다른 계정이 이미 쓴 (platform, order_number)는 거절
+  // (하이패스 고정코드는 예외 / 본인 재제출은 만기 연장 허용)
   if (ownedByOthers.length > 0 && !isFixedCode) {
-    return NextResponse.json(
-      { success: false, error: ORDER_DUPLICATE_ERROR },
-      { status: 409 }
+    const existing = ownedByOthers[0]
+    after(() =>
+      logDuplicateVerificationAttempt(admin, {
+        userId: user.id,
+        userEmail: user.email,
+        orderNumber: trimmedOrderNumber,
+        platform: platformValue,
+        existingOrderId: existing?.id,
+        existingUserId: existing?.user_id,
+      })
     )
+    return duplicateResponse()
   }
 
   if (!Number.isFinite(periodDays) || periodDays <= 0) {
@@ -151,7 +170,7 @@ export async function POST(req: NextRequest) {
   const { error } = await admin.from('orders').insert({
     user_id: user.id,
     order_number: trimmedOrderNumber,
-    platform,
+    platform: platformValue,
     used_at: now.toISOString(),
     expires_at: expiresAt.toISOString(),
     event_id: event_id || null,
@@ -160,6 +179,19 @@ export async function POST(req: NextRequest) {
   if (error) {
     const dbError = formatDbError(error)
     console.error('[verify-order] insert failed:', dbError)
+
+    // 레이스로 UNIQUE 충돌 → 하드락과 동일하게 거절
+    if (error.code === '23505' && !isFixedCode) {
+      after(() =>
+        logDuplicateVerificationAttempt(admin, {
+          userId: user.id,
+          userEmail: user.email,
+          orderNumber: trimmedOrderNumber,
+          platform: platformValue,
+        })
+      )
+      return duplicateResponse()
+    }
 
     if (error.code === 'PGRST204') {
       return NextResponse.json(

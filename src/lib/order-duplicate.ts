@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-export const ORDER_DUPLICATE_ERROR =
-  '중복 사용 중인 주문번호입니다. 다른 주문번호를 입력해주세요.'
+export const ORDER_DUPLICATE_ERROR = '이미 사용된 주문번호입니다'
 
 export type DuplicateUser = {
   user_id: string
@@ -17,6 +16,45 @@ export type OrderDuplicateInfo = {
 type OrderOwnerRow = {
   user_id: string
   order_number: string
+}
+
+export type DuplicateAttemptLogInput = {
+  userId: string
+  userEmail?: string | null
+  orderNumber: string
+  platform: string
+  existingOrderId?: string | null
+  existingUserId?: string | null
+}
+
+/** 중복 제출 시도 기록 (실패해도 본 요청을 막지 않음) */
+export async function logDuplicateVerificationAttempt(
+  admin: SupabaseClient,
+  input: DuplicateAttemptLogInput
+): Promise<void> {
+  console.warn('[verify-order] duplicate attempt', {
+    user_id: input.userId,
+    user_email: input.userEmail ?? null,
+    order_number: input.orderNumber,
+    platform: input.platform,
+    existing_order_id: input.existingOrderId ?? null,
+    existing_user_id: input.existingUserId ?? null,
+    at: new Date().toISOString(),
+  })
+
+  const { error } = await admin.from('order_verification_attempts').insert({
+    user_id: input.userId,
+    user_email: input.userEmail ?? null,
+    order_number: input.orderNumber,
+    platform: input.platform,
+    outcome: 'duplicate_rejected',
+    existing_order_id: input.existingOrderId ?? null,
+    existing_user_id: input.existingUserId ?? null,
+  })
+
+  if (error) {
+    console.error('[verify-order] duplicate attempt log failed:', error)
+  }
 }
 
 export async function resolveUserEmails(
