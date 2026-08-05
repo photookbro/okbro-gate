@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { parseShopProductsCsv, type ShopProductCsvRow } from '@/lib/shop-products'
+import {
+  parseShopProductsCsv,
+  parseShopProductsXlsx,
+  type ShopProductCsvRow,
+} from '@/lib/shop-products'
 
 export async function GET(req: NextRequest) {
   if (!verifyAdminToken(req)) return unauthorizedResponse()
@@ -28,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   const contentType = req.headers.get('content-type') || ''
 
-  // CSV 업로드 (text 또는 multipart)
+  // 파일 업로드 (xlsx / csv)
   if (contentType.includes('multipart/form-data')) {
     let formData: FormData
     try {
@@ -38,15 +42,14 @@ export async function POST(req: NextRequest) {
     }
     const file = formData.get('file')
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: 'CSV 파일을 선택해주세요' }, { status: 400 })
+      return NextResponse.json({ error: '엑셀(.xlsx) 또는 CSV 파일을 선택해주세요' }, { status: 400 })
     }
-    const text = await file.text()
-    return upsertFromCsv(text, file.name)
+    const previewOnly = String(formData.get('preview') ?? '') === '1'
+    return handleUploadedFile(file, previewOnly)
   }
 
   const body = await req.json().catch(() => ({}))
 
-  // 미리보기만
   if (body.preview === true && typeof body.csv_text === 'string') {
     const { rows, errors } = parseShopProductsCsv(body.csv_text)
     return NextResponse.json({
@@ -57,17 +60,52 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  // CSV 텍스트 직접 등록
   if (typeof body.csv_text === 'string') {
-    return upsertFromCsv(body.csv_text, 'inline.csv')
+    return upsertFromParsed(parseShopProductsCsv(body.csv_text), 'inline.csv')
   }
 
-  // rows 배열 등록
   if (Array.isArray(body.rows)) {
     return upsertRows(body.rows as ShopProductCsvRow[])
   }
 
-  return NextResponse.json({ error: 'csv_text 또는 rows가 필요해요' }, { status: 400 })
+  return NextResponse.json({ error: '파일 또는 csv_text / rows가 필요해요' }, { status: 400 })
+}
+
+async function handleUploadedFile(file: File, previewOnly: boolean) {
+  const lower = file.name.toLowerCase()
+  const isXlsx = lower.endsWith('.xlsx') || lower.endsWith('.xls')
+  const isCsv = lower.endsWith('.csv') || file.type === 'text/csv'
+
+  if (!isXlsx && !isCsv) {
+    return NextResponse.json(
+      { error: '엑셀(.xlsx) 또는 CSV 파일만 업로드할 수 있어요' },
+      { status: 400 }
+    )
+  }
+
+  let parsed: { rows: ShopProductCsvRow[]; errors: string[] }
+  try {
+    if (isXlsx) {
+      parsed = parseShopProductsXlsx(await file.arrayBuffer())
+    } else {
+      parsed = parseShopProductsCsv(await file.text())
+    }
+  } catch (error) {
+    console.error('[admin/shop] parse file', error)
+    return NextResponse.json({ error: '파일을 해석하지 못했어요' }, { status: 400 })
+  }
+
+  if (previewOnly) {
+    return NextResponse.json({
+      preview: true,
+      rows: parsed.rows,
+      errors: parsed.errors,
+      total: parsed.rows.length,
+      file_name: file.name,
+    })
+  }
+
+  return upsertFromParsed(parsed, file.name)
 }
 
 export async function PATCH(req: NextRequest) {
@@ -110,17 +148,23 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ product: data })
 }
 
-async function upsertFromCsv(text: string, fileName: string) {
-  const { rows, errors } = parseShopProductsCsv(text)
-  if (rows.length === 0) {
+async function upsertFromParsed(
+  parsed: { rows: ShopProductCsvRow[]; errors: string[] },
+  fileName: string
+) {
+  if (parsed.rows.length === 0) {
     return NextResponse.json(
-      { error: '등록할 상품이 없어요', parse_errors: errors },
+      { error: '등록할 상품이 없어요', parse_errors: parsed.errors },
       { status: 400 }
     )
   }
-  const result = await upsertRows(rows)
+  const result = await upsertRows(parsed.rows)
   const json = await result.json()
-  return NextResponse.json({ ...json, file_name: fileName, parse_errors: errors })
+  return NextResponse.json({
+    ...json,
+    file_name: fileName,
+    parse_errors: parsed.errors,
+  })
 }
 
 async function upsertRows(rows: ShopProductCsvRow[]) {
@@ -137,7 +181,6 @@ async function upsertRows(rows: ShopProductCsvRow[]) {
     is_active: true,
   }))
 
-  // click_count는 upsert 시 덮어쓰지 않음 — 재업로드 시 기존 클릭 유지
   const { data, error } = await admin
     .from('shop_products')
     .upsert(payload, {

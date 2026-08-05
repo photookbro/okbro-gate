@@ -53,29 +53,40 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
     void loadProducts()
   }, [loadProducts])
 
-  async function readCsvContent(): Promise<string | null> {
-    if (selectedFile) {
-      return selectedFile.text()
+  async function postFile(preview: boolean) {
+    if (!selectedFile && !csvText.trim()) {
+      setError('엑셀(.xlsx) 파일 또는 CSV를 선택/입력해주세요')
+      return null
     }
-    if (csvText.trim()) return csvText
-    return null
+
+    if (selectedFile) {
+      const formData = new FormData()
+      formData.append('file', selectedFile)
+      if (preview) formData.append('preview', '1')
+      return fetch('/api/admin/shop', {
+        method: 'POST',
+        headers: { 'x-admin-token': token },
+        body: formData,
+      })
+    }
+
+    return fetch('/api/admin/shop', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({
+        preview: preview || undefined,
+        csv_text: csvText,
+      }),
+    })
   }
 
   async function handlePreview() {
-    const text = await readCsvContent()
-    if (!text) {
-      setError('CSV 파일 또는 텍스트를 입력해주세요')
-      return
-    }
     setPreviewing(true)
     setError('')
     setUploadMsg('')
     try {
-      const res = await fetch('/api/admin/shop', {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ preview: true, csv_text: text }),
-      })
+      const res = await postFile(true)
+      if (!res) return
       const data = await res.json()
       if (!res.ok) {
         setError(typeof data.error === 'string' ? data.error : '미리보기 실패')
@@ -91,20 +102,12 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
   }
 
   async function handleImport() {
-    const text = await readCsvContent()
-    if (!text) {
-      setError('CSV 파일 또는 텍스트를 입력해주세요')
-      return
-    }
     setUploading(true)
     setError('')
     setUploadMsg('')
     try {
-      const res = await fetch('/api/admin/shop', {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ csv_text: text }),
-      })
+      const res = await postFile(false)
+      if (!res) return
       const data = await res.json()
       if (!res.ok) {
         setError(typeof data.error === 'string' ? data.error : '등록 실패')
@@ -193,18 +196,18 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <h3 className="text-base font-semibold">CSV 업로드</h3>
+        <h3 className="text-base font-semibold">엑셀 / CSV 업로드</h3>
         <p className="text-sm text-muted">
           헤더: 상품명, 쇼핑몰, 이미지URL, 정가, 할인가, 제휴링크, 카테고리, 순서
           <br />
-          같은 제휴링크면 갱신(upsert), 클릭 수는 유지됩니다.
+          .xlsx 엑셀 파일을 그대로 올려도 돼요. 같은 제휴링크면 갱신(upsert)됩니다.
         </p>
 
         <label className="block max-w-md">
-          <span className="label-field">CSV 파일</span>
+          <span className="label-field">엑셀(.xlsx) 또는 CSV 파일</span>
           <input
             type="file"
-            accept=".csv,text/csv"
+            accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
             className="input-field"
             disabled={uploading || previewing}
             onChange={e => {

@@ -1,3 +1,5 @@
+import * as XLSX from 'xlsx'
+
 export type ShopProduct = {
   id: string
   product_name: string
@@ -128,8 +130,41 @@ export function parseShopProductsCsv(text: string): {
   rows: ShopProductCsvRow[]
   errors: string[]
 } {
+  return parseShopProductsTable(parseCsvText(text))
+}
+
+export function parseShopProductsXlsx(buffer: ArrayBuffer): {
+  rows: ShopProductCsvRow[]
+  errors: string[]
+} {
+  const workbook = XLSX.read(buffer, {
+    type: 'array',
+    cellText: true,
+    cellDates: false,
+  })
+  const sheetName = workbook.SheetNames[0]
+  if (!sheetName) return { rows: [], errors: ['시트를 찾지 못했어요'] }
+  const sheet = workbook.Sheets[sheetName]
+  if (!sheet) return { rows: [], errors: ['시트를 찾지 못했어요'] }
+
+  const table = XLSX.utils.sheet_to_json<(string | number | boolean | null | undefined)[]>(
+    sheet,
+    {
+      header: 1,
+      raw: false,
+      defval: '',
+      blankrows: false,
+    }
+  ).map(row => (row ?? []).map(cell => String(cell ?? '').trim()))
+
+  return parseShopProductsTable(table)
+}
+
+export function parseShopProductsTable(table: string[][]): {
+  rows: ShopProductCsvRow[]
+  errors: string[]
+} {
   const errors: string[] = []
-  const table = parseCsvText(text)
   if (table.length < 2) {
     return { rows: [], errors: ['헤더와 데이터가 필요해요'] }
   }
@@ -173,7 +208,7 @@ export function parseShopProductsCsv(text: string): {
       continue
     }
     if (seenUrls.has(affiliate_url)) {
-      errors.push(`${r + 1}행: 제휴링크 중복 (CSV 내)`)
+      errors.push(`${r + 1}행: 제휴링크 중복 (파일 내)`)
       continue
     }
     seenUrls.add(affiliate_url)
