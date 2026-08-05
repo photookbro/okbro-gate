@@ -16,7 +16,6 @@ export async function GET(req: NextRequest) {
     .select(
       'id, product_name, store_name, image_url, price_original, price_discount, affiliate_url, category, display_order, is_active, click_count, created_at'
     )
-    .order('display_order', { ascending: true })
     .order('created_at', { ascending: false })
 
   if (error) {

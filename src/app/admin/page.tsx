@@ -1158,7 +1158,7 @@ export default function AdminPage() {
           <>
             <h2 className="section-title">SHOP</h2>
             <p className="mb-4 text-sm text-muted">
-              제휴 상품 CSV 등록 · ON/OFF · 노출 순서를 관리해요.
+              제휴 상품 CSV/엑셀 등록 · ON/OFF를 관리해요.
             </p>
             <AdminShopPanel token={token} />
           </>

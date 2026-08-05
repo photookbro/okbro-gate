@@ -126,7 +126,7 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
     }
   }
 
-  async function patchProduct(id: string, patch: { is_active?: boolean; display_order?: number }) {
+  async function patchProduct(id: string, patch: { is_active?: boolean }) {
     setBusyId(id)
     setError('')
     try {
@@ -141,52 +141,9 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
         return
       }
       const updated = data.product as ShopProduct
-      setProducts(prev => {
-        const next = prev.map(p => (p.id === id ? updated : p))
-        return next.sort(
-          (a, b) =>
-            a.display_order - b.display_order ||
-            b.created_at.localeCompare(a.created_at)
-        )
-      })
+      setProducts(prev => prev.map(p => (p.id === id ? updated : p)))
     } catch {
       setError('수정 실패')
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  async function moveOrder(product: ShopProduct, direction: -1 | 1) {
-    const sorted = [...products].sort(
-      (a, b) =>
-        a.display_order - b.display_order || b.created_at.localeCompare(a.created_at)
-    )
-    const idx = sorted.findIndex(p => p.id === product.id)
-    const swapWith = sorted[idx + direction]
-    if (!swapWith) return
-
-    const aOrder = product.display_order
-    const bOrder = swapWith.display_order
-    const nextA = aOrder === bOrder ? aOrder + direction : bOrder
-    const nextB = aOrder === bOrder ? bOrder : aOrder
-
-    setBusyId(product.id)
-    try {
-      await Promise.all([
-        fetch('/api/admin/shop', {
-          method: 'PATCH',
-          headers: headers(),
-          body: JSON.stringify({ id: product.id, display_order: nextA }),
-        }),
-        fetch('/api/admin/shop', {
-          method: 'PATCH',
-          headers: headers(),
-          body: JSON.stringify({ id: swapWith.id, display_order: nextB }),
-        }),
-      ])
-      await loadProducts()
-    } catch {
-      setError('순서 변경 실패')
     } finally {
       setBusyId(null)
     }
@@ -197,7 +154,7 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
       <section className="space-y-3">
         <h3 className="text-base font-semibold">엑셀 / CSV 업로드</h3>
         <p className="text-sm text-muted">
-          헤더: 상품명, 쇼핑몰, 이미지URL, 정가, 할인가, 제휴링크, 카테고리, 순서
+          헤더: 상품명, 쇼핑몰, 이미지URL, 정가, 할인가, 제휴링크, 카테고리
           <br />
           .xlsx 엑셀 파일을 그대로 올려도 돼요. 같은 제휴링크면 갱신(upsert)됩니다.
         </p>
@@ -223,7 +180,7 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
             className="input-field min-h-[8rem] font-mono text-xs"
             value={csvText}
             disabled={uploading || previewing}
-            placeholder={'상품명,쇼핑몰,이미지URL,정가,할인가,제휴링크,카테고리,순서'}
+            placeholder={'상품명,쇼핑몰,이미지URL,정가,할인가,제휴링크,카테고리'}
             onChange={e => {
               setCsvText(e.target.value)
               setPreviewRows([])
@@ -271,9 +228,9 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
                 <tr className="text-muted">
                   <th className="px-3 py-2">상품명</th>
                   <th className="px-3 py-2">쇼핑몰</th>
+                  <th className="px-3 py-2">카테고리</th>
                   <th className="px-3 py-2">정가</th>
                   <th className="px-3 py-2">할인가</th>
-                  <th className="px-3 py-2">순서</th>
                 </tr>
               </thead>
               <tbody>
@@ -281,9 +238,9 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
                   <tr key={`${row.affiliate_url}-${i}`} className="border-t border-[var(--border)]">
                     <td className="px-3 py-2">{row.product_name}</td>
                     <td className="px-3 py-2">{row.store_name || '-'}</td>
+                    <td className="px-3 py-2">{row.category || '-'}</td>
                     <td className="px-3 py-2">{formatWon(row.price_original)}</td>
                     <td className="px-3 py-2">{formatWon(row.price_discount)}</td>
-                    <td className="px-3 py-2">{row.display_order}</td>
                   </tr>
                 ))}
               </tbody>
@@ -300,34 +257,18 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
           <p className="text-sm text-muted">등록된 상품이 없어요.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[48rem] text-left text-sm">
+            <table className="w-full min-w-[40rem] text-left text-sm">
               <thead>
                 <tr className="border-b border-[var(--border)] text-muted">
-                  <th className="py-2 pr-2">순서</th>
                   <th className="py-2 pr-2">상품</th>
                   <th className="py-2 pr-2">가격</th>
                   <th className="py-2 pr-2">클릭</th>
-                  <th className="py-2 pr-2">ON/OFF</th>
-                  <th className="py-2">이동</th>
+                  <th className="py-2">ON/OFF</th>
                 </tr>
               </thead>
               <tbody>
                 {products.map(p => (
                   <tr key={p.id} className="border-b border-[var(--border)]">
-                    <td className="py-2 pr-2">
-                      <input
-                        type="number"
-                        className="input-field w-20 py-1.5 text-sm"
-                        defaultValue={p.display_order}
-                        key={`${p.id}-${p.display_order}`}
-                        disabled={busyId === p.id}
-                        onBlur={e => {
-                          const next = Number(e.target.value)
-                          if (!Number.isFinite(next) || next === p.display_order) return
-                          void patchProduct(p.id, { display_order: Math.floor(next) })
-                        }}
-                      />
-                    </td>
                     <td className="py-2 pr-2">
                       <p className="font-medium">{p.product_name}</p>
                       <p className="text-xs text-muted">
@@ -344,7 +285,7 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
                       ) : null}
                     </td>
                     <td className="py-2 pr-2">{p.click_count.toLocaleString('ko-KR')}</td>
-                    <td className="py-2 pr-2">
+                    <td className="py-2">
                       <button
                         type="button"
                         className={
@@ -357,26 +298,6 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
                       >
                         {p.is_active ? 'ON' : 'OFF'}
                       </button>
-                    </td>
-                    <td className="py-2">
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          className="btn-secondary-inline px-2 py-1 text-xs"
-                          disabled={busyId === p.id}
-                          onClick={() => void moveOrder(p, -1)}
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-secondary-inline px-2 py-1 text-xs"
-                          disabled={busyId === p.id}
-                          onClick={() => void moveOrder(p, 1)}
-                        >
-                          ↓
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ))}

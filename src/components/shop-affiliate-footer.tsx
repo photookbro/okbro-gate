@@ -1,12 +1,16 @@
 'use client'
 
 const DISCLOSURE =
-  '이 페이지의 일부 링크는 제휴 마케팅 링크이며, 이를 통해 구매가 이루어질 경우 운영자가 일정액의 수수료를 제공받을 수 있습니다. 상품 판매·배송·AS 및 환불은 각 쇼핑몰의 책임이며, OKbro GATE는 중개 플랫폼이 아닙니다.'
+  '본 SHOP 페이지의 상품 링크는 크리에이터 활동의 일환으로 구성되었으며, 링크를 통한 구매 발생 시 일정액의 수수료를 제공받습니다.'
 
 export function ShopAffiliateFooter() {
   return (
     <footer className="shop-affiliate-footer" role="contentinfo">
       <p className="shop-affiliate-footer-text">{DISCLOSURE}</p>
+      <p className="shop-affiliate-footer-note">
+        ※ SHOP 상품 구매는 오켱GATE{' '}
+        <span className="shop-affiliate-footer-note-em">앨범 이용 인증과 무관합니다</span>
+      </p>
     </footer>
   )
 }

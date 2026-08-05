@@ -24,6 +24,7 @@ export default function ShopPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -57,10 +58,17 @@ export default function ShopPage() {
     }
   }, [categories, activeCategory])
 
+  const trimmedQuery = searchQuery.trim()
+  const isSearching = trimmedQuery.length > 0
+
   const filteredProducts = useMemo(() => {
+    if (isSearching) {
+      const q = trimmedQuery.toLowerCase()
+      return products.filter(p => p.product_name.toLowerCase().includes(q))
+    }
     if (activeCategory === ALL_CATEGORY) return products
     return products.filter(p => p.category?.trim() === activeCategory)
-  }, [products, activeCategory])
+  }, [products, activeCategory, isSearching, trimmedQuery])
 
   const handleBuyClick = useCallback((productId: string) => {
     void fetch('/api/shop/click', {
@@ -77,7 +85,7 @@ export default function ShopPage() {
     <div className="page-shell shop-page">
       <div className="page-container">
         <h1 className="page-title">SHOP</h1>
-        <p className="page-subtitle mb-6">엄선한 러닝·자전거 장비를 만나보세요</p>
+        <p className="shop-tagline">가성비 장비</p>
 
         {loading ? <p className="text-muted">불러오는 중...</p> : null}
         {error ? <p className="alert-danger">{error}</p> : null}
@@ -90,7 +98,7 @@ export default function ShopPage() {
           <>
             <div className="shop-category-tabs" role="tablist" aria-label="상품 카테고리">
               {categories.map(category => {
-                const selected = category === activeCategory
+                const selected = !isSearching && category === activeCategory
                 return (
                   <button
                     key={category}
@@ -108,8 +116,23 @@ export default function ShopPage() {
               })}
             </div>
 
+            <label className="shop-search">
+              <input
+                type="search"
+                className="shop-search-input"
+                placeholder="상품명 검색"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                autoComplete="off"
+                enterKeyHint="search"
+                aria-label="상품명 검색"
+              />
+            </label>
+
             {filteredProducts.length === 0 ? (
-              <p className="text-muted">이 카테고리에 상품이 없어요.</p>
+              <p className="text-muted">
+                {isSearching ? '검색 결과가 없어요.' : '이 카테고리에 상품이 없어요.'}
+              </p>
             ) : (
               <div className="shop-grid">
                 {filteredProducts.map(product => (

@@ -23,7 +23,6 @@ export type ShopProductCsvRow = {
   price_discount: number
   affiliate_url: string
   category: string
-  display_order: number
 }
 
 const HEADER_MAP: Record<string, keyof ShopProductCsvRow> = {
@@ -35,7 +34,6 @@ const HEADER_MAP: Record<string, keyof ShopProductCsvRow> = {
   할인가: 'price_discount',
   제휴링크: 'affiliate_url',
   카테고리: 'category',
-  순서: 'display_order',
   product_name: 'product_name',
   store_name: 'store_name',
   image_url: 'image_url',
@@ -43,7 +41,6 @@ const HEADER_MAP: Record<string, keyof ShopProductCsvRow> = {
   price_discount: 'price_discount',
   affiliate_url: 'affiliate_url',
   category: 'category',
-  display_order: 'display_order',
 }
 
 function normalizeHeader(raw: string): string {
@@ -55,11 +52,6 @@ function parsePrice(value: string): number {
   if (!digits) return 0
   const n = Number(digits)
   return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0
-}
-
-function parseOrder(value: string): number {
-  const n = Number(value.replace(/[^\d-]/g, ''))
-  return Number.isFinite(n) ? Math.floor(n) : 0
 }
 
 /** 간단 CSV 파서 (따옴표 필드 지원) */
@@ -221,7 +213,6 @@ export function parseShopProductsTable(table: string[][]): {
       price_discount: parsePrice(get('price_discount')),
       affiliate_url,
       category: get('category'),
-      display_order: parseOrder(get('display_order')),
     })
   }
 

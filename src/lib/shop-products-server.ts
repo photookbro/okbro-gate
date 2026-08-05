@@ -15,6 +15,7 @@ export async function upsertShopProductRows(
   admin: SupabaseClient,
   rows: ShopProductCsvRow[]
 ): Promise<ShopUpsertResult> {
+  // display_order는 DB에만 유지 (UI/정렬 미사용). upsert 시 덮어쓰지 않음.
   const payload = rows.map(row => ({
     product_name: row.product_name,
     store_name: row.store_name ?? '',
@@ -23,7 +24,6 @@ export async function upsertShopProductRows(
     price_discount: row.price_discount ?? 0,
     affiliate_url: row.affiliate_url,
     category: row.category ?? '',
-    display_order: row.display_order ?? 0,
     is_active: true,
   }))
 
