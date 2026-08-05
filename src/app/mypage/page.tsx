@@ -14,6 +14,8 @@ import {
 import { ensurePushSubscription } from '@/lib/push-client'
 import { OrderNumberGuide } from '@/components/order-number-guide'
 import { MypageAlbumAccessStatus } from '@/components/mypage-album-access-status'
+import { MypageChat } from '@/components/mypage-chat'
+import { emitChatUnreadCount } from '@/lib/chat-unread-client'
 import type { InstagramFollowBonusStatus } from '@/lib/instagram-follow-bonus'
 
 type PhotoAccess = {
@@ -63,6 +65,7 @@ export default function MyPage() {
   >('default')
   const [enablingNotification, setEnablingNotification] = useState(false)
   const [notificationMsg, setNotificationMsg] = useState('')
+  const [chatUnreadCount, setChatUnreadCount] = useState(0)
 
   const loadMypage = useCallback(async () => {
     try {
@@ -116,6 +119,35 @@ export default function MyPage() {
     }
     setNotificationPermission(Notification.permission)
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    authFetch('/api/chat/unread-count')
+      .then(async res => {
+        const data = await res.json()
+        if (!cancelled && res.ok) {
+          setChatUnreadCount(typeof data.unread_count === 'number' ? data.unread_count : 0)
+        }
+      })
+      .catch(() => {
+        // ignore
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (loading) return
+    if (typeof window === 'undefined') return
+    if (window.location.hash !== '#chat') return
+    const el = document.getElementById('chat')
+    if (el) {
+      requestAnimationFrame(() => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
+    }
+  }, [loading])
 
   async function handleEnableNotification() {
     setEnablingNotification(true)
@@ -345,6 +377,29 @@ export default function MyPage() {
               ))}
             </div>
           )}
+        </div>
+
+        <div id="chat" className="card mb-4 scroll-mt-24">
+          <h2 className="section-title flex items-center gap-2">
+            1:1 문의
+            {chatUnreadCount > 0 ? (
+              <span
+                className="nav-chat-badge"
+                aria-label={`읽지 않은 메시지 ${chatUnreadCount}개`}
+              >
+                {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+              </span>
+            ) : null}
+          </h2>
+          <p className="mb-4 text-sm leading-relaxed text-muted">
+            관리자와 직접 대화할 수 있어요. 답장은 이 화면을 다시 열면 확인할 수 있어요.
+          </p>
+          <MypageChat
+            onUnreadChange={count => {
+              setChatUnreadCount(count)
+              emitChatUnreadCount(count)
+            }}
+          />
         </div>
       </div>
     </div>
