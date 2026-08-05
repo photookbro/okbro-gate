@@ -7,32 +7,8 @@ import {
   type ShopProductCsvRow,
 } from '@/lib/shop-products'
 
-type LastSync = {
-  id: string
-  started_at: string
-  finished_at: string | null
-  success: boolean
-  rows_upserted: number
-  error_message: string | null
-  triggered_by: string
-  file_name: string | null
-}
-
 type AdminShopPanelProps = {
   token: string
-}
-
-function formatSyncTime(iso: string | null | undefined): string {
-  if (!iso) return '-'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '-'
-  return d.toLocaleString('ko-KR', {
-    timeZone: 'Asia/Seoul',
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 export function AdminShopPanel({ token }: AdminShopPanelProps) {
@@ -47,28 +23,11 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
   const [uploading, setUploading] = useState(false)
   const [uploadMsg, setUploadMsg] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [lastSync, setLastSync] = useState<LastSync | null>(null)
-  const [syncing, setSyncing] = useState(false)
-  const [syncMsg, setSyncMsg] = useState('')
 
   const headers = useCallback(
     () => ({ 'x-admin-token': token, 'Content-Type': 'application/json' }),
     [token]
   )
-
-  const loadLastSync = useCallback(async () => {
-    try {
-      const res = await fetch('/api/admin/shop-sync', {
-        headers: { 'x-admin-token': token },
-      })
-      const data = await res.json()
-      if (res.ok) {
-        setLastSync((data.last_sync as LastSync | null) ?? null)
-      }
-    } catch {
-      // ignore
-    }
-  }, [token])
 
   const loadProducts = useCallback(async () => {
     setLoading(true)
@@ -92,36 +51,7 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
 
   useEffect(() => {
     void loadProducts()
-    void loadLastSync()
-  }, [loadProducts, loadLastSync])
-
-  async function handleOneDriveSync() {
-    setSyncing(true)
-    setSyncMsg('')
-    setError('')
-    try {
-      const res = await fetch('/api/admin/shop-sync', {
-        method: 'POST',
-        headers: { 'x-admin-token': token },
-      })
-      const data = await res.json()
-      if (!res.ok || data.success === false) {
-        setError(typeof data.error === 'string' ? data.error : '동기화 실패')
-        await loadLastSync()
-        return
-      }
-      setSyncMsg(
-        typeof data.summary === 'string'
-          ? `동기화 완료: ${data.summary}`
-          : `동기화 완료: ${data.rows_upserted ?? 0}건`
-      )
-      await Promise.all([loadProducts(), loadLastSync()])
-    } catch {
-      setError('동기화 요청 실패')
-    } finally {
-      setSyncing(false)
-    }
-  }
+  }, [loadProducts])
 
   async function postFile(preview: boolean) {
     if (!selectedFile && !csvText.trim()) {
@@ -237,7 +167,6 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
 
     const aOrder = product.display_order
     const bOrder = swapWith.display_order
-    // 순서가 같으면 강제 차이를 줌
     const nextA = aOrder === bOrder ? aOrder + direction : bOrder
     const nextB = aOrder === bOrder ? bOrder : aOrder
 
@@ -265,39 +194,6 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
 
   return (
     <div className="space-y-6">
-      <section className="space-y-3">
-        <h3 className="text-base font-semibold">OneDrive 자동 동기화</h3>
-        <p className="text-sm text-muted">
-          Vercel의 <code>ONEDRIVE_SHOP_FILE_URL</code> 공유 링크 파일을 가져와 상품을 갱신해요.
-          GitHub Actions가 1시간마다 같은 API를 호출합니다.
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            className="btn-primary-inline"
-            disabled={syncing}
-            onClick={() => void handleOneDriveSync()}
-          >
-            {syncing ? '동기화 중...' : '지금 동기화'}
-          </button>
-          <p className="mb-0 text-sm text-muted">
-            마지막 동기화:{' '}
-            {lastSync
-              ? `${formatSyncTime(lastSync.finished_at ?? lastSync.started_at)} (${
-                  lastSync.success ? '성공' : '실패'
-                }${
-                  lastSync.success
-                    ? ` · ${lastSync.rows_upserted.toLocaleString('ko-KR')}건`
-                    : lastSync.error_message
-                      ? ` · ${lastSync.error_message}`
-                      : ''
-                })`
-              : '기록 없음'}
-          </p>
-        </div>
-        {syncMsg ? <p className="alert-success mb-0">{syncMsg}</p> : null}
-      </section>
-
       <section className="space-y-3">
         <h3 className="text-base font-semibold">엑셀 / CSV 업로드</h3>
         <p className="text-sm text-muted">
@@ -452,7 +348,9 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
                       <button
                         type="button"
                         className={
-                          p.is_active ? 'btn-primary-inline px-3 py-1.5 text-xs' : 'btn-secondary-inline px-3 py-1.5 text-xs'
+                          p.is_active
+                            ? 'btn-primary-inline px-3 py-1.5 text-xs'
+                            : 'btn-secondary-inline px-3 py-1.5 text-xs'
                         }
                         disabled={busyId === p.id}
                         onClick={() => void patchProduct(p.id, { is_active: !p.is_active })}

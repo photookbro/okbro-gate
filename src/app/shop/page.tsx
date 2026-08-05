@@ -1,13 +1,29 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatWon, type ShopProduct } from '@/lib/shop-products'
 import { ShopAffiliateFooter } from '@/components/shop-affiliate-footer'
+
+const ALL_CATEGORY = '전체'
+
+function buildCategoryTabs(products: ShopProduct[]): string[] {
+  const seen = new Set<string>()
+  const categories: string[] = []
+  for (const product of products) {
+    const category = product.category?.trim()
+    if (!category || seen.has(category)) continue
+    seen.add(category)
+    categories.push(category)
+  }
+  categories.sort((a, b) => a.localeCompare(b, 'ko'))
+  return [ALL_CATEGORY, ...categories]
+}
 
 export default function ShopPage() {
   const [products, setProducts] = useState<ShopProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY)
 
   useEffect(() => {
     let cancelled = false
@@ -32,6 +48,19 @@ export default function ShopPage() {
       cancelled = true
     }
   }, [])
+
+  const categories = useMemo(() => buildCategoryTabs(products), [products])
+
+  useEffect(() => {
+    if (!categories.includes(activeCategory)) {
+      setActiveCategory(ALL_CATEGORY)
+    }
+  }, [categories, activeCategory])
+
+  const filteredProducts = useMemo(() => {
+    if (activeCategory === ALL_CATEGORY) return products
+    return products.filter(p => p.category?.trim() === activeCategory)
+  }, [products, activeCategory])
 
   const handleBuyClick = useCallback((productId: string) => {
     void fetch('/api/shop/click', {
@@ -58,53 +87,79 @@ export default function ShopPage() {
         ) : null}
 
         {products.length > 0 ? (
-          <div className="shop-grid">
-            {products.map(product => (
-              <article key={product.id} className="shop-card">
-                <div className="shop-card-image-wrap">
-                  {product.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- 외부 CDN 제휴 이미지
-                    <img
-                      src={product.image_url}
-                      alt={product.product_name}
-                      className="shop-card-image"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="shop-card-image-placeholder">NO IMAGE</div>
-                  )}
-                </div>
-                <div className="shop-card-body">
-                  {product.store_name ? (
-                    <p className="shop-card-store">{product.store_name}</p>
-                  ) : null}
-                  <h2 className="shop-card-title">{product.product_name}</h2>
-                  <div className="shop-card-price">
-                    <span className="shop-card-price-discount">
-                      {formatWon(product.price_discount || product.price_original)}
-                    </span>
-                    {product.price_original > product.price_discount &&
-                    product.price_discount > 0 ? (
-                      <span className="shop-card-price-original">
-                        {formatWon(product.price_original)}
-                      </span>
-                    ) : null}
-                  </div>
-                  <a
-                    href={product.affiliate_url}
-                    target="_blank"
-                    rel="noopener noreferrer sponsored"
-                    data-guest-allowed
-                    className="btn-primary shop-card-cta no-underline"
-                    onClick={() => handleBuyClick(product.id)}
+          <>
+            <div className="shop-category-tabs" role="tablist" aria-label="상품 카테고리">
+              {categories.map(category => {
+                const selected = category === activeCategory
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    className={
+                      selected ? 'shop-category-tab shop-category-tab-active' : 'shop-category-tab'
+                    }
+                    onClick={() => setActiveCategory(category)}
                   >
-                    구매하러 가기
-                  </a>
-                </div>
-              </article>
-            ))}
-          </div>
+                    {category}
+                  </button>
+                )
+              })}
+            </div>
+
+            {filteredProducts.length === 0 ? (
+              <p className="text-muted">이 카테고리에 상품이 없어요.</p>
+            ) : (
+              <div className="shop-grid">
+                {filteredProducts.map(product => (
+                  <article key={product.id} className="shop-card">
+                    <div className="shop-card-image-wrap">
+                      {product.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- 외부 CDN 제휴 이미지
+                        <img
+                          src={product.image_url}
+                          alt={product.product_name}
+                          className="shop-card-image"
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="shop-card-image-placeholder">NO IMAGE</div>
+                      )}
+                    </div>
+                    <div className="shop-card-body">
+                      {product.store_name ? (
+                        <p className="shop-card-store">{product.store_name}</p>
+                      ) : null}
+                      <h2 className="shop-card-title">{product.product_name}</h2>
+                      <div className="shop-card-price">
+                        <span className="shop-card-price-discount">
+                          {formatWon(product.price_discount || product.price_original)}
+                        </span>
+                        {product.price_original > product.price_discount &&
+                        product.price_discount > 0 ? (
+                          <span className="shop-card-price-original">
+                            {formatWon(product.price_original)}
+                          </span>
+                        ) : null}
+                      </div>
+                      <a
+                        href={product.affiliate_url}
+                        target="_blank"
+                        rel="noopener noreferrer sponsored"
+                        data-guest-allowed
+                        className="btn-primary shop-card-cta no-underline"
+                        onClick={() => handleBuyClick(product.id)}
+                      >
+                        구매하러 가기
+                      </a>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </>
         ) : null}
 
         <ShopAffiliateFooter />
