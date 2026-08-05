@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { formatWon, type ShopProduct } from '@/lib/shop-products'
+import { resolveShopBuyHref } from '@/lib/shop-naver-intent'
 import { ShopAffiliateFooter } from '@/components/shop-affiliate-footer'
 
 const ALL_CATEGORY = '전체'
@@ -70,16 +71,26 @@ export default function ShopPage() {
     return products.filter(p => p.category?.trim() === activeCategory)
   }, [products, activeCategory, isSearching, trimmedQuery])
 
-  const handleBuyClick = useCallback((productId: string) => {
-    void fetch('/api/shop/click', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ product_id: productId }),
-      keepalive: true,
-    }).catch(() => {
-      // 새 탭 이동을 막지 않음
-    })
-  }, [])
+  const handleBuyClick = useCallback(
+    (e: MouseEvent<HTMLAnchorElement>, product: ShopProduct) => {
+      void fetch('/api/shop/click', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: product.id }),
+        keepalive: true,
+      }).catch(() => {
+        // 이동을 막지 않음
+      })
+
+      const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+      const resolved = resolveShopBuyHref(product.affiliate_url, ua)
+      if (!resolved.sameWindow) return
+
+      e.preventDefault()
+      window.location.href = resolved.href
+    },
+    []
+  )
 
   return (
     <div className="page-shell shop-page">
@@ -173,7 +184,7 @@ export default function ShopPage() {
                         rel="noopener noreferrer sponsored"
                         data-guest-allowed
                         className="btn-primary shop-card-cta no-underline"
-                        onClick={() => handleBuyClick(product.id)}
+                        onClick={e => handleBuyClick(e, product)}
                       >
                         구매하러 가기
                       </a>
