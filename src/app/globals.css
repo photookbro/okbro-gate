@@ -1973,3 +1973,122 @@ body {
   line-height: 1.55;
   word-break: keep-all;
 }
+
+/* Shop */
+.shop-page {
+  background: #0d0d0d;
+  color: #ffffff;
+}
+
+.shop-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .shop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .shop-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.shop-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--bg-card);
+}
+
+.shop-card-image-wrap {
+  aspect-ratio: 1 / 1;
+  background: #111;
+  overflow: hidden;
+}
+
+.shop-card-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.shop-card-image-placeholder {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+}
+
+.shop-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem 1rem;
+}
+
+.shop-card-store {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line-height);
+}
+
+.shop-card-title {
+  margin: 0;
+  color: #ffffff;
+  font-size: var(--font-body-size);
+  font-weight: 600;
+  line-height: 1.4;
+  word-break: keep-all;
+}
+
+.shop-card-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin-top: 0.25rem;
+}
+
+.shop-card-price-discount {
+  color: #ff2800;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.shop-card-price-original {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-decoration: line-through;
+}
+
+.shop-card-cta {
+  margin-top: auto;
+  padding-top: 0.85rem;
+}
+
+.shop-affiliate-footer {
+  margin-top: 2.5rem;
+  padding: 1rem 0 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.shop-affiliate-footer-text {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-caption-size);
+  line-height: 1.55;
+  word-break: keep-all;
+}

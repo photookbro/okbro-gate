@@ -8,6 +8,7 @@ import { InstagramFollowersUpload } from '@/components/admin/instagram-followers
 import { NotificationsAdminPanel } from '@/components/admin/notifications-admin-panel'
 import { AdminChatPanel } from '@/components/admin/admin-chat-panel'
 import { NaverOrdersAdminPanel } from '@/components/admin/naver-orders-admin-panel'
+import { AdminShopPanel } from '@/components/admin/admin-shop-panel'
 import {
   AdminGpsLocationMap,
   type GpsMapSlot,
@@ -169,6 +170,7 @@ const TAB_LABELS = {
   event_monitoring: 'MONITORING',
   chat: 'CHAT',
   naver_orders: 'NAVER ORDERS',
+  shop: 'SHOP',
 } as const
 
 function formatDateOnly(date: string | null | undefined): string {
@@ -200,7 +202,7 @@ function OxBadge({ value }: { value: boolean }) {
 export default function AdminPage() {
   const token = useAdminToken()
   const [tab, setTab] = useState<
-    'events' | 'settings' | 'players' | 'event_monitoring' | 'chat' | 'naver_orders'
+    'events' | 'settings' | 'players' | 'event_monitoring' | 'chat' | 'naver_orders' | 'shop'
   >('events')
   const [chatInitialUserId, setChatInitialUserId] = useState<string | null>(null)
   const [events, setEvents] = useState<Event[]>([])
@@ -1149,6 +1151,16 @@ export default function AdminPage() {
               네이버 주문내역 엑셀 업로드와 위조·중복 의심 계정 대조를 여기서 해요.
             </p>
             <NaverOrdersAdminPanel token={token} />
+          </>
+        )}
+
+        {tab === 'shop' && (
+          <>
+            <h2 className="section-title">SHOP</h2>
+            <p className="mb-4 text-sm text-muted">
+              제휴 상품 CSV 등록 · ON/OFF · 노출 순서를 관리해요.
+            </p>
+            <AdminShopPanel token={token} />
           </>
         )}
 
