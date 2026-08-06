@@ -960,8 +960,8 @@ body {
   background-color: var(--border);
 }
 
-/* 무드컷: 기본 흑백+어둡게 → 데스크톱(마우스) 호버 시에만 컬러.
-   모바일/터치는 흑백 고정 — :hover 스티키로 컬러가 남는 것 방지.
+/* 무드컷: 기본 어두운 흑백 → 데스크톱(마우스) 호버 시 컬러.
+   모바일/터치는 밝은 흑백 고정 (예전 호버 톤).
    대회 목록 카드 전용 — 앨범 사진(외부 링크)에는 영향 없음. */
 .event-portrait-photo {
   width: 100%;
@@ -995,7 +995,7 @@ body {
   }
 }
 
-/* 터치·모바일: hover/active/focus에도 흑백 유지 */
+/* 터치·모바일: 밝은 흑백 고정 (밝기·오버레이는 예전 호버 톤) */
 @media (hover: none), (pointer: coarse) {
   .event-portrait-photo-link .event-portrait-photo,
   .event-portrait-photo-link:hover .event-portrait-photo,
@@ -1003,7 +1003,7 @@ body {
   .event-portrait-photo-link:focus .event-portrait-photo,
   .event-portrait-photo-link:focus-visible .event-portrait-photo {
     transform: none;
-    filter: grayscale(1) brightness(0.42) contrast(1.2);
+    filter: grayscale(1) brightness(0.6) contrast(1.25);
   }
 
   .event-portrait-photo-link::after,
@@ -1011,7 +1011,7 @@ body {
   .event-portrait-photo-link:active::after,
   .event-portrait-photo-link:focus::after,
   .event-portrait-photo-link:focus-visible::after {
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(0, 0, 0, 0.12);
   }
 }
 
