@@ -15,7 +15,7 @@ export function verifyAdminToken(req: NextRequest): boolean {
 export function requireAdmin(req: NextRequest): NextResponse | null {
   const ip = clientIpFromRequest(req.headers)
 
-  const windowLimit = checkRateLimit(`admin:${ip}`, 60, 60_000)
+  const windowLimit = checkRateLimit(`admin:${ip}`, 300, 60_000)
   if (!windowLimit.ok) {
     return NextResponse.json(
       { error: '요청이 너무 많아요. 잠시 후 다시 시도해주세요.' },

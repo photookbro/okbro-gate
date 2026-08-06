@@ -37,17 +37,27 @@ export function EventPhotoUpload({ token, eventId, photoUrl, onChange }: EventPh
         headers: { 'x-admin-token': token },
         body: formData,
       })
-      const data = await res.json()
+
+      const raw = await res.text()
+      let data: { error?: string; photo_url?: string | null } = {}
+      try {
+        data = raw ? (JSON.parse(raw) as { error?: string; photo_url?: string | null }) : {}
+      } catch {
+        setError(
+          `사진 업로드 실패 (${res.status}). 서버 응답을 읽지 못했어요. 페이지를 새로고침 후 다시 시도해주세요.`
+        )
+        return
+      }
 
       if (!res.ok) {
-        setError(data.error ?? '사진 업로드 실패')
+        setError(data.error ?? `사진 업로드 실패 (${res.status})`)
         return
       }
 
       onChange(data.photo_url ?? null)
       setSelectedFile(null)
     } catch {
-      setError('사진 업로드 중 오류가 발생했어요')
+      setError('사진 업로드 중 오류가 발생했어요. 네트워크를 확인한 뒤 다시 시도해주세요.')
     } finally {
       setUploading(false)
     }
