@@ -1,7 +1,9 @@
 'use client'
-import { useState, useEffect, use } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useState, useEffect, use, useMemo } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import GpsDetector from '@/components/gps-detector'
+import type { Event } from '@/types'
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -9,43 +11,43 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [searchType, setSearchType] = useState<'bib' | 'name'>('bib')
   const [results, setResults] = useState<any[]>([])
   const [searched, setSearched] = useState(false)
-  const [event, setEvent] = useState<any>(null)
+  const [event, setEvent] = useState<Event | null>(null)
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
     supabase.from('events').select('*').eq('id', id).single()
       .then(({ data }) => setEvent(data))
-  }, [id])
+  }, [id, supabase])
 
   async function handleSearch() {
     if (!query.trim()) return
-    const field = searchType === 'bib' ? 'bib_number' : 'participant_name'
     let data: any[] = []
-if (searchType === 'bib') {
-  const bibNum = parseInt(query.trim())
-  const tolerance = 100
-  const { data: exact } = await supabase
-    .from('photos')
-    .select('*')
-    .eq('event_id', id)
-    .eq('bib_number', query.trim())
-  
-  const { data: similar } = await supabase
-    .from('photos')
-    .select('*')
-    .eq('event_id', id)
-    .neq('bib_number', query.trim())
-    .gte('bib_number', String(bibNum - tolerance))
-    .lte('bib_number', String(bibNum + tolerance))
+    if (searchType === 'bib') {
+      const bibNum = parseInt(query.trim())
+      const tolerance = 100
+      const { data: exact } = await supabase
+        .from('photos')
+        .select('*')
+        .eq('event_id', id)
+        .eq('bib_number', query.trim())
 
-  data = [...(exact ?? []), ...(similar ?? [])]
-} else {
-  const { data: nameData } = await supabase
-    .from('photos')
-    .select('*')
-    .eq('event_id', id)
-    .ilike('participant_name', `%${query.trim()}%`)
-  data = nameData ?? []
-}
+      const { data: similar } = await supabase
+        .from('photos')
+        .select('*')
+        .eq('event_id', id)
+        .neq('bib_number', query.trim())
+        .gte('bib_number', String(bibNum - tolerance))
+        .lte('bib_number', String(bibNum + tolerance))
+
+      data = [...(exact ?? []), ...(similar ?? [])]
+    } else {
+      const { data: nameData } = await supabase
+        .from('photos')
+        .select('*')
+        .eq('event_id', id)
+        .ilike('participant_name', `%${query.trim()}%`)
+      data = nameData ?? []
+    }
     setResults(data ?? [])
     setSearched(true)
   }
@@ -62,6 +64,8 @@ if (searchType === 'bib') {
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '2rem' }}>
           📅 {event?.date} &nbsp;·&nbsp; 📍 {event?.location}
         </p>
+
+        {event && <GpsDetector event={event} />}
 
         <div className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>

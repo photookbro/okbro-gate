@@ -7,7 +7,19 @@ export interface Event {
   photo_count: number
   cover_image_url?: string
   drive_folder_id: string
+  gps_lat?: number | null
+  gps_lng?: number | null
+  gps_radius_meters?: number
+  gps_enabled?: boolean
   created_at: string
+}
+
+export interface GpsLog {
+  id: string
+  user_id: string
+  event_id: string
+  passed_at: string
+  notified: boolean
 }
 
 export interface Photo {

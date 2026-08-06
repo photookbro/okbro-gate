@@ -1,7 +1,8 @@
-import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
 
 export default async function EventsPage() {
+  const supabase = await createClient()
   const { data: events } = await supabase
     .from('events')
     .select('*')
