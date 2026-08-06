@@ -9,6 +9,7 @@ import { NotificationsAdminPanel } from '@/components/admin/notifications-admin-
 import { AdminChatPanel } from '@/components/admin/admin-chat-panel'
 import { NaverOrdersAdminPanel } from '@/components/admin/naver-orders-admin-panel'
 import { AdminShopPanel } from '@/components/admin/admin-shop-panel'
+import { AppContentAdminPanel } from '@/components/admin/app-content-admin-panel'
 import {
   AdminGpsLocationMap,
   type GpsMapSlot,
@@ -166,6 +167,7 @@ type EventMonitorRow = {
 const TAB_LABELS = {
   events: 'MANAGE EVENTS',
   settings: 'SETTINGS',
+  guide: '이용안내',
   players: 'PLAYERS',
   event_monitoring: 'MONITORING',
   chat: 'CHAT',
@@ -202,7 +204,14 @@ function OxBadge({ value }: { value: boolean }) {
 export default function AdminPage() {
   const token = useAdminToken()
   const [tab, setTab] = useState<
-    'events' | 'settings' | 'players' | 'event_monitoring' | 'chat' | 'naver_orders' | 'shop'
+    | 'events'
+    | 'settings'
+    | 'guide'
+    | 'players'
+    | 'event_monitoring'
+    | 'chat'
+    | 'naver_orders'
+    | 'shop'
   >('events')
   const [chatInitialUserId, setChatInitialUserId] = useState<string | null>(null)
   const [events, setEvents] = useState<Event[]>([])
@@ -1161,6 +1170,16 @@ export default function AdminPage() {
               제휴 상품 CSV/엑셀 등록 · ON/OFF를 관리해요.
             </p>
             <AdminShopPanel token={token} />
+          </>
+        )}
+
+        {tab === 'guide' && (
+          <>
+            <h2 className="section-title">이용안내</h2>
+            <p className="mb-4 text-sm text-muted">
+              온보딩에 보이는 「이용 안내 및 동의」 문구를 수정해요.
+            </p>
+            <AppContentAdminPanel token={token} />
           </>
         )}
 

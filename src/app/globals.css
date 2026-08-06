@@ -960,8 +960,9 @@ body {
   background-color: var(--border);
 }
 
-/* 무드컷 처리: 흑백 + 어둡게(실루엣에 가깝게). 대회 목록 카드 전용 —
-   대회 상세의 실제 앨범 사진(구글 포토/드라이브, 외부 링크)에는 영향 없음. */
+/* 무드컷: 기본 흑백+어둡게 → 데스크톱 호버/포커스 시 컬러.
+   터치 기기는 hover 스티키 방지를 위해 흑백 유지.
+   대회 목록 카드 전용 — 앨범 사진(외부 링크)에는 영향 없음. */
 .event-portrait-photo {
   width: 100%;
   height: 100%;
@@ -980,15 +981,17 @@ body {
   pointer-events: none;
 }
 
-.event-portrait-photo-link:hover .event-portrait-photo,
-.event-portrait-photo-link:focus-visible .event-portrait-photo {
-  transform: scale(1.03);
-  filter: grayscale(1) brightness(0.6) contrast(1.25);
-}
+@media (hover: hover) and (pointer: fine) {
+  .event-portrait-photo-link:hover .event-portrait-photo,
+  .event-portrait-photo-link:focus-visible .event-portrait-photo {
+    transform: scale(1.03);
+    filter: none;
+  }
 
-.event-portrait-photo-link:hover::after,
-.event-portrait-photo-link:focus-visible::after {
-  background: rgba(0, 0, 0, 0.12);
+  .event-portrait-photo-link:hover::after,
+  .event-portrait-photo-link:focus-visible::after {
+    background: transparent;
+  }
 }
 
 .event-portrait-photo-placeholder {
@@ -2173,4 +2176,50 @@ body {
 .shop-card-cta {
   margin-top: auto;
   padding-top: 0.85rem;
+}
+
+.terms-guide-markdown {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.terms-guide-markdown h2 {
+  margin: 1rem 0 0.5rem;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.terms-guide-markdown h2:first-child {
+  margin-top: 0;
+}
+
+.terms-guide-markdown p {
+  margin: 0 0 0.5rem;
+}
+
+.terms-guide-markdown ul {
+  margin: 0 0 0.75rem;
+  padding-left: 1.1rem;
+}
+
+.terms-guide-markdown li {
+  margin-bottom: 0.25rem;
+}
+
+.terms-guide-markdown blockquote {
+  margin: 0 0 0.75rem;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 2px solid var(--danger);
+  background-color: var(--color-danger-bg);
+  color: #ff6b52;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.terms-guide-markdown blockquote p {
+  margin: 0;
 }

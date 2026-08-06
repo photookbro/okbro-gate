@@ -292,3 +292,19 @@ GRANT SELECT ON shop_products TO anon, authenticated;
 INSERT INTO settings (key, value)
 VALUES ('instagram_follow_bonus_days', '5')
 ON CONFLICT (key) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS app_content (
+  key text PRIMARY KEY,
+  content text NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE app_content ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "app_content_select_public"
+  ON app_content FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+GRANT SELECT ON app_content TO anon, authenticated;
+GRANT ALL ON app_content TO service_role;
