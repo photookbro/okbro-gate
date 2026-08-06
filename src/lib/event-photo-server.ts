@@ -8,6 +8,8 @@ import {
   validateEventPhotoFile,
 } from '@/lib/event-photo'
 
+const FALLBACK_MAX_BYTES = 2 * 1024 * 1024
+
 async function ensureSiteAssetsBucket(admin: SupabaseClient): Promise<void> {
   const { data: buckets, error: listError } = await admin.storage.listBuckets()
   if (listError) {
@@ -21,12 +23,45 @@ async function ensureSiteAssetsBucket(admin: SupabaseClient): Promise<void> {
 
   const { error: createError } = await admin.storage.createBucket(EVENT_PHOTO_STORAGE_BUCKET, {
     public: true,
-    fileSizeLimit: 2 * 1024 * 1024,
-    allowedMimeTypes: ['image/webp'],
+    fileSizeLimit: FALLBACK_MAX_BYTES,
+    allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
   })
 
   if (createError && !createError.message.toLowerCase().includes('already exists')) {
     throw createError
+  }
+}
+
+function originalUploadPlan(file: File, eventId: string, inputBuffer: Buffer): {
+  buffer: Buffer
+  contentType: string
+  storagePath: string
+} {
+  if (inputBuffer.length > FALLBACK_MAX_BYTES) {
+    throw new Error(
+      '이미지 압축에 실패했어요. 2MB 이하 JPEG/PNG로 다시 올려주시거나, 잠시 후 다시 시도해주세요.'
+    )
+  }
+
+  const mime = (file.type || '').toLowerCase()
+  if (mime.includes('png')) {
+    return {
+      buffer: inputBuffer,
+      contentType: 'image/png',
+      storagePath: `event-photos/${eventId}.png`,
+    }
+  }
+  if (mime.includes('webp')) {
+    return {
+      buffer: inputBuffer,
+      contentType: 'image/webp',
+      storagePath: eventPhotoStoragePath(eventId),
+    }
+  }
+  return {
+    buffer: inputBuffer,
+    contentType: 'image/jpeg',
+    storagePath: `event-photos/${eventId}.jpg`,
   }
 }
 
@@ -46,19 +81,34 @@ export async function uploadEventPhoto(
   await ensureSiteAssetsBucket(admin)
 
   const inputBuffer = Buffer.from(await file.arrayBuffer())
-  const optimized = await optimizeImageToWebp(inputBuffer)
-  const storagePath = eventPhotoStoragePath(eventId)
+
+  let buffer: Buffer
+  let contentType: string
+  let storagePath: string
+
+  try {
+    const optimized = await optimizeImageToWebp(inputBuffer)
+    buffer = optimized.buffer
+    contentType = optimized.mimeType
+    storagePath = eventPhotoStoragePath(eventId)
+  } catch (optimizeError) {
+    console.error('[event-photo] optimize failed, uploading original:', optimizeError)
+    const plan = originalUploadPlan(file, eventId, inputBuffer)
+    buffer = plan.buffer
+    contentType = plan.contentType
+    storagePath = plan.storagePath
+  }
 
   const { error: uploadError } = await admin.storage
     .from(EVENT_PHOTO_STORAGE_BUCKET)
-    .upload(storagePath, optimized.buffer, {
+    .upload(storagePath, buffer, {
       upsert: true,
-      contentType: 'image/webp',
+      contentType,
       cacheControl: '3600',
     })
 
   if (uploadError) {
-    throw uploadError
+    throw new Error(uploadError.message || '스토리지 업로드에 실패했어요')
   }
 
   const { data: publicUrlData } = admin.storage
@@ -74,19 +124,24 @@ export async function uploadEventPhoto(
     .eq('id', eventId)
 
   if (updateError) {
-    throw updateError
+    throw new Error(updateError.message || '대회 사진 URL 저장에 실패했어요')
   }
 
   return { photoUrl }
 }
 
 export async function deleteEventPhoto(admin: SupabaseClient, eventId: string): Promise<void> {
-  const storagePath = eventPhotoStoragePath(eventId)
+  const paths = [
+    eventPhotoStoragePath(eventId),
+    `event-photos/${eventId}.jpg`,
+    `event-photos/${eventId}.jpeg`,
+    `event-photos/${eventId}.png`,
+  ]
 
-  await admin.storage.from(EVENT_PHOTO_STORAGE_BUCKET).remove([storagePath])
+  await admin.storage.from(EVENT_PHOTO_STORAGE_BUCKET).remove(paths)
 
   const { error } = await admin.from('events').update({ photo_url: null }).eq('id', eventId)
   if (error) {
-    throw error
+    throw new Error(error.message || '대회 사진 삭제에 실패했어요')
   }
 }

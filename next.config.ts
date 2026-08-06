@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  // Vercel linux 런타임에서 sharp 네이티브 바이너리 로드에 필요
+  serverExternalPackages: ['sharp'],
   onDemandEntries: {
     maxInactiveAge: 60 * 1000,
     pagesBufferLength: 5,
