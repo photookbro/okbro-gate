@@ -133,16 +133,16 @@ export function TermsAgreement({
   }
 
   const content = (
-    <>
-      <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)', margin: '0 0 0.35rem' }}>
+    <div className="terms-agreement-content">
+      <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#ffffff', margin: '0 0 0.35rem' }}>
         이용 안내 및 동의
       </h2>
-      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0 0 1.25rem', lineHeight: 1.5 }}>
+      <p style={{ color: '#ffffff', fontSize: '0.85rem', margin: '0 0 1.25rem', lineHeight: 1.5 }}>
         앨범 이용 전 아래 내용을 확인해 주세요.
       </p>
 
       {guideLoading ? (
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0 0 1rem' }}>불러오는 중...</p>
+        <p style={{ color: '#ffffff', fontSize: '0.85rem', margin: '0 0 1rem' }}>불러오는 중...</p>
       ) : (
         <div style={{ marginBottom: '1.25rem' }}>
           {blocks.map((block, index) => (
@@ -177,7 +177,7 @@ export function TermsAgreement({
               onChange={e => box.onChange(e.target.checked)}
               style={{ marginTop: '0.2rem', flexShrink: 0 }}
             />
-            <span style={{ color: 'var(--text)', fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.5 }}>
+            <span style={{ color: '#ffffff', fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.5 }}>
               {box.label}
             </span>
           </label>
@@ -218,7 +218,7 @@ export function TermsAgreement({
       >
         {submitting ? '저장 중...' : isPage ? '동의하고 계속하기' : '사진 보러가기 →'}
       </button>
-    </>
+    </div>
   )
 
   if (isPage) {
