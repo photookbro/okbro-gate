@@ -113,8 +113,9 @@ function FollowerAccessRow({
     <div className="mypage-access-row">
       <p className="mypage-access-row-label">팔로워 인증 열람일</p>
       <p className="mb-3 text-sm leading-relaxed text-muted">
-        인스타그램(@photo_ok_bro)을 팔로우하고 계신가요? 아이디를 알려주시면 가입일 포함{' '}
-        {bonus_days_setting}일간 별도 인증 없이 사진을 확인하실 수 있어요.
+        인스타그램(@photo_ok_bro)을 팔로우하고 계신가요? 팔로워로 확인된 아이디를 알려주시면
+        입력할 때마다 {bonus_days_setting}일씩 열람 기간이 늘어나요. 다른 아이디도 추가로
+        등록할 수 있어요. (같은 아이디는 중복 사용 불가)
       </p>
       {state === 'not_matched' ? (
         <p className="alert-warning mb-4">

@@ -8,6 +8,7 @@ import { formatVerificationDate, type VerificationInfo } from '@/lib/order-verif
 import { NAVER_ORDER_PLACEHOLDER } from '@/lib/naver-order-number'
 import { AlbumAccessModal } from '@/components/album-access-modal'
 import { OrderNumberGuide } from '@/components/order-number-guide'
+import { authFetch } from '@/lib/supabase/auth-client'
 
 function VerifyOrderContent() {
   const router = useRouter()
@@ -49,7 +50,7 @@ function VerifyOrderContent() {
           ? `/api/verify-order/status?event_id=${encodeURIComponent(eventId)}`
           : '/api/verify-order/status'
 
-        const statusRes = await fetch(statusUrl)
+        const statusRes = await authFetch(statusUrl)
         const statusData = await statusRes.json()
         if (cancelled) return
 
@@ -98,7 +99,7 @@ function VerifyOrderContent() {
     setErrorMsg('')
 
     try {
-      const res = await fetch('/api/verify-order', {
+      const res = await authFetch('/api/verify-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -108,32 +109,40 @@ function VerifyOrderContent() {
         }),
       })
 
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
 
-      if (data.success) {
-        const statusRes = await fetch(
+      if (!res.ok || !data.success) {
+        setErrorMsg(
+          typeof data.error === 'string' ? data.error : '인증 실패'
+        )
+        return
+      }
+
+      setOrderInput('')
+
+      try {
+        const statusRes = await authFetch(
           eventId
             ? `/api/verify-order/status?event_id=${encodeURIComponent(eventId)}`
             : '/api/verify-order/status'
         )
-        const statusData = await statusRes.json()
+        const statusData = await statusRes.json().catch(() => ({}))
         if (statusRes.ok && statusData?.status) {
           setVerification(statusData as VerificationInfo)
         }
-        setOrderInput('')
-        setLoading(false)
-
-        if (albumBUrl) {
-          setShowAlbumModal(true)
-        } else if (eventId) {
-          router.push(`/events/${eventId}`)
-        }
-      } else {
-        setErrorMsg(data.error ?? '인증 실패')
-        setLoading(false)
+      } catch {
+        // 상태 갱신 실패해도 인증 자체는 성공 — 원래 화면으로 복귀
       }
+
+      // GPS/대회 화면에서 온 경우 즉시 복귀 (앨범 모달로 가두지 않음)
+      if (eventId) {
+        router.push(`/events/${eventId}`)
+        return
+      }
+      router.push('/events')
     } catch {
       setErrorMsg('요청 중 오류가 발생했어요')
+    } finally {
       setLoading(false)
     }
   }

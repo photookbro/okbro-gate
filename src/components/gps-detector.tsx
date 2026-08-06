@@ -761,7 +761,10 @@ export function GpsDetector({
 
         {verificationChecked && !gpsTrackingEligible && (
           <p className="text-xs text-muted">
-            <Link href="/verify-order" className="text-xs text-muted underline">
+            <Link
+              href={`/verify-order?eventId=${encodeURIComponent(eventId)}`}
+              className="text-xs text-muted underline"
+            >
               구매 인증 후 이용 가능해요
             </Link>
           </p>

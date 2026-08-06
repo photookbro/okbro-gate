@@ -3,7 +3,8 @@ import { getAuthenticatedUser } from '@/lib/auth-server'
 import { normalizeInstagramHandle } from '@/lib/instagram-handle'
 import {
   buildInstagramFollowBonusStatus,
-  calculateInstagramBonusExpiresAt,
+  calculateInstagramBonusClaimExpiresAt,
+  getActiveInstagramBonusExpiresAt,
   getApprovedInstagramFollowBonus,
   getLatestInstagramFollowBonusAttempt,
 } from '@/lib/instagram-follow-bonus'
@@ -30,26 +31,8 @@ export async function POST(req: NextRequest) {
   const settings = await loadVerificationSettings(admin)
   const bonusDays = settings.instagramFollowBonusDays
 
-  const profile = await ensureUserProfile(admin, user.id, user.created_at ?? new Date().toISOString())
-
-  const existingApproved = await getApprovedInstagramFollowBonus(admin, user.id)
-  if (existingApproved) {
-    const status = buildInstagramFollowBonusStatus(
-      existingApproved,
-      existingApproved,
-      bonusDays
-    )
-    return NextResponse.json(
-      {
-        error:
-          status.state === 'active'
-            ? '이미 혜택이 적용 중이에요'
-            : '이미 사용된 계정입니다',
-        status,
-      },
-      { status: 400 }
-    )
-  }
+  // profiles 행 보장 (관리/리셋용). 만료일 계산은 더 이상 가입일 기준이 아님.
+  await ensureUserProfile(admin, user.id, user.created_at ?? new Date().toISOString())
 
   const { data: handleTaken } = await admin
     .from('instagram_follow_bonus')
@@ -58,7 +41,13 @@ export async function POST(req: NextRequest) {
     .eq('status', 'approved')
     .maybeSingle()
 
-  if (handleTaken && handleTaken.user_id !== user.id) {
+  if (handleTaken) {
+    if (handleTaken.user_id === user.id) {
+      return NextResponse.json(
+        { error: '이미 등록한 인스타 아이디예요' },
+        { status: 400 }
+      )
+    }
     return NextResponse.json({ error: '이미 사용된 계정입니다' }, { status: 400 })
   }
 
@@ -68,7 +57,8 @@ export async function POST(req: NextRequest) {
     .eq('username', handle)
     .maybeSingle()
 
-  const nowIso = new Date().toISOString()
+  const now = new Date()
+  const nowIso = now.toISOString()
 
   if (!follower) {
     await admin.from('instagram_follow_bonus').insert({
@@ -79,7 +69,8 @@ export async function POST(req: NextRequest) {
     })
 
     const latestAttempt = await getLatestInstagramFollowBonusAttempt(admin, user.id)
-    const status = buildInstagramFollowBonusStatus(null, latestAttempt, bonusDays)
+    const approved = await getApprovedInstagramFollowBonus(admin, user.id, now)
+    const status = buildInstagramFollowBonusStatus(approved, latestAttempt, bonusDays, now)
 
     return NextResponse.json(
       {
@@ -91,7 +82,12 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const expiresAt = calculateInstagramBonusExpiresAt(profile.first_created_at, bonusDays)
+  const previousActiveExpires = await getActiveInstagramBonusExpiresAt(admin, user.id, now)
+  const expiresAt = calculateInstagramBonusClaimExpiresAt(
+    previousActiveExpires,
+    bonusDays,
+    now
+  )
 
   const { error: insertError } = await admin.from('instagram_follow_bonus').insert({
     user_id: user.id,
@@ -111,12 +107,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '혜택 저장에 실패했어요' }, { status: 500 })
   }
 
-  const approved = await getApprovedInstagramFollowBonus(admin, user.id)
-  const status = buildInstagramFollowBonusStatus(approved, approved, bonusDays)
+  const approved = await getApprovedInstagramFollowBonus(admin, user.id, now)
+  const status = buildInstagramFollowBonusStatus(approved, approved, bonusDays, now)
 
   return NextResponse.json({
     success: true,
-    message: '인스타 팔로우 혜택이 적용됐어요',
+    message: previousActiveExpires
+      ? `인스타 팔로우 혜택이 ${bonusDays}일 연장됐어요`
+      : `인스타 팔로우 혜택 ${bonusDays}일이 적용됐어요`,
     status,
   })
 }

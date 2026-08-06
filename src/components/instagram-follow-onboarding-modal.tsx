@@ -107,8 +107,9 @@ export function InstagramFollowOnboardingModal({
               인스타그램 팔로워이신가요?
             </h2>
             <p className="mb-4 text-sm leading-relaxed text-muted">
-              @photo_ok_bro를 팔로우하고 계시면 가입일 포함 {bonusDays}일간 별도 인증 없이 사진을
-              확인하실 수 있어요. 매주 금요일 오후에 확인 후 반영돼요.
+              @photo_ok_bro를 팔로우하고 계시면 확인된 아이디 등록 시 {bonusDays}일씩 열람 기간이
+              늘어나요. 다른 아이디도 추가로 등록할 수 있어요. 매주 금요일 오후에 확인 후
+              반영돼요.
             </p>
             <div className="btn-row">
               <button type="button" className="btn-secondary" onClick={onSkip}>

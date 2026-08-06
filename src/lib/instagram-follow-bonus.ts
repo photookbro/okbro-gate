@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
+  calculateNewExpiresAt,
   formatVerificationDate,
   getDaysRemaining,
   inclusiveKstPeriodEndsAt,
@@ -34,7 +35,7 @@ export type InstagramFollowBonusStatus = {
   period_label: string | null
 }
 
-/** 가입일 포함 N일 — 마지막 유효일 23:59:59.999 KST */
+/** 기준일 포함 N일 — 마지막 유효일 23:59:59.999 KST (레거시·테스트용) */
 export function calculateInstagramBonusExpiresAt(
   firstCreatedAt: string | Date,
   bonusDays: number
@@ -57,19 +58,58 @@ export function isInstagramBonusActive(
   return isExpiryActive(expiresAt, now)
 }
 
+/**
+ * 유저의 승인 건 중 가장 유용한 1건.
+ * (활성 있으면 만료일이 가장 늦은 활성, 없으면 최근 승인 건)
+ */
 export async function getApprovedInstagramFollowBonus(
   admin: SupabaseClient,
-  userId: string
+  userId: string,
+  now: Date = new Date()
 ): Promise<InstagramFollowBonusRow | null> {
   const { data, error } = await admin
     .from('instagram_follow_bonus')
     .select('*')
     .eq('user_id', userId)
     .eq('status', 'approved')
-    .maybeSingle()
+    .order('expires_at', { ascending: false, nullsFirst: false })
 
   if (error) throw error
-  return (data as InstagramFollowBonusRow | null) ?? null
+
+  const rows = (data as InstagramFollowBonusRow[] | null) ?? []
+  if (rows.length === 0) return null
+
+  const active = rows.filter(row => isInstagramBonusActive(row, now))
+  if (active.length > 0) {
+    return active[0] ?? null
+  }
+
+  return rows[0] ?? null
+}
+
+/** 활성 혜택이 있으면 그 만료일(가장 늦은 값), 없으면 null */
+export async function getActiveInstagramBonusExpiresAt(
+  admin: SupabaseClient,
+  userId: string,
+  now: Date = new Date()
+): Promise<Date | null> {
+  const best = await getApprovedInstagramFollowBonus(admin, userId, now)
+  if (!best?.expires_at || !isInstagramBonusActive(best, now)) return null
+  const expiresAt = new Date(best.expires_at)
+  return Number.isNaN(expiresAt.getTime()) ? null : expiresAt
+}
+
+/**
+ * 새 팔로워 아이디 등록 시 만료일.
+ * - 활성 혜택이 있으면 그 만료일에서 N일 연장
+ * - 없으면 지금부터 N일
+ */
+export function calculateInstagramBonusClaimExpiresAt(
+  previousActiveExpiresAt: Date | null,
+  bonusDays: number,
+  now: Date = new Date()
+): Date {
+  return calculateNewExpiresAt(previousActiveExpiresAt, bonusDays, now)
 }
 
 export async function getLatestInstagramFollowBonusAttempt(

@@ -95,7 +95,7 @@ function InstagramFollowContent() {
   }
 
   const bonusDays = status?.bonus_days_setting ?? 5
-  const canSubmit = status?.state === 'not_submitted' || status?.state === 'not_matched'
+  const showClaimForm = !!status
 
   return (
     <div className="page-shell">
@@ -107,13 +107,14 @@ function InstagramFollowContent() {
         <h1 className="page-title mt-3">인스타 팔로우 혜택</h1>
 
         <p className="mb-4 text-sm font-medium text-[var(--text)]">
-          인스타그램 팔로우 혜택은 최초 1회만 제공됩니다.
+          팔로워로 확인된 아이디를 등록하면 {bonusDays}일씩 열람 기간이 늘어나요. 다른 아이디도
+          추가로 쓸 수 있어요. (같은 아이디는 중복 불가)
         </p>
 
         {status?.state === 'active' ? (
           <div className="card mb-4">
             <p className="mb-2 text-center text-sm font-semibold text-success">
-              이미 인증되었습니다
+              혜택 적용 중
             </p>
             <p className="mb-2 text-center text-sm text-muted">무료 열람 기간</p>
             <p className="mypage-dday mypage-dday-success mb-2 text-center">
@@ -137,18 +138,18 @@ function InstagramFollowContent() {
                 : null}
             </p>
             <p className="mt-4 mb-0 text-center text-sm text-muted">
-              인스타 팔로우 무료 열람은 1회만 적용돼요. 이후에는 과일 인증으로 열람할 수 있어요.
+              다른 팔로우 아이디로 다시 등록하면 {bonusDays}일 혜택을 받을 수 있어요.
             </p>
           </div>
         ) : null}
 
-        {canSubmit ? (
+        {showClaimForm ? (
           <div className="card mb-4">
             <p className="mb-3 text-base leading-relaxed text-[var(--text)]">
               인스타그램(
               <span className="font-bold text-[#FF2800]">@photo_ok_bro</span>
-              )을 팔로우하고 계신가요? 아이디를 알려주시면 가입일 포함 {bonusDays}일간 별도 인증
-              없이 사진을 확인하실 수 있어요.
+              )을 팔로우하고 계신가요? 확인된 아이디를 알려주시면 등록할 때마다 {bonusDays}일씩
+              열람 기간이 늘어나요.
             </p>
             <p className="mb-4 text-sm text-muted">
               인스타그램 팔로우는 매주 금요일 오후에 확인 후 사용 권한이 부여돼요. 팔로우 즉시 바로

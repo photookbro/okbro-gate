@@ -173,10 +173,6 @@ CREATE TABLE IF NOT EXISTS instagram_follow_bonus (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS instagram_follow_bonus_user_approved_idx
-  ON instagram_follow_bonus (user_id)
-  WHERE status = 'approved';
-
 CREATE UNIQUE INDEX IF NOT EXISTS instagram_follow_bonus_handle_approved_idx
   ON instagram_follow_bonus (instagram_handle)
   WHERE status = 'approved';
