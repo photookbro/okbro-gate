@@ -1,7 +1,26 @@
 export const ONBOARDING_GUIDE_CONSENT_KEY = 'onboarding_guide_consent'
 
-/** Fallback when DB row is missing — mirrors initial seed. */
-export const ONBOARDING_GUIDE_CONSENT_FALLBACK = `## 📌 꼭 지켜주세요
+export const DEFAULT_GUIDE_FONT_SIZE = 16
+
+/** Original hardcoded labels from terms-agreement (pre single-label change). */
+export const DEFAULT_GUIDE_CONSENT_LABELS = [
+  '링크 공유 금지 및 타인 사진 다운로드 금지에 동의합니다',
+  '내용을 확인했습니다',
+  '촬영 및 저작권 안내를 확인했습니다',
+] as const
+
+export const GUIDE_FONT_SIZE_PRESETS = [
+  { value: 14, label: '작게 (14px)' },
+  { value: 16, label: '보통 (16px)' },
+  { value: 18, label: '크게 (18px)' },
+  { value: 20, label: '아주 크게 (20px)' },
+  { value: 24, label: '더 크게 (24px)' },
+] as const
+
+export const GUIDE_FONT_SIZE_VALUES = GUIDE_FONT_SIZE_PRESETS.map(p => p.value)
+
+/** Fallback markdown when DB row is missing. */
+export const ONBOARDING_GUIDE_CONSENT_FALLBACK_TEXT = `## 📌 꼭 지켜주세요
 
 > 🚨 앨범 링크 공유는 엄격히 금지됩니다! 링크를 타인에게 전달하다 적발될 경우 모든 책임은 전달자에게 있으며, 서비스 이용이 즉시 차단됩니다.
 
@@ -37,8 +56,135 @@ export const ONBOARDING_GUIDE_CONSENT_FALLBACK = `## 📌 꼭 지켜주세요
 - 번호와 이름이 정확히 찍혔다면 구글앨범 검색기능 사용 가능합니다.
 - 본 약관은 오켕(@photo_ok_bro)의 모든 대회 앨범 이용 시 동일하게 적용됩니다.`
 
+export type GuideContentBlock = {
+  text: string
+  font_size: number
+}
+
 export type AppContentRow = {
   key: string
   content: string
-  updated_at: string
+  blocks: GuideContentBlock[]
+  consent_label_1: string
+  consent_label_2: string
+  consent_label_3: string
+  updated_at: string | null
 }
+
+export function normalizeGuideFontSize(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value)
+  if (GUIDE_FONT_SIZE_VALUES.includes(n as (typeof GUIDE_FONT_SIZE_VALUES)[number])) {
+    return n
+  }
+  return DEFAULT_GUIDE_FONT_SIZE
+}
+
+export function normalizeGuideConsentLabel(value: unknown, fallback: string): string {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  return fallback
+}
+
+export function normalizeGuideConsentLabels(row: {
+  consent_label_1?: unknown
+  consent_label_2?: unknown
+  consent_label_3?: unknown
+}) {
+  return {
+    consent_label_1: normalizeGuideConsentLabel(row.consent_label_1, DEFAULT_GUIDE_CONSENT_LABELS[0]),
+    consent_label_2: normalizeGuideConsentLabel(row.consent_label_2, DEFAULT_GUIDE_CONSENT_LABELS[1]),
+    consent_label_3: normalizeGuideConsentLabel(row.consent_label_3, DEFAULT_GUIDE_CONSENT_LABELS[2]),
+  }
+}
+
+export function createDefaultGuideBlocks(): GuideContentBlock[] {
+  return [{ text: ONBOARDING_GUIDE_CONSENT_FALLBACK_TEXT, font_size: DEFAULT_GUIDE_FONT_SIZE }]
+}
+
+/** Parse stored content: JSON block array, or legacy plain markdown → one block. */
+export function parseGuideContentBlocks(
+  content: unknown,
+  legacyFontSize?: unknown
+): GuideContentBlock[] {
+  const fallbackFont = normalizeGuideFontSize(legacyFontSize)
+
+  if (typeof content !== 'string' || !content.trim()) {
+    return createDefaultGuideBlocks()
+  }
+
+  const trimmed = content.trim()
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const blocks = parsed
+          .map(item => {
+            if (!item || typeof item !== 'object') return null
+            const row = item as { text?: unknown; font_size?: unknown }
+            if (typeof row.text !== 'string') return null
+            return {
+              text: row.text,
+              font_size: normalizeGuideFontSize(row.font_size ?? fallbackFont),
+            }
+          })
+          .filter((b): b is GuideContentBlock => b !== null)
+
+        if (blocks.length > 0) return blocks
+      }
+    } catch {
+      // fall through to legacy wrap
+    }
+  }
+
+  return [{ text: content, font_size: fallbackFont }]
+}
+
+export function serializeGuideContentBlocks(blocks: GuideContentBlock[]): string {
+  return JSON.stringify(
+    blocks.map(block => ({
+      text: block.text,
+      font_size: normalizeGuideFontSize(block.font_size),
+    }))
+  )
+}
+
+export function validateGuideContentBlocks(
+  blocks: unknown
+): { ok: true; blocks: GuideContentBlock[] } | { ok: false; error: string } {
+  if (!Array.isArray(blocks) || blocks.length === 0) {
+    return { ok: false, error: '본문 블록이 하나 이상 필요해요' }
+  }
+  if (blocks.length > 50) {
+    return { ok: false, error: '블록이 너무 많아요' }
+  }
+
+  const normalized: GuideContentBlock[] = []
+  let totalChars = 0
+
+  for (const item of blocks) {
+    if (!item || typeof item !== 'object') {
+      return { ok: false, error: '블록 형식이 올바르지 않아요' }
+    }
+    const row = item as { text?: unknown; font_size?: unknown }
+    if (typeof row.text !== 'string') {
+      return { ok: false, error: '블록 텍스트가 필요해요' }
+    }
+    const fontSize = Number(row.font_size)
+    if (!GUIDE_FONT_SIZE_VALUES.includes(fontSize as (typeof GUIDE_FONT_SIZE_VALUES)[number])) {
+      return { ok: false, error: '폰트 크기가 올바르지 않아요' }
+    }
+    totalChars += row.text.length
+    normalized.push({ text: row.text, font_size: fontSize })
+  }
+
+  if (!normalized.some(b => b.text.trim().length > 0)) {
+    return { ok: false, error: '내용을 비울 수 없어요' }
+  }
+  if (totalChars > 100_000) {
+    return { ok: false, error: '내용이 너무 길어요' }
+  }
+
+  return { ok: true, blocks: normalized }
+}
+
+/** @deprecated Use ONBOARDING_GUIDE_CONSENT_FALLBACK_TEXT / createDefaultGuideBlocks */
+export const ONBOARDING_GUIDE_CONSENT_FALLBACK = ONBOARDING_GUIDE_CONSENT_FALLBACK_TEXT

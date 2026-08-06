@@ -2081,19 +2081,25 @@ body {
 
 .shop-grid {
   display: grid;
-  gap: 1rem;
-  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 @media (min-width: 640px) {
   .shop-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
   }
 }
 
 @media (min-width: 960px) {
   .shop-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .shop-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -2102,7 +2108,7 @@ body {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   background: var(--bg-card);
 }
 
@@ -2125,69 +2131,125 @@ body {
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
 }
 
 .shop-card-body {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.9rem 1rem 1rem;
+  gap: 0.2rem;
+  padding: 0.5rem 0.45rem 0.55rem;
 }
 
 .shop-card-store {
   margin: 0;
   color: var(--text-muted);
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line-height);
+  font-size: 0.65rem;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shop-card-title {
   margin: 0;
   color: #ffffff;
-  font-size: var(--font-body-size);
+  font-size: 0.72rem;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.35;
   word-break: keep-all;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 .shop-card-price {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.45rem;
-  margin-top: 0.25rem;
+  gap: 0.25rem 0.35rem;
+  margin-top: 0.15rem;
 }
 
 .shop-card-price-discount {
   color: #ff2800;
-  font-size: 1.05rem;
+  font-size: 0.82rem;
   font-weight: 700;
 }
 
 .shop-card-price-original {
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   text-decoration: line-through;
 }
 
 .shop-card-cta {
   margin-top: auto;
-  padding-top: 0.85rem;
+  padding-top: 0.45rem;
+}
+
+.shop-card-cta.btn-primary {
+  padding: 0.45rem 0.4rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+@media (min-width: 960px) {
+  .shop-card {
+    border-radius: 0.75rem;
+  }
+
+  .shop-card-body {
+    gap: 0.35rem;
+    padding: 0.85rem 0.9rem 0.95rem;
+  }
+
+  .shop-card-store {
+    font-size: var(--font-caption-size);
+    line-height: var(--font-caption-line-height);
+  }
+
+  .shop-card-title {
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+
+  .shop-card-price-discount {
+    font-size: 1.05rem;
+  }
+
+  .shop-card-price-original {
+    font-size: 0.85rem;
+  }
+
+  .shop-card-cta {
+    padding-top: 0.85rem;
+  }
+
+  .shop-card-cta.btn-primary {
+    padding: 0.7rem 1rem;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .shop-card-image-placeholder {
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+  }
 }
 
 .terms-guide-markdown {
   color: var(--text-muted);
-  font-size: 0.82rem;
   line-height: 1.6;
 }
 
 .terms-guide-markdown h2 {
-  margin: 1rem 0 0.5rem;
+  margin: 1em 0 0.5em;
   color: var(--text);
-  font-size: 0.9rem;
+  font-size: 1.1em;
   font-weight: 700;
 }
 
@@ -2196,26 +2258,26 @@ body {
 }
 
 .terms-guide-markdown p {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.5em;
 }
 
 .terms-guide-markdown ul {
-  margin: 0 0 0.75rem;
-  padding-left: 1.1rem;
+  margin: 0 0 0.75em;
+  padding-left: 1.1em;
 }
 
 .terms-guide-markdown li {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.25em;
 }
 
 .terms-guide-markdown blockquote {
-  margin: 0 0 0.75rem;
-  padding: 1rem;
+  margin: 0 0 0.75em;
+  padding: 0.85em;
   border-radius: 8px;
   border: 2px solid var(--danger);
   background-color: var(--color-danger-bg);
   color: #ff6b52;
-  font-size: 1.125rem;
+  font-size: 1.05em;
   font-weight: 700;
   line-height: 1.5;
 }

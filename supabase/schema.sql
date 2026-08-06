@@ -296,6 +296,9 @@ ON CONFLICT (key) DO NOTHING;
 CREATE TABLE IF NOT EXISTS app_content (
   key text PRIMARY KEY,
   content text NOT NULL,
+  consent_label_1 text NOT NULL DEFAULT '링크 공유 금지 및 타인 사진 다운로드 금지에 동의합니다',
+  consent_label_2 text NOT NULL DEFAULT '내용을 확인했습니다',
+  consent_label_3 text NOT NULL DEFAULT '촬영 및 저작권 안내를 확인했습니다',
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 

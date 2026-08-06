@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import {
-  ONBOARDING_GUIDE_CONSENT_FALLBACK,
+  DEFAULT_GUIDE_CONSENT_LABELS,
+  createDefaultGuideBlocks,
+  normalizeGuideConsentLabel,
+  normalizeGuideConsentLabels,
   ONBOARDING_GUIDE_CONSENT_KEY,
+  parseGuideContentBlocks,
+  serializeGuideContentBlocks,
+  validateGuideContentBlocks,
 } from '@/lib/app-content'
 
 const ALLOWED_KEYS = new Set([ONBOARDING_GUIDE_CONSENT_KEY])
@@ -19,7 +25,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabaseAdmin()
     .from('app_content')
-    .select('key, content, updated_at')
+    .select('key, content, consent_label_1, consent_label_2, consent_label_3, updated_at')
     .eq('key', key)
     .maybeSingle()
 
@@ -29,21 +35,40 @@ export async function GET(req: NextRequest) {
   }
 
   if (!data) {
+    const blocks = createDefaultGuideBlocks()
     return NextResponse.json({
       key,
-      content: key === ONBOARDING_GUIDE_CONSENT_KEY ? ONBOARDING_GUIDE_CONSENT_FALLBACK : '',
+      content: serializeGuideContentBlocks(blocks),
+      blocks,
+      consent_label_1: DEFAULT_GUIDE_CONSENT_LABELS[0],
+      consent_label_2: DEFAULT_GUIDE_CONSENT_LABELS[1],
+      consent_label_3: DEFAULT_GUIDE_CONSENT_LABELS[2],
       updated_at: null,
     })
   }
 
-  return NextResponse.json(data)
+  const blocks = parseGuideContentBlocks(data.content)
+  return NextResponse.json({
+    key: data.key,
+    content: serializeGuideContentBlocks(blocks),
+    blocks,
+    ...normalizeGuideConsentLabels(data),
+    updated_at: data.updated_at,
+  })
 }
 
 export async function PUT(req: NextRequest) {
   const denied = requireAdmin(req)
   if (denied) return denied
 
-  let body: { key?: unknown; content?: unknown }
+  let body: {
+    key?: unknown
+    blocks?: unknown
+    content?: unknown
+    consent_label_1?: unknown
+    consent_label_2?: unknown
+    consent_label_3?: unknown
+  }
   try {
     body = await req.json()
   } catch {
@@ -51,26 +76,46 @@ export async function PUT(req: NextRequest) {
   }
 
   const key = typeof body.key === 'string' ? body.key.trim() : ''
-  const content = typeof body.content === 'string' ? body.content : null
-
   if (!key || !ALLOWED_KEYS.has(key)) {
     return NextResponse.json({ error: '유효하지 않은 key예요' }, { status: 400 })
   }
-  if (content === null) {
-    return NextResponse.json({ error: 'content가 필요해요' }, { status: 400 })
-  }
-  if (content.trim().length === 0) {
-    return NextResponse.json({ error: '내용을 비울 수 없어요' }, { status: 400 })
-  }
-  if (content.length > 100_000) {
-    return NextResponse.json({ error: '내용이 너무 길어요' }, { status: 400 })
+
+  const validated =
+    body.blocks !== undefined
+      ? validateGuideContentBlocks(body.blocks)
+      : validateGuideContentBlocks(parseGuideContentBlocks(body.content))
+
+  if (!validated.ok) {
+    return NextResponse.json({ error: validated.error }, { status: 400 })
   }
 
+  const label1 = normalizeGuideConsentLabel(body.consent_label_1, '')
+  const label2 = normalizeGuideConsentLabel(body.consent_label_2, '')
+  const label3 = normalizeGuideConsentLabel(body.consent_label_3, '')
+
+  if (!label1 || !label2 || !label3) {
+    return NextResponse.json({ error: '동의 문구 1·2·3을 모두 입력해 주세요' }, { status: 400 })
+  }
+  if (label1.length > 500 || label2.length > 500 || label3.length > 500) {
+    return NextResponse.json({ error: '동의 문구가 너무 길어요' }, { status: 400 })
+  }
+
+  const content = serializeGuideContentBlocks(validated.blocks)
   const updated_at = new Date().toISOString()
   const { data, error } = await supabaseAdmin()
     .from('app_content')
-    .upsert({ key, content, updated_at }, { onConflict: 'key' })
-    .select('key, content, updated_at')
+    .upsert(
+      {
+        key,
+        content,
+        consent_label_1: label1,
+        consent_label_2: label2,
+        consent_label_3: label3,
+        updated_at,
+      },
+      { onConflict: 'key' }
+    )
+    .select('key, content, consent_label_1, consent_label_2, consent_label_3, updated_at')
     .single()
 
   if (error) {
@@ -78,5 +123,12 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: '저장 실패' }, { status: 500 })
   }
 
-  return NextResponse.json(data)
+  const blocks = parseGuideContentBlocks(data.content)
+  return NextResponse.json({
+    key: data.key,
+    content: serializeGuideContentBlocks(blocks),
+    blocks,
+    ...normalizeGuideConsentLabels(data),
+    updated_at: data.updated_at,
+  })
 }

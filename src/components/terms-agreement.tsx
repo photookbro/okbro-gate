@@ -4,8 +4,12 @@ import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { saveTermsAgreement } from '@/lib/terms-agreement'
 import {
-  ONBOARDING_GUIDE_CONSENT_FALLBACK,
+  DEFAULT_GUIDE_CONSENT_LABELS,
+  type GuideContentBlock,
   ONBOARDING_GUIDE_CONSENT_KEY,
+  createDefaultGuideBlocks,
+  normalizeGuideConsentLabels,
+  parseGuideContentBlocks,
 } from '@/lib/app-content'
 
 type TermsAgreementProps = {
@@ -23,21 +27,6 @@ const checkboxRowStyle: React.CSSProperties = {
   cursor: 'pointer',
 }
 
-const CHECKBOXES = [
-  {
-    id: 'section1',
-    label: '링크 공유 금지 및 타인 사진 다운로드 금지에 동의합니다',
-  },
-  {
-    id: 'section2',
-    label: '내용을 확인했습니다',
-  },
-  {
-    id: 'section3',
-    label: '촬영 및 저작권 안내를 확인했습니다',
-  },
-] as const
-
 export function TermsAgreement({
   visible,
   onComplete,
@@ -49,7 +38,12 @@ export function TermsAgreement({
   const [section3, setSection3] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const [guideMarkdown, setGuideMarkdown] = useState(ONBOARDING_GUIDE_CONSENT_FALLBACK)
+  const [blocks, setBlocks] = useState<GuideContentBlock[]>(createDefaultGuideBlocks)
+  const [consentLabels, setConsentLabels] = useState({
+    consent_label_1: DEFAULT_GUIDE_CONSENT_LABELS[0],
+    consent_label_2: DEFAULT_GUIDE_CONSENT_LABELS[1],
+    consent_label_3: DEFAULT_GUIDE_CONSENT_LABELS[2],
+  })
   const [guideLoading, setGuideLoading] = useState(true)
 
   useEffect(() => {
@@ -73,9 +67,12 @@ export function TermsAgreement({
           `/api/app-content?key=${encodeURIComponent(ONBOARDING_GUIDE_CONSENT_KEY)}`
         )
         const data = await res.json()
-        if (!cancelled && typeof data.content === 'string' && data.content.trim()) {
-          setGuideMarkdown(data.content)
-        }
+        if (cancelled) return
+        const nextBlocks = Array.isArray(data.blocks)
+          ? (data.blocks as GuideContentBlock[])
+          : parseGuideContentBlocks(data.content)
+        setBlocks(nextBlocks.length > 0 ? nextBlocks : createDefaultGuideBlocks())
+        setConsentLabels(normalizeGuideConsentLabels(data))
       } catch {
         // keep fallback
       } finally {
@@ -90,14 +87,28 @@ export function TermsAgreement({
 
   if (!visible) return null
 
-  const checkedMap = { section1, section2, section3 }
-  const setCheckedMap = {
-    section1: setSection1,
-    section2: setSection2,
-    section3: setSection3,
-  }
   const allChecked = section1 && section2 && section3
   const isPage = mode === 'page'
+  const checkboxes = [
+    {
+      id: 'section1' as const,
+      label: consentLabels.consent_label_1,
+      checked: section1,
+      onChange: setSection1,
+    },
+    {
+      id: 'section2' as const,
+      label: consentLabels.consent_label_2,
+      checked: section2,
+      onChange: setSection2,
+    },
+    {
+      id: 'section3' as const,
+      label: consentLabels.consent_label_3,
+      checked: section3,
+      onChange: setSection3,
+    },
+  ]
 
   async function handleSubmit() {
     if (!allChecked || submitting) return
@@ -133,8 +144,19 @@ export function TermsAgreement({
       {guideLoading ? (
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0 0 1rem' }}>불러오는 중...</p>
       ) : (
-        <div className="terms-guide-markdown" style={{ marginBottom: '1.25rem' }}>
-          <ReactMarkdown>{guideMarkdown}</ReactMarkdown>
+        <div style={{ marginBottom: '1.25rem' }}>
+          {blocks.map((block, index) => (
+            <div
+              key={index}
+              className="terms-guide-markdown"
+              style={{
+                fontSize: `${block.font_size}px`,
+                marginBottom: index === blocks.length - 1 ? 0 : '0.85rem',
+              }}
+            >
+              <ReactMarkdown>{block.text}</ReactMarkdown>
+            </div>
+          ))}
         </div>
       )}
 
@@ -147,12 +169,12 @@ export function TermsAgreement({
           backgroundColor: 'var(--bg)',
         }}
       >
-        {CHECKBOXES.map(box => (
-          <label key={box.id} style={checkboxRowStyle}>
+        {checkboxes.map((box, index) => (
+          <label key={box.id} style={{ ...checkboxRowStyle, marginTop: index === 0 ? 0 : '0.5rem' }}>
             <input
               type="checkbox"
-              checked={checkedMap[box.id]}
-              onChange={e => setCheckedMap[box.id](e.target.checked)}
+              checked={box.checked}
+              onChange={e => box.onChange(e.target.checked)}
               style={{ marginTop: '0.2rem', flexShrink: 0 }}
             />
             <span style={{ color: 'var(--text)', fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.5 }}>
