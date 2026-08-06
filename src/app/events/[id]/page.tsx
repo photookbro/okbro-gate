@@ -202,7 +202,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             </div>
           ) : null}
 
-          <h2 className="section-title">B급 순간들, 오켱이 담은 나</h2>
+          <h2 className="section-title">앨범</h2>
           {renderAlbumSection()}
         </div>
       </div>
