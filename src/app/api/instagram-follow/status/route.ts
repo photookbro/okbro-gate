@@ -7,7 +7,7 @@ import {
 } from '@/lib/instagram-follow-bonus'
 import { ensureUserProfile } from '@/lib/user-profile-server'
 import { loadVerificationSettings } from '@/lib/verification-settings'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export async function GET(req: NextRequest) {
   try {

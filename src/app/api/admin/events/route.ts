@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireAdmin } from '@/lib/admin-auth'
 import { disableAllUserGpsTrackingPrefsForEvent } from '@/lib/user-gps-tracking-prefs-server'
 
 const EVENT_FIELDS =
@@ -142,7 +142,8 @@ async function fetchEvents() {
 }
 
 export async function GET(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   const result = await fetchEvents()
   if (!Array.isArray(result)) {
@@ -153,7 +154,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   const body = (await req.json()) as EventPayload
   const row = buildEventRow(body)
@@ -181,7 +183,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   const id = new URL(req.url).searchParams.get('id')
   if (!id) {
@@ -230,7 +233,8 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   const id = new URL(req.url).searchParams.get('id')
   if (!id) {

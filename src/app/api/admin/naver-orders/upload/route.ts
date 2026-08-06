@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
+import { requireAdmin } from '@/lib/admin-auth'
 import {
   chunkArray,
   parseNaverOrderNumbersFromXlsx,
 } from '@/lib/naver-orders-parse'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024
 const UPSERT_BATCH_SIZE = 500
 const EXISTING_LOOKUP_BATCH_SIZE = 500
 
 export async function POST(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   let formData: FormData
   try {

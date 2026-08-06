@@ -1,5 +1,5 @@
 import webpush from 'web-push'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 let vapidConfigured = false
 

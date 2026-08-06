@@ -65,7 +65,7 @@ Auth resolution for API routes (`getAuthenticatedUser` in `src/lib/auth-server.t
 - 배포: https://okbro-gate.vercel.app (Vercel)
 - 스택: Next.js 15 (Turbopack), Supabase, Vercel
 - Supabase project: https://ucwdxqmkqooxefzcmavh.supabase.co
-- `ADMIN_PASSWORD`, 하이패스 비밀번호: 실제 값은 `.env.local` 참고 — 커밋되는 파일에 평문으로 남기지 않음
+- `ADMIN_PASSWORD`: 실제 값은 `.env.local` 참고 — 커밋되는 파일에 평문으로 남기지 않음
 
 ### DB 스키마 메모
 - `events`: `id, name, date, album_a_url, album_b_url, gps_lat, gps_lng, gps_radius_meters, gps_enabled, is_loop_course, gps_2_lat, gps_2_lng, gps_2_radius_meters` (1차/2차 촬영 위치 지원)

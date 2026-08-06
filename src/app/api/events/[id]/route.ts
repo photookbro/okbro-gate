@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { fetchEventById } from '@/lib/event-query'
 import { getAuthenticatedUser } from '@/lib/auth-server'
 import { MAX_EVENT_LIST_GPS_LOGS } from '@/lib/event-gps-logs'

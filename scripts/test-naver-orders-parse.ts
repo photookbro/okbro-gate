@@ -21,7 +21,7 @@ const withHeader = buildXlsx([
   ['2025010112345678', '중복'],
   ['2025010299999999', '테스트B'],
   ['not-an-order', '스킵'],
-  ['19750905', '고정코드형식아님16자리'],
+  ['12345678', '짧은번호스킵'],
 ])
 
 const parsed = parseNaverOrderNumbersFromXlsx(withHeader)

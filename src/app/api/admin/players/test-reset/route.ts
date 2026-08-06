@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { requireAdmin } from '@/lib/admin-auth'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 function isMissingTableError(error: { code?: string; message?: string } | null): boolean {
   if (!error) return false
@@ -29,7 +29,8 @@ async function deleteUserRows(
 }
 
 export async function POST(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   let body: { user_id?: string; reset_gps?: boolean }
   try {

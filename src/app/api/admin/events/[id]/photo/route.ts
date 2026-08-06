@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireAdmin } from '@/lib/admin-auth'
 import { deleteEventPhoto, uploadEventPhoto } from '@/lib/event-photo-server'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   const { id } = await params
 
@@ -54,7 +55,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   const { id } = await params
 

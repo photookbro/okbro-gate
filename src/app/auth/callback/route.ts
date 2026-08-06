@@ -6,10 +6,11 @@ import {
 } from '@/lib/supabase/cookie-options'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler-client'
 import { sendKakaoNotify } from '@/lib/kakao-notify'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { ensureUserProfile } from '@/lib/user-profile-server'
+import { sanitizeAuthNextPath } from '@/lib/app-origin'
 
-/** 첫 로그인(=최초 가입)인지 판단: 생성 시각과 최근 로그인 시각이 거의 같으면 신규 가입 */
+/** ? ???(=?? ??)?? ??: ?? ??? ?? ??? ??? ?? ??? ?? ?? */
 function isFirstLogin(user: User): boolean {
   if (!user.created_at || !user.last_sign_in_at) return false
   const createdAt = new Date(user.created_at).getTime()
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code')
   const error = requestUrl.searchParams.get('error')
   const errorDescription = requestUrl.searchParams.get('error_description')
-  const next = requestUrl.searchParams.get('next') ?? '/'
+  const next = sanitizeAuthNextPath(requestUrl.searchParams.get('next'))
 
   if (error) {
     console.error('[auth/callback] oauth provider error', {
@@ -109,8 +110,8 @@ export async function GET(request: NextRequest) {
       (data.session.user.user_metadata?.full_name as string | undefined) ??
       (data.session.user.user_metadata?.name as string | undefined) ??
       data.session.user.email ??
-      '알 수 없음'
-    after(() => sendKakaoNotify(`[오켱GATE] 신규 가입: ${displayName}`))
+      '? ? ??'
+    after(() => sendKakaoNotify(`[??GATE] ?? ??: ${displayName}`))
   }
 
   after(() =>

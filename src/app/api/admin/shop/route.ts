@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { requireAdmin } from '@/lib/admin-auth'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import {
   parseShopProductsCsv,
   type ShopProductCsvRow,
@@ -8,7 +8,8 @@ import {
 import { parseShopFileBuffer, upsertShopProductRows } from '@/lib/shop-products-server'
 
 export async function GET(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   const admin = supabaseAdmin()
   const { data, error } = await admin
@@ -27,7 +28,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   const contentType = req.headers.get('content-type') || ''
 
@@ -103,7 +105,8 @@ async function handleUploadedFile(file: File, previewOnly: boolean) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   const body = await req.json().catch(() => ({}))
   const id = typeof body.id === 'string' ? body.id.trim() : ''

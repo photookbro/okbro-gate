@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { User } from '@supabase/supabase-js'
-import { supabaseAdmin } from '@/lib/supabase'
-import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireAdmin } from '@/lib/admin-auth'
 import { loadVerificationSettings } from '@/lib/verification-settings'
 import {
   buildGpsLogsByLocation,
@@ -39,7 +39,8 @@ function twelveMonthsAgoDateString(): string {
 }
 
 export async function GET(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   const userId = new URL(req.url).searchParams.get('user_id')
   const admin = supabaseAdmin()

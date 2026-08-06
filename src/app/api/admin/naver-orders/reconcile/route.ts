@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
+import { requireAdmin } from '@/lib/admin-auth'
 import { findSuspectNaverOrders } from '@/lib/naver-orders-reconcile'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 /** 형식 검증으로 통과한 주문 vs 업로드된 실주문 대조 */
 export async function POST(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   try {
     const admin = supabaseAdmin()
@@ -29,7 +30,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   try {
     const admin = supabaseAdmin()

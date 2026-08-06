@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse, after } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getAuthenticatedUser } from '@/lib/auth-server'
 import {
   addDays,
   calculateNewExpiresAt,
 } from '@/lib/order-verification'
 import { validateNaverOrderNumber } from '@/lib/naver-order-number'
-import { isFixedAccessCode } from '@/lib/fixed-access-code'
 import {
   ORDER_DUPLICATE_ERROR,
   logDuplicateVerificationAttempt,
 } from '@/lib/order-duplicate'
 import { loadVerificationSettings } from '@/lib/verification-settings'
 import { sendKakaoNotify } from '@/lib/kakao-notify'
+import { checkRateLimit, clientIpFromRequest } from '@/lib/rate-limit'
 
 function formatDbError(error: { message?: string; code?: string; details?: string | null }) {
   return {
@@ -42,6 +42,18 @@ function duplicateResponse() {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = clientIpFromRequest(req.headers)
+  const rl = checkRateLimit(`verify-order:${ip}`, 20, 60_000)
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: '요청이 너무 많아요. 잠시 후 다시 시도해주세요.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(rl.retryAfterSec) },
+      }
+    )
+  }
+
   const { order_number, platform, event_id } = await req.json()
 
   if (!order_number?.trim() || !platform) {
@@ -58,13 +70,10 @@ export async function POST(req: NextRequest) {
   const admin = supabaseAdmin()
   const settings = await loadVerificationSettings(admin)
   const periodDays = settings.verifiedPeriodDays
-  const isFixedCode = isFixedAccessCode(trimmedOrderNumber)
 
-  if (!isFixedCode) {
-    const validation = validateNaverOrderNumber(trimmedOrderNumber)
-    if (!validation.ok) {
-      return NextResponse.json({ error: validation.error }, { status: 400 })
-    }
+  const validation = validateNaverOrderNumber(trimmedOrderNumber)
+  if (!validation.ok) {
+    return NextResponse.json({ error: validation.error }, { status: 400 })
   }
 
   const { data: existingOrders } = await admin
@@ -73,10 +82,10 @@ export async function POST(req: NextRequest) {
     .eq('order_number', trimmedOrderNumber)
     .eq('platform', platformValue)
 
-  // 하드락: (platform, order_number) 존재 시 본인/타인 모두 거부 (하이패스 고정코드만 예외)
+  // 하드락: (platform, order_number) 존재 시 본인/타인 모두 거부
   // 만기 연장은 아직 쓰이지 않은 새 주문번호 insert로만 가능
   const existing = existingOrders?.[0]
-  if (existing && !isFixedCode) {
+  if (existing) {
     after(() =>
       logDuplicateVerificationAttempt(admin, {
         userId: user.id,
@@ -147,8 +156,8 @@ export async function POST(req: NextRequest) {
     const dbError = formatDbError(error)
     console.error('[verify-order] insert failed:', dbError)
 
-    // 레이스로 UNIQUE 충돌 → 하드락과 동일하게 거절 (+ 본인 재사용 시도도 로그)
-    if (error.code === '23505' && !isFixedCode) {
+    // 레이스로 UNIQUE 충돌 → 하드락과 동일하게 거절
+    if (error.code === '23505') {
       after(() =>
         logDuplicateVerificationAttempt(admin, {
           userId: user.id,

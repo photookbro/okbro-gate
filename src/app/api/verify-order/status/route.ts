@@ -14,7 +14,7 @@ import {
 } from '@/lib/instagram-follow-bonus'
 import { isGpsTrackingEligible } from '@/lib/gps-tracking-eligibility'
 import { loadVerificationSettings } from '@/lib/verification-settings'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 function logAlbumStatusError(stage: string, error: unknown, extra?: Record<string, unknown>) {
   const err = error as { message?: string; code?: string; details?: string; stack?: string }

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireAdmin } from '@/lib/admin-auth'
 import { getUserDisplayName } from '@/lib/admin-players'
 
 /** 채팅 시작용 선수 검색 (이메일/표시명) */
 export async function GET(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   const q = (new URL(req.url).searchParams.get('q') ?? '').trim().toLowerCase()
   if (q.length < 1) {

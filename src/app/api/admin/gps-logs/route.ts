@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireAdmin } from '@/lib/admin-auth'
 import { formatPassTimeSeconds } from '@/lib/geo'
 
 async function buildUserLabelMap(admin: ReturnType<typeof supabaseAdmin>) {
@@ -34,7 +34,8 @@ async function buildUserLabelMap(admin: ReturnType<typeof supabaseAdmin>) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   const eventId = new URL(req.url).searchParams.get('event_id')
   if (!eventId) {

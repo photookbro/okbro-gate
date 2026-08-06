@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getAuthenticatedUser } from '@/lib/auth-server'
 import {
   formatVerificationDate,
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('[mypage]', error)
     return NextResponse.json(
-      { error: '마이페이지 정보를 불러오지 못했어요' },
+      { error: '????? ??? ???? ????' },
       { status: 500 }
     )
   }
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 async function getMypage(req: NextRequest) {
   const user = await getAuthenticatedUser(req)
   if (!user) {
-    return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
+    return NextResponse.json({ error: '???? ????' }, { status: 401 })
   }
 
   const admin = supabaseAdmin()
@@ -91,7 +91,7 @@ async function getMypage(req: NextRequest) {
       now
     )
   } catch (error) {
-    // profiles / instagram_follow_bonus 마이그레이션 미적용 시에도 마이페이지는 로드
+    // profiles / instagram_follow_bonus ?????? ??? ??? ?????? ??
     console.error('[mypage] instagram follow bonus unavailable:', error)
   }
 
@@ -112,7 +112,7 @@ async function getMypage(req: NextRequest) {
     return {
       id: order.id,
       event_id: order.event_id,
-      event_name: joinedEvent?.name ?? '전체 이용권',
+      event_name: joinedEvent?.name ?? '?? ???',
       order_number: order.order_number,
       platform: order.platform,
       verified_at: Number.isNaN(verifiedAt.getTime()) ? null : verifiedAt.toISOString(),
@@ -122,7 +122,6 @@ async function getMypage(req: NextRequest) {
       expiring_soon: expiresAt ? isUserExpiringSoon(expiresAt, now) : false,
       is_duplicate: duplicate.is_duplicate,
       duplicate_count: duplicate.duplicate_count,
-      duplicate_users: duplicate.duplicate_users,
     }
   })
 
@@ -149,7 +148,7 @@ async function getMypage(req: NextRequest) {
       if (!photo.event_id) continue
       const joined = photo.events as { name: string | null } | { name: string | null }[] | null
       const eventName =
-        (Array.isArray(joined) ? joined[0]?.name : joined?.name) ?? '알 수 없는 대회'
+        (Array.isArray(joined) ? joined[0]?.name : joined?.name) ?? '? ? ?? ??'
       if (!eventDownloadCounts[photo.event_id]) {
         eventDownloadCounts[photo.event_id] = {
           event_id: photo.event_id,
@@ -209,7 +208,7 @@ async function getMypage(req: NextRequest) {
     if (!group) {
       group = {
         event_id: log.event_id,
-        event_name: eventMeta?.name ?? '알 수 없는 대회',
+        event_name: eventMeta?.name ?? '? ? ?? ??',
         event_date: typeof eventMeta?.date === 'string' ? eventMeta.date : null,
         logs: [],
       }
@@ -263,10 +262,10 @@ async function getMypage(req: NextRequest) {
     shootRecords.push({
       type: 'purchase',
       event_id: order.event_id ?? null,
-      event_name: joinedEvent?.name ?? '전체 이용권',
+      event_name: joinedEvent?.name ?? '?? ???',
       passed_at: verifiedDate.toISOString(),
       display_time: formatGpsPassDisplay(verifiedDate),
-      description: '구매',
+      description: '??',
     })
   }
 

@@ -2,6 +2,19 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const ORDER_DUPLICATE_ERROR = '이미 사용된 주문번호입니다'
 
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@')
+  if (!domain) return '***'
+  const head = local.slice(0, 1) || '*'
+  return `${head}***@${domain}`
+}
+
+function maskOrderNumber(orderNumber: string): string {
+  const n = orderNumber.trim()
+  if (n.length <= 4) return '****'
+  return `****${n.slice(-4)}`
+}
+
 export type DuplicateUser = {
   user_id: string
   email: string
@@ -34,18 +47,17 @@ export async function logDuplicateVerificationAttempt(
 ): Promise<void> {
   console.warn('[verify-order] duplicate attempt', {
     user_id: input.userId,
-    user_email: input.userEmail ?? null,
-    order_number: input.orderNumber,
+    user_email: input.userEmail ? maskEmail(input.userEmail) : null,
+    order_number: maskOrderNumber(input.orderNumber),
     platform: input.platform,
-    existing_order_id: input.existingOrderId ?? null,
     existing_user_id: input.existingUserId ?? null,
     at: new Date().toISOString(),
   })
 
   const { error } = await admin.from('order_verification_attempts').insert({
     user_id: input.userId,
-    user_email: input.userEmail ?? null,
-    order_number: input.orderNumber,
+    user_email: input.userEmail ? maskEmail(input.userEmail) : null,
+    order_number: maskOrderNumber(input.orderNumber),
     platform: input.platform,
     outcome: 'duplicate_rejected',
     existing_order_id: input.existingOrderId ?? null,

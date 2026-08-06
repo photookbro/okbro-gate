@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { requireAdmin } from '@/lib/admin-auth'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 /**
  * 의심 주문의 해당 orders 행을 삭제해 인증을 취소합니다.
  * (유저 전체 expire가 아닌, 해당 주문번호 행만 제거)
  */
 export async function POST(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   const body = await req.json().catch(() => ({}))
   const orderId = typeof body.order_id === 'string' ? body.order_id.trim() : ''

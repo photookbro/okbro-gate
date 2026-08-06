@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { isFixedAccessCode } from '@/lib/fixed-access-code'
 import { isNaverOrderNumberFormat } from '@/lib/naver-order-number'
 import { resolveUserEmails } from '@/lib/order-duplicate'
 import { chunkArray } from '@/lib/naver-orders-parse'
@@ -48,7 +47,7 @@ export async function findSuspectNaverOrders(
 
   const candidates = ((orders as OrderRow[] | null) ?? []).filter(row => {
     const n = (row.order_number ?? '').trim()
-    if (!n || isFixedAccessCode(n)) return false
+    if (!n) return false
     return isNaverOrderNumberFormat(n)
   })
 

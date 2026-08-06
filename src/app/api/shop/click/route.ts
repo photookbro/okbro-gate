@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 /** 공개: 제휴 클릭 수 증가 (fire-and-forget용) */
 export async function POST(req: NextRequest) {

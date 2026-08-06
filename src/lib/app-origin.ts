@@ -57,6 +57,19 @@ export function getBrowserAppOrigin(): string {
 
 export function buildAuthCallbackUrl(next = '/', origin?: string): string {
   const base = stripTrailingSlash(origin ?? getBrowserAppOrigin())
-  const safeNext = next.startsWith('/') ? next : `/${next}`
+  const safeNext = sanitizeAuthNextPath(next)
   return `${base}/auth/callback?next=${encodeURIComponent(safeNext)}`
+}
+
+/**
+ * Only same-origin relative paths. Rejects //evil, http:, backslash, etc.
+ */
+export function sanitizeAuthNextPath(next: string | null | undefined): string {
+  const raw = (next ?? '/').trim() || '/'
+  if (!raw.startsWith('/')) return '/'
+  if (raw.startsWith('//')) return '/'
+  if (raw.includes('\\')) return '/'
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw)) return '/'
+  if (!/^\/[\w\-./?=&%#@+,~]*$/i.test(raw)) return '/'
+  return raw
 }

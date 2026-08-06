@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { unauthorizedResponse, verifyAdminToken } from '@/lib/admin-auth'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireAdmin } from '@/lib/admin-auth'
 import {
   normalizeChatMessage,
   toChatMessageDto,
@@ -9,7 +9,8 @@ import {
 import { getUserDisplayName } from '@/lib/admin-players'
 
 export async function GET(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   const userId = new URL(req.url).searchParams.get('user_id')?.trim()
   if (!userId) {
@@ -42,7 +43,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!verifyAdminToken(req)) return unauthorizedResponse()
+  const denied = requireAdmin(req)
+  if (denied) return denied
 
   const body = await req.json().catch(() => ({}))
   const userId = typeof body?.user_id === 'string' ? body.user_id.trim() : ''
