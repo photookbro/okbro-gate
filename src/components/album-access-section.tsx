@@ -8,20 +8,20 @@ import {
   hasGpsAlbumAccess,
   hasPurchaseAlbumAccess,
 } from '@/lib/album-access'
-import { AAlbumView } from '@/components/a-album-view'
+import { LockedAlbumView } from '@/components/locked-album-view'
 
 type AlbumAccessSectionProps = {
   verification: VerificationInfo
   albumBUrl: string
-  albumAUrl?: string | null
+  eventId?: string
 }
 
-type SectionView = 'main' | 'share-warning' | 'a-album-preview'
+type SectionView = 'main' | 'share-warning'
 
 export function AlbumAccessSection({
   verification,
   albumBUrl,
-  albumAUrl,
+  eventId,
 }: AlbumAccessSectionProps) {
   const [view, setView] = useState<SectionView>('main')
 
@@ -32,16 +32,23 @@ export function AlbumAccessSection({
   function handleDownloadClick() {
     if (hasBAlbumDownloadAccess(verification)) {
       setView('share-warning')
-      return
     }
-    setView('a-album-preview')
   }
 
   const isValid = verification.status === 'valid'
   const isExpired = verification.status === 'expired'
   const isGpsAccess = verification.access_source === 'gps'
+  const canOpenAlbum = hasBAlbumDownloadAccess(verification)
   const showGpsHint =
     isValid && hasPurchaseAlbumAccess(verification) && !hasGpsAlbumAccess(verification)
+
+  if (!canOpenAlbum) {
+    return (
+      <div className="card-section">
+        <LockedAlbumView eventId={eventId} albumReady />
+      </div>
+    )
+  }
 
   if (view === 'share-warning') {
     return (
@@ -54,19 +61,8 @@ export function AlbumAccessSection({
           </p>
         </div>
         <button type="button" onClick={handleOpenAlbumB} className="btn-primary w-full">
-          고화질 앨범 열기
+          앨범 열기
         </button>
-        <button type="button" onClick={() => setView('main')} className="btn-secondary w-full">
-          돌아가기
-        </button>
-      </div>
-    )
-  }
-
-  if (view === 'a-album-preview') {
-    return (
-      <div className="card-section space-y-4">
-        <AAlbumView albumAUrl={albumAUrl ?? null} incentive="이 장면을 고화질로 만나보세요" />
         <button type="button" onClick={() => setView('main')} className="btn-secondary w-full">
           돌아가기
         </button>
@@ -78,7 +74,7 @@ export function AlbumAccessSection({
     <div className="card-section space-y-4">
       {isValid && isGpsAccess && verification.gps_passed_at && (
         <div className="alert-success mb-0">
-          📍 GPS 통과: {formatGpsPassDisplay(verification.gps_passed_at)} (고화질 앨범 자동 접근)
+          📍 GPS 통과: {formatGpsPassDisplay(verification.gps_passed_at)} (앨범 자동 접근)
         </div>
       )}
 
@@ -103,7 +99,7 @@ export function AlbumAccessSection({
       )}
 
       <button type="button" onClick={handleDownloadClick} className="btn-primary w-full">
-        ⬇️ 고화질 다운로드
+        ⬇️ 앨범 열기
       </button>
     </div>
   )

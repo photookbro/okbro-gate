@@ -91,7 +91,7 @@ function buildEventRow(body: EventPayload) {
   return {
     name: body.name?.trim(),
     date: body.date,
-    album_a_url: body.album_a_url?.trim() || null,
+    album_a_url: null,
     album_b_url: body.album_b_url?.trim() || null,
     gps_1_lat: gps1Lat,
     gps_1_lng: gps1Lng,

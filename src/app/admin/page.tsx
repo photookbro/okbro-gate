@@ -641,7 +641,7 @@ export default function AdminPage() {
     return {
       name: sourceForm.name,
       date: sourceForm.date,
-      album_a_url: sourceForm.album_a_url,
+      album_a_url: '',
       album_b_url: sourceForm.album_b_url,
       gps_enabled: sourceForm.gps_enabled,
       gps_1_lat: sourceForm.gps_1_lat || null,
@@ -815,8 +815,7 @@ export default function AdminPage() {
                     <tr>
                       <th>대회명</th>
                       <th>날짜</th>
-                      <th>저화소 앨범</th>
-                      <th>고화질 앨범</th>
+                      <th>앨범</th>
                       <th>작업</th>
                     </tr>
                   </thead>
@@ -825,10 +824,7 @@ export default function AdminPage() {
                       <tr key={event.id}>
                         <td className="font-medium whitespace-nowrap">{event.name}</td>
                         <td className="whitespace-nowrap text-[var(--text-muted)]">{event.date}</td>
-                        <td className="max-w-[220px] truncate text-[var(--text-muted)]" title={event.album_a_url ?? undefined}>
-                          {event.album_a_url ?? '-'}
-                        </td>
-                        <td className="max-w-[220px] truncate text-[var(--text-muted)]" title={event.album_b_url ?? undefined}>
+                        <td className="max-w-[280px] truncate text-[var(--text-muted)]" title={event.album_b_url ?? undefined}>
                           {event.album_b_url ?? '-'}
                         </td>
                         <td className="whitespace-nowrap">
@@ -1221,12 +1217,13 @@ export default function AdminPage() {
               />
             </label>
             <label className="mb-3 block">
-              <span className={labelStyle}>저화소 앨범 URL</span>
-              <input value={form.album_a_url} onChange={e => setForm(f => ({ ...f, album_a_url: e.target.value }))} className={inputStyle} />
-            </label>
-            <label className="mb-3 block">
-              <span className={labelStyle}>고화질 앨범 URL</span>
-              <input value={form.album_b_url} onChange={e => setForm(f => ({ ...f, album_b_url: e.target.value }))} className={inputStyle} />
+              <span className={labelStyle}>앨범 URL</span>
+              <input
+                value={form.album_b_url}
+                onChange={e => setForm(f => ({ ...f, album_b_url: e.target.value, album_a_url: '' }))}
+                className={inputStyle}
+                placeholder="인증 후 열람할 앨범 링크"
+              />
             </label>
 
             {editingId ? (

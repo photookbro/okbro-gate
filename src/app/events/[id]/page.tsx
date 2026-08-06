@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import type { VerificationInfo } from '@/lib/order-verification'
 import { AlbumAccessSection } from '@/components/album-access-section'
 import { BAlbumView } from '@/components/b-album-view'
-import { AAlbumView } from '@/components/a-album-view'
+import { LockedAlbumView } from '@/components/locked-album-view'
 import { TermsAgreement } from '@/components/terms-agreement'
 import { GpsDetector } from '@/components/gps-detector'
 import { GpsTrackingBanner } from '@/components/gps-tracking-banner'
@@ -154,27 +154,24 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       return <p className="text-sm text-muted">인증 정보 확인 중...</p>
     }
 
-    if (albumBranch === 'b-album' && event!.album_b_url) {
-      return <BAlbumView albumBUrl={event!.album_b_url} gpsTime={verification.gps_passed_at!} />
+    const albumUrl = event!.album_b_url?.trim() || null
+    const albumReady = !!albumUrl
+
+    if (albumBranch === 'b-album' && albumUrl) {
+      return <BAlbumView albumBUrl={albumUrl} gpsTime={verification.gps_passed_at!} />
     }
 
-    if (albumBranch === 'purchase-modal' && event!.album_b_url) {
+    if (albumBranch === 'purchase-modal' && albumUrl) {
       return (
         <AlbumAccessSection
           verification={verification}
-          albumBUrl={event!.album_b_url}
-          albumAUrl={event!.album_a_url}
+          albumBUrl={albumUrl}
+          eventId={event!.id}
         />
       )
     }
 
-    return (
-      <AAlbumView
-        albumAUrl={event!.album_a_url}
-        incentive="이 장면을 고화질로 만나보세요"
-        eventId={event!.id}
-      />
-    )
+    return <LockedAlbumView eventId={event!.id} albumReady={albumReady} />
   }
 
   return (

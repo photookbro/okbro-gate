@@ -8,24 +8,24 @@ import {
   hasGpsAlbumAccess,
   hasPurchaseAlbumAccess,
 } from '@/lib/album-access'
-import { AAlbumView } from '@/components/a-album-view'
+import { LockedAlbumView } from '@/components/locked-album-view'
 
 type AlbumAccessModalProps = {
   visible: boolean
   onClose: () => void
   verification: VerificationInfo
   albumBUrl: string
-  albumAUrl?: string | null
+  eventId?: string
 }
 
-type ModalView = 'main' | 'share-warning' | 'a-album-preview'
+type ModalView = 'main' | 'share-warning'
 
 export function AlbumAccessModal({
   visible,
   onClose,
   verification,
   albumBUrl,
-  albumAUrl,
+  eventId,
 }: AlbumAccessModalProps) {
   const [modalView, setModalView] = useState<ModalView>('main')
 
@@ -43,16 +43,28 @@ export function AlbumAccessModal({
   function handleDownloadClick() {
     if (hasBAlbumDownloadAccess(verification)) {
       setModalView('share-warning')
-      return
     }
-    setModalView('a-album-preview')
   }
 
   const isValid = verification.status === 'valid'
   const isExpired = verification.status === 'expired'
   const isGpsAccess = verification.access_source === 'gps'
+  const canOpenAlbum = hasBAlbumDownloadAccess(verification)
   const showGpsHint =
     isValid && hasPurchaseAlbumAccess(verification) && !hasGpsAlbumAccess(verification)
+
+  if (!canOpenAlbum) {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-card max-w-lg" onClick={e => e.stopPropagation()}>
+          <LockedAlbumView eventId={eventId} albumReady />
+          <button type="button" onClick={onClose} className="btn-secondary mt-4 w-full">
+            닫기
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   if (modalView === 'share-warning') {
     return (
@@ -66,20 +78,7 @@ export function AlbumAccessModal({
             </p>
           </div>
           <button type="button" onClick={handleOpenAlbumB} className="btn-primary w-full">
-            고화질 앨범 열기
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  if (modalView === 'a-album-preview') {
-    return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-card max-w-lg" onClick={e => e.stopPropagation()}>
-          <AAlbumView albumAUrl={albumAUrl ?? null} incentive="이 장면을 고화질로 만나보세요" />
-          <button type="button" onClick={onClose} className="btn-secondary mt-4 w-full">
-            닫기
+            앨범 열기
           </button>
         </div>
       </div>
@@ -91,7 +90,7 @@ export function AlbumAccessModal({
       <div className="modal-card max-w-[440px]" onClick={e => e.stopPropagation()}>
         {isValid && isGpsAccess && verification.gps_passed_at && (
           <div className="alert-success mb-4">
-            📍 GPS 통과: {formatGpsPassDisplay(verification.gps_passed_at)} (고화질 앨범 자동 접근)
+            📍 GPS 통과: {formatGpsPassDisplay(verification.gps_passed_at)} (앨범 자동 접근)
           </div>
         )}
 
@@ -118,7 +117,7 @@ export function AlbumAccessModal({
         )}
 
         <button type="button" onClick={handleDownloadClick} className="btn-primary w-full">
-          ⬇️ 고화질 다운로드
+          ⬇️ 앨범 열기
         </button>
       </div>
     </div>

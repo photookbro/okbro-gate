@@ -47,5 +47,12 @@ export async function GET(
     }
   }
 
-  return NextResponse.json({ event: data, gps_logs })
+  return NextResponse.json({
+    event: {
+      ...data,
+      // A앨범(저화소) 미사용 — 더 이상 클라이언트에 노출하지 않음
+      album_a_url: null,
+    },
+    gps_logs,
+  })
 }

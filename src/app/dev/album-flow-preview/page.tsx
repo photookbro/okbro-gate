@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { AlbumAccessModal } from '@/components/album-access-modal'
 import type { VerificationInfo } from '@/lib/order-verification'
 
-const SAMPLE_ALBUM_A = 'https://photos.google.com/share/example'
 const SAMPLE_ALBUM_B = 'https://example.com/album-b'
 
 const PURCHASE_OK: VerificationInfo = {
@@ -29,7 +28,7 @@ export default function AlbumFlowPreviewPage() {
   return (
     <div className="page-shell">
       <div className="page-container-wide max-w-md space-y-4">
-        <p className="text-xs text-muted">Dev preview — 저화소 앨범 유도 / 고화질 앨범 경고 플로우</p>
+        <p className="text-xs text-muted">Dev preview — 인증 후 앨범 열기 / 미인증 잠금 플로우</p>
 
         <div className="flex gap-2">
           <button
@@ -53,7 +52,7 @@ export default function AlbumFlowPreviewPage() {
         </p>
 
         <button type="button" className="btn-primary w-full" onClick={() => setVisible(true)}>
-          모달 열기 → ⬇️ 고화질 다운로드 시뮬레이션
+          모달 열기 → 앨범 접근 시뮬레이션
         </button>
 
         <AlbumAccessModal
@@ -61,7 +60,6 @@ export default function AlbumFlowPreviewPage() {
           onClose={() => setVisible(false)}
           verification={verification}
           albumBUrl={SAMPLE_ALBUM_B}
-          albumAUrl={SAMPLE_ALBUM_A}
         />
       </div>
     </div>

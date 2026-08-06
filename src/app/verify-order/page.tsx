@@ -22,7 +22,6 @@ function VerifyOrderContent() {
   const [verification, setVerification] = useState<VerificationInfo>({ status: 'none' })
   const [statusLoading, setStatusLoading] = useState(true)
   const [albumBUrl, setAlbumBUrl] = useState<string | null>(null)
-  const [albumAUrl, setAlbumAUrl] = useState<string | null>(null)
   const [showAlbumModal, setShowAlbumModal] = useState(false)
 
   useEffect(() => {
@@ -63,21 +62,18 @@ function VerifyOrderContent() {
         if (eventId) {
           const { data: event } = await supabase
             .from('events')
-            .select('album_a_url, album_b_url')
+            .select('album_b_url')
             .eq('id', eventId)
             .single()
           if (cancelled) return
           setAlbumBUrl(event?.album_b_url ?? null)
-          setAlbumAUrl(event?.album_a_url ?? null)
         } else {
           setAlbumBUrl(null)
-          setAlbumAUrl(null)
         }
       } catch {
         if (!cancelled) {
           setVerification({ status: 'none' })
           setAlbumBUrl(null)
-          setAlbumAUrl(null)
         }
       } finally {
         if (!cancelled) setStatusLoading(false)
@@ -285,7 +281,7 @@ function VerifyOrderContent() {
                 marginBottom: '1.25rem',
               }}
             >
-              ⭐ 고화질 앨범 열기
+              ⭐ 앨범 열기
             </button>
           ) : null}
 
@@ -372,7 +368,7 @@ function VerifyOrderContent() {
           onClose={() => setShowAlbumModal(false)}
           verification={verification}
           albumBUrl={albumBUrl}
-          albumAUrl={albumAUrl}
+          eventId={eventId ?? undefined}
         />
       ) : null}
     </div>
