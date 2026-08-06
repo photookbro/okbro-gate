@@ -406,7 +406,7 @@ export default function AdminPage() {
   }
 
   async function handleRevokeAccess(userId: string) {
-    if (!confirm('이 선수의 사진 열람 권한을 강제로 0으로 만들까요? (기존 구매 인증이 모두 즉시 만료돼요)')) {
+    if (!confirm('이 선수의 사진 열람 권한을 강제로 0으로 만들까요? (구매 인증·인스타 혜택이 즉시 만료돼요)')) {
       return
     }
 
