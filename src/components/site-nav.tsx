@@ -87,7 +87,7 @@ export function SiteNav() {
             )}
             data-guest-allowed
           >
-            진단
+            CHECK
           </Link>
           {userId ? (
             <>
