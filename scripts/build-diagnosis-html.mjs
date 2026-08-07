@@ -110,6 +110,134 @@ html = html.replace(
   "<h3>${new Date().toLocaleDateString('ko-KR')} 기준 자가진단 리포트예요</h3>"
 )
 
+html = html.replace(
+  '입력한 정보는 저장되지 않고 이 화면에서만 계산에 사용돼요.',
+  '결과는 이 기기에만 저장되며 서버로는 전송되지 않아요.'
+)
+html = html.replace(
+  '입력하신 개인 정보는 서버에 저장되지 않고 이 화면에서만 계산에 사용돼요.',
+  '결과는 이 기기의 브라우저에만 저장되며 서버로는 전송되지 않아요.'
+)
+
+/** Persist answers/results in localStorage + allow re-submit after edits */
+if (!html.includes('okbro-gate-check-v1')) {
+  html = html.replace(
+    'const answers = {};',
+    `const STORAGE_KEY = 'okbro-gate-check-v1';
+let hasShownResults = false;
+const answers = {};
+
+function saveState(){
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      v: 1,
+      answers,
+      profile,
+      age: document.getElementById('pAge').value,
+      height: document.getElementById('pHeight').value,
+      weight: document.getElementById('pWeight').value,
+      meds: document.getElementById('pMeds').value,
+      shown: hasShownResults,
+      savedAt: Date.now(),
+    }));
+  } catch (_) {}
+}
+
+function restoreState(){
+  let raw;
+  try { raw = localStorage.getItem(STORAGE_KEY); } catch (_) { return; }
+  if (!raw) return;
+  let data;
+  try { data = JSON.parse(raw); } catch (_) { return; }
+  if (!data || data.v !== 1) return;
+
+  if (data.age != null) document.getElementById('pAge').value = data.age;
+  if (data.height != null) document.getElementById('pHeight').value = data.height;
+  if (data.weight != null) document.getElementById('pWeight').value = data.weight;
+  if (data.meds != null) document.getElementById('pMeds').value = data.meds;
+
+  if (data.profile && data.profile.gender) {
+    profile.gender = data.profile.gender;
+    document.querySelectorAll('#pGender .pill').forEach(p => {
+      p.classList.toggle('checked', p.dataset.v === profile.gender);
+    });
+  }
+  if (data.profile && data.profile.activity) {
+    profile.activity = data.profile.activity;
+    document.querySelectorAll('#pActivity .pill').forEach(p => {
+      p.classList.toggle('checked', p.dataset.v === profile.activity);
+    });
+  }
+
+  if (data.answers && typeof data.answers === 'object') {
+    Object.keys(data.answers).forEach(qName => {
+      const a = data.answers[qName];
+      if (!a || a.val == null) return;
+      answers[qName] = { cat: a.cat, val: a.val };
+      const input = form.querySelector('input[name="' + qName + '"][value="' + a.val + '"]');
+      if (!input) return;
+      const label = input.closest('label');
+      const scale = input.closest('.scale');
+      if (scale) scale.querySelectorAll('label').forEach(l => l.classList.remove('checked'));
+      if (label) label.classList.add('checked');
+      input.checked = true;
+    });
+  }
+
+  updateProgress();
+  if (data.shown && Object.keys(answers).length >= total && profileValid()) {
+    hasShownResults = true;
+    document.getElementById('submitBtn').textContent = '결과 다시 보기';
+    renderResults();
+    document.getElementById('results').style.display = 'block';
+  }
+}`
+  )
+
+  html = html.replace(
+    'answers[qName] = {cat, val: parseInt(label.dataset.v,10)};\n  updateProgress();\n});',
+    'answers[qName] = {cat, val: parseInt(label.dataset.v,10)};\n  updateProgress();\n  saveState();\n});'
+  )
+
+  html = html.replace(
+    "profile.gender = p.dataset.v;\n    checkEnable();\n  });\n});\ndocument.querySelectorAll('#pActivity .pill').forEach(p=>{\n  p.addEventListener('click', ()=>{\n    document.querySelectorAll('#pActivity .pill').forEach(x=>x.classList.remove('checked'));\n    p.classList.add('checked');\n    profile.activity = p.dataset.v;\n    checkEnable();\n  });\n});\n['pAge','pHeight','pWeight'].forEach(id=>{\n  document.getElementById(id).addEventListener('input', checkEnable);\n});",
+    "profile.gender = p.dataset.v;\n    checkEnable();\n    saveState();\n  });\n});\ndocument.querySelectorAll('#pActivity .pill').forEach(p=>{\n  p.addEventListener('click', ()=>{\n    document.querySelectorAll('#pActivity .pill').forEach(x=>x.classList.remove('checked'));\n    p.classList.add('checked');\n    profile.activity = p.dataset.v;\n    checkEnable();\n    saveState();\n  });\n});\n['pAge','pHeight','pWeight','pMeds'].forEach(id=>{\n  document.getElementById(id).addEventListener('input', ()=>{ checkEnable(); saveState(); });\n});"
+  )
+
+  html = html.replace(
+    `document.getElementById('submitBtn').addEventListener('click', ()=>{
+  if(!profileValid()){
+    document.getElementById('profileWarn').classList.add('show');
+    document.querySelector('.profile-card').scrollIntoView({behavior:'smooth', block:'center'});
+    return;
+  }
+  if(Object.keys(answers).length < total) return;
+  renderResults();
+  document.getElementById('results').style.display='block';
+  document.getElementById('results').scrollIntoView({behavior:'smooth'});
+});`,
+    `document.getElementById('submitBtn').addEventListener('click', ()=>{
+  if(!profileValid()){
+    document.getElementById('profileWarn').classList.add('show');
+    document.querySelector('.profile-card').scrollIntoView({behavior:'smooth', block:'center'});
+    return;
+  }
+  if(Object.keys(answers).length < total) return;
+  hasShownResults = true;
+  document.getElementById('submitBtn').textContent = '결과 다시 보기';
+  renderResults();
+  saveState();
+  document.getElementById('results').style.display='block';
+  document.getElementById('results').scrollIntoView({behavior:'smooth'});
+});`
+  )
+
+  html = html.replace(
+    '</script>\n</body>',
+    'restoreState();\n</script>\n</body>'
+  )
+}
+
 const out = path.join(root, 'public', 'diagnosis-app.html')
 fs.mkdirSync(path.dirname(out), { recursive: true })
 fs.writeFileSync(out, html, 'utf8')
@@ -119,4 +247,6 @@ console.log({
   nameLabel: html.includes('이름 또는'),
   report: html.includes('자가진단 리포트'),
   brand: html.includes('#FF2800'),
+  persist: html.includes('okbro-gate-check-v1'),
+  restore: html.includes('restoreState()'),
 })

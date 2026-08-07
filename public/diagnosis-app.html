@@ -200,7 +200,7 @@
 
   <div class="profile-card">
     <div class="ptitle"><span class="badge">i</span>기본 정보</div>
-    <p class="psub">결과 리포트를 더 정확하게 맞춤화하기 위해 사용돼요. 입력한 정보는 저장되지 않고 이 화면에서만 계산에 사용돼요.</p>
+    <p class="psub">결과 리포트를 더 정확하게 맞춤화하기 위해 사용돼요. 결과는 이 기기에만 저장되며 서버로는 전송되지 않아요.</p>
     <div class="field-grid">
       <div class="field">
         <label>나이</label>
@@ -421,6 +421,7 @@ document.querySelectorAll('#pGender .pill').forEach(p=>{
     p.classList.add('checked');
     profile.gender = p.dataset.v;
     checkEnable();
+    saveState();
   });
 });
 document.querySelectorAll('#pActivity .pill').forEach(p=>{
@@ -429,10 +430,11 @@ document.querySelectorAll('#pActivity .pill').forEach(p=>{
     p.classList.add('checked');
     profile.activity = p.dataset.v;
     checkEnable();
+    saveState();
   });
 });
-['pAge','pHeight','pWeight'].forEach(id=>{
-  document.getElementById(id).addEventListener('input', checkEnable);
+['pAge','pHeight','pWeight','pMeds'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', ()=>{ checkEnable(); saveState(); });
 });
 
 // ---------- build questions ----------
@@ -468,7 +470,75 @@ CATEGORIES.forEach((cat, ci)=>{
   form.appendChild(sec);
 });
 
+const STORAGE_KEY = 'okbro-gate-check-v1';
+let hasShownResults = false;
 const answers = {};
+
+function saveState(){
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      v: 1,
+      answers,
+      profile,
+      age: document.getElementById('pAge').value,
+      height: document.getElementById('pHeight').value,
+      weight: document.getElementById('pWeight').value,
+      meds: document.getElementById('pMeds').value,
+      shown: hasShownResults,
+      savedAt: Date.now(),
+    }));
+  } catch (_) {}
+}
+
+function restoreState(){
+  let raw;
+  try { raw = localStorage.getItem(STORAGE_KEY); } catch (_) { return; }
+  if (!raw) return;
+  let data;
+  try { data = JSON.parse(raw); } catch (_) { return; }
+  if (!data || data.v !== 1) return;
+
+  if (data.age != null) document.getElementById('pAge').value = data.age;
+  if (data.height != null) document.getElementById('pHeight').value = data.height;
+  if (data.weight != null) document.getElementById('pWeight').value = data.weight;
+  if (data.meds != null) document.getElementById('pMeds').value = data.meds;
+
+  if (data.profile && data.profile.gender) {
+    profile.gender = data.profile.gender;
+    document.querySelectorAll('#pGender .pill').forEach(p => {
+      p.classList.toggle('checked', p.dataset.v === profile.gender);
+    });
+  }
+  if (data.profile && data.profile.activity) {
+    profile.activity = data.profile.activity;
+    document.querySelectorAll('#pActivity .pill').forEach(p => {
+      p.classList.toggle('checked', p.dataset.v === profile.activity);
+    });
+  }
+
+  if (data.answers && typeof data.answers === 'object') {
+    Object.keys(data.answers).forEach(qName => {
+      const a = data.answers[qName];
+      if (!a || a.val == null) return;
+      answers[qName] = { cat: a.cat, val: a.val };
+      const input = form.querySelector('input[name="' + qName + '"][value="' + a.val + '"]');
+      if (!input) return;
+      const label = input.closest('label');
+      const scale = input.closest('.scale');
+      if (scale) scale.querySelectorAll('label').forEach(l => l.classList.remove('checked'));
+      if (label) label.classList.add('checked');
+      input.checked = true;
+    });
+  }
+
+  updateProgress();
+  if (data.shown && Object.keys(answers).length >= total && profileValid()) {
+    hasShownResults = true;
+    document.getElementById('submitBtn').textContent = '결과 다시 보기';
+    renderResults();
+    document.getElementById('results').style.display = 'block';
+  }
+}
 form.addEventListener('click', (e)=>{
   const label = e.target.closest('label[data-v]');
   if(!label) return;
@@ -482,6 +552,7 @@ form.addEventListener('click', (e)=>{
   input.checked = true;
   answers[qName] = {cat, val: parseInt(label.dataset.v,10)};
   updateProgress();
+  saveState();
 });
 
 const total = QUESTIONS.length;
@@ -517,7 +588,10 @@ document.getElementById('submitBtn').addEventListener('click', ()=>{
     return;
   }
   if(Object.keys(answers).length < total) return;
+  hasShownResults = true;
+  document.getElementById('submitBtn').textContent = '결과 다시 보기';
   renderResults();
+  saveState();
   document.getElementById('results').style.display='block';
   document.getElementById('results').scrollIntoView({behavior:'smooth'});
 });
@@ -670,11 +744,12 @@ function renderResults(){
       </div>
 
       <div class="footnote">
-        이 리포트는 자가보고 응답을 바탕으로 한 참고 자료이며, 혈액검사·영상검사 같은 임상적 진단을 대신할 수 없어요. 특히 심혈관·대사 영역 점수가 높거나 약물(스타틴, 항응고제 등)을 복용 중이라면, 성분 간 상호작용 확인을 위해 꼭 의사·약사와 상담 후 섭취해주세요. 입력하신 개인 정보는 서버에 저장되지 않고 이 화면에서만 계산에 사용돼요.
+        이 리포트는 자가보고 응답을 바탕으로 한 참고 자료이며, 혈액검사·영상검사 같은 임상적 진단을 대신할 수 없어요. 특히 심혈관·대사 영역 점수가 높거나 약물(스타틴, 항응고제 등)을 복용 중이라면, 성분 간 상호작용 확인을 위해 꼭 의사·약사와 상담 후 섭취해주세요. 결과는 이 기기의 브라우저에만 저장되며 서버로는 전송되지 않아요.
       </div>
     </div>
   `;
 }
+restoreState();
 </script>
 </body>
 </html>
