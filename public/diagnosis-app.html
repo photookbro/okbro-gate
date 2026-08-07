@@ -30,6 +30,7 @@
     background:var(--bg);
     color:var(--ink);
     font-family:var(--sans);
+    font-size:16.5px;
     line-height:1.6;
     -webkit-font-smoothing:antialiased;
   }
@@ -46,15 +47,15 @@
   .topbar-row{display:flex;align-items:center;gap:14px;}
   .logo-dot{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--coral),#FF5533);flex-shrink:0;}
   .topbar-text{flex:1;}
-  .topbar-title{font-size:14px;font-weight:700;}
+  .topbar-title{font-size:15.5px;font-weight:700;}
   .track{margin-top:8px;height:6px;border-radius:99px;background:var(--line);overflow:hidden;}
   .fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--coral),#FF7A8A);width:0%;transition:width .3s ease;}
 
   .hero{padding:40px 0 28px;}
   .hero .eyebrow{display:inline-flex;align-items:center;gap:6px;background:var(--coral-soft);color:#FF6A45;font-size:12.5px;font-weight:700;padding:6px 14px;border-radius:99px;margin-bottom:18px;}
-  .hero h1{font-size:32px;line-height:1.3;margin:0 0 14px;font-weight:800;letter-spacing:-0.01em;}
-  .hero p{font-size:15.5px;color:var(--ink-soft);margin:0 0 8px;max-width:56ch;}
-  .intro-card{margin-top:22px;background:var(--bg-tint);border-radius:var(--radius-m);padding:20px 22px;font-size:13.5px;color:var(--ink-soft);line-height:1.7;}
+  .hero h1{font-size:34px;line-height:1.3;margin:0 0 14px;font-weight:800;letter-spacing:-0.01em;}
+  .hero p{font-size:16.5px;color:var(--ink-soft);margin:0 0 8px;max-width:56ch;}
+  .intro-card{margin-top:22px;background:var(--bg-tint);border-radius:var(--radius-m);padding:20px 22px;font-size:14.5px;color:var(--ink-soft);line-height:1.7;}
   .intro-card b{color:var(--ink);}
 
   /* ---------- profile section ---------- */
@@ -68,7 +69,7 @@
   .field-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
   .field{margin-bottom:14px;}
   .field.full{grid-column:1 / -1;}
-  .field label{display:block;font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:7px;}
+  .field label{display:block;font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:7px;}
   .field .opt{font-weight:400;color:var(--ink-soft);}
   .field input[type=text], .field input[type=number], .field textarea{
     width:100%;border:1.5px solid var(--line);border-radius:var(--radius-s);
@@ -79,7 +80,7 @@
   .field textarea{resize:vertical;min-height:52px;}
   .pillgroup{display:flex;gap:8px;flex-wrap:wrap;}
   .pillgroup .pill{
-    border:1.5px solid var(--line);border-radius:99px;padding:9px 16px;font-size:13px;
+    border:1.5px solid var(--line);border-radius:99px;padding:9px 16px;font-size:14px;
     cursor:pointer;color:var(--ink-soft);transition:all .15s ease;user-select:none;
   }
   .pillgroup .pill:hover{border-color:var(--coral);}
@@ -90,23 +91,23 @@
   .section{margin-top:36px;}
   .section-head{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
   .section-head .badge{width:36px;height:36px;border-radius:50%;background:var(--coral-soft);color:#FF6A45;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0;}
-  .section-head h2{font-size:19px;margin:0;font-weight:800;}
-  .section-head .count{margin-left:auto;font-size:12.5px;color:var(--ink-soft);background:var(--bg-tint);padding:4px 12px;border-radius:99px;}
+  .section-head h2{font-size:20px;margin:0;font-weight:800;}
+  .section-head .count{margin-left:auto;font-size:13.5px;color:var(--ink-soft);background:var(--bg-tint);padding:4px 12px;border-radius:99px;}
 
   .q{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-m);padding:20px 20px 18px;margin-bottom:12px;transition:box-shadow .2s ease;}
   .q:hover{box-shadow:0 4px 18px rgba(0,0,0,.35);}
-  .q-text{font-size:14.5px;margin-bottom:14px;color:var(--ink);}
+  .q-text{font-size:16px;margin-bottom:14px;color:var(--ink);}
   .scale{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
-  .scale label{border:1.5px solid var(--line);border-radius:var(--radius-s);background:var(--bg-tint);text-align:center;padding:10px 4px 8px;cursor:pointer;font-size:11px;color:var(--ink-soft);transition:all .15s ease;user-select:none;}
-  .scale label .n{display:block;font-weight:800;font-size:15px;color:var(--ink);margin-bottom:2px;}
+  .scale label{border:1.5px solid var(--line);border-radius:var(--radius-s);background:var(--bg-tint);text-align:center;padding:10px 4px 8px;cursor:pointer;font-size:12px;color:var(--ink-soft);transition:all .15s ease;user-select:none;}
+  .scale label .n{display:block;font-weight:800;font-size:16px;color:var(--ink);margin-bottom:2px;}
   .scale input{position:absolute;opacity:0;pointer-events:none;}
   .scale label:hover{border-color:var(--coral);}
   .scale label.checked{background:var(--coral);border-color:var(--coral);color:#fff;}
   .scale label.checked .n{color:#fff;}
-  .scale-caption{display:flex;justify-content:space-between;font-size:10.5px;color:var(--ink-soft);margin-top:8px;padding:0 2px;}
+  .scale-caption{display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-soft);margin-top:8px;padding:0 2px;}
 
   .submit-zone{margin-top:44px;text-align:center;padding:32px 0;border-top:1px solid var(--line);}
-  #submitBtn{font-size:15px;font-weight:700;background:var(--coral);color:#fff;border:none;border-radius:99px;padding:15px 34px;cursor:pointer;box-shadow:0 6px 18px rgba(255,40,0,.28);transition:transform .15s ease, background .15s ease;}
+  #submitBtn{font-size:16px;font-weight:700;background:var(--coral);color:#fff;border:none;border-radius:99px;padding:15px 34px;cursor:pointer;box-shadow:0 6px 18px rgba(255,40,0,.28);transition:transform .15s ease, background .15s ease;}
   #submitBtn:hover:not(:disabled){background:var(--coral-deep);transform:translateY(-1px);}
   #submitBtn:disabled{background:var(--line);color:var(--ink-soft);box-shadow:none;cursor:not-allowed;}
   .remain{font-size:13px;color:var(--ink-soft);margin-top:12px;}
@@ -211,7 +212,6 @@
         <div class="pillgroup" id="pGender">
           <div class="pill" data-v="남성">남성</div>
           <div class="pill" data-v="여성">여성</div>
-          <div class="pill" data-v="기타">기타</div>
         </div>
       </div>
       <div class="field">
@@ -641,17 +641,6 @@ function renderResults(){
     </div>`;
   }).join('');
 
-  // trigger questions per category (score >=4)
-  function triggersFor(catKey){
-    const list = [];
-    QUESTIONS.forEach((q, idx)=>{
-      if(q.c!==catKey) return;
-      const a = answers['q'+(idx+1)];
-      if(a && a.val>=4) list.push({t:q.t, v:a.val});
-    });
-    return list.sort((a,b)=>b.v-a.v);
-  }
-
   const cards = scored.map(c=>{
     const sc = scoreColor(c.avg);
     const isLow = c.avg < 2.5;
@@ -666,12 +655,6 @@ function renderResults(){
         <div style="font-size:13px;color:var(--ink-soft);">이 영역은 지금 상태를 잘 유지하고 계세요. ${tip} 평소 즐겨 챙기면 좋은 과일로는 <b>${fruitTip.n}</b>이 있어요.</div>
       </div>`;
     }
-    const triggers = triggersFor(c.key);
-    const triggerHtml = triggers.length ? `
-      <div class="trigger-box">
-        <div class="tt">특히 이런 항목에서 강하게 나타났어요</div>
-        ${triggers.slice(0,4).map(tr=>`<div class="trigger-item"><span>${tr.t}</span><span class="tscore">${tr.v}점</span></div>`).join('')}
-      </div>` : '';
     const ingHtml = RECS[c.key].map(r=>`<li><b>${r.n}</b><br>${r.d}</li>`).join('');
     const lifeHtml = LIFESTYLE[c.key].map(l=>`<li>${l}</li>`).join('');
     const fruitHtml = FRUITS[c.key].map(f=>`<li><b>${f.n}</b><br>${f.d}</li>`).join('');
@@ -681,7 +664,6 @@ function renderResults(){
         <span class="tag" style="background:${sc.bg};">${sc.label}</span>
       </div>
       <div class="why-box"><b>왜 이 영역이 신호를 보내는 걸까요?</b><br>${WHY[c.key]}</div>
-      ${triggerHtml}
       <div class="subhead">추천 성분</div>
       <ul class="ing">${ingHtml}</ul>
       <div class="subhead">함께 챙기면 좋은 과일</div>
@@ -698,15 +680,6 @@ function renderResults(){
 
   const medsFlagHtml = meds && meds!=='없음' ? `<div class="meds-flag">⚠️ 입력하신 복용 약물/지병(“${meds}”) 정보가 있어요. 아래 추천 성분 중 상호작용이 우려되는 항목은 <b>반드시 의사·약사와 먼저 상담</b>해주세요.</div>` : '';
 
-  // appendix: all 50 answers grouped by category
-  const appendixHtml = CATEGORIES.map(cat=>{
-    const rows = QUESTIONS.map((q, idx)=>{
-      if(q.c!==cat.key) return '';
-      const a = answers['q'+(idx+1)];
-      return `<div class="arow"><span>${q.t}</span><span class="aval">${a?a.val:'-'}점</span></div>`;
-    }).join('');
-    return `<div class="agroup"><div class="agroup-title">${cat.label}</div>${rows}</div>`;
-  }).join('');
 
   document.getElementById('results').innerHTML = `
     <div class="report">
@@ -737,11 +710,6 @@ function renderResults(){
       <p class="priority-sub">${overallNote}</p>
       ${cards}
 
-      <div class="appendix">
-        <h4>전체 응답 내역</h4>
-        <p class="asub">50문항에 대한 응답을 영역별로 모두 정리했어요. 궁금한 문항의 점수를 바로 확인할 수 있어요.</p>
-        ${appendixHtml}
-      </div>
 
       <div class="footnote">
         이 리포트는 자가보고 응답을 바탕으로 한 참고 자료이며, 혈액검사·영상검사 같은 임상적 진단을 대신할 수 없어요. 특히 심혈관·대사 영역 점수가 높거나 약물(스타틴, 항응고제 등)을 복용 중이라면, 성분 간 상호작용 확인을 위해 꼭 의사·약사와 상담 후 섭취해주세요. 결과는 이 기기의 브라우저에만 저장되며 서버로는 전송되지 않아요.

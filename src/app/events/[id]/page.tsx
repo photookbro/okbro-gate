@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation'
 import type { VerificationInfo } from '@/lib/order-verification'
 import { AlbumAccessSection } from '@/components/album-access-section'
 import { BAlbumView } from '@/components/b-album-view'
-import { LockedAlbumView } from '@/components/locked-album-view'
 import { TermsAgreement } from '@/components/terms-agreement'
 import { GpsDetector } from '@/components/gps-detector'
 import { GpsTrackingBanner } from '@/components/gps-tracking-banner'
@@ -155,7 +154,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     }
 
     const albumUrl = event!.album_b_url?.trim() || null
-    const albumReady = !!albumUrl
 
     if (albumBranch === 'b-album' && albumUrl) {
       return <BAlbumView albumBUrl={albumUrl} gpsTime={verification.gps_passed_at!} />
@@ -171,7 +169,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       )
     }
 
-    return <LockedAlbumView eventId={event!.id} albumReady={albumReady} />
+    return null
   }
 
   return (
@@ -202,7 +200,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             </div>
           ) : null}
 
-          <h2 className="section-title">앨범</h2>
           {renderAlbumSection()}
         </div>
       </div>

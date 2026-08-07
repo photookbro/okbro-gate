@@ -119,6 +119,29 @@ html = html.replace(
   '결과는 이 기기의 브라우저에만 저장되며 서버로는 전송되지 않아요.'
 )
 
+html = html.replace(
+  /\n\s*<div class="pill" data-v="기타">기타<\/div>/,
+  ''
+)
+
+html = html.replace(
+  'line-height:1.6;\n    -webkit-font-smoothing:antialiased;',
+  'font-size:16.5px;\n    line-height:1.6;\n    -webkit-font-smoothing:antialiased;'
+)
+html = html.replace('.topbar-title{font-size:14px;', '.topbar-title{font-size:15.5px;')
+html = html.replace('.hero h1{font-size:32px;', '.hero h1{font-size:34px;')
+html = html.replace('.hero p{font-size:15.5px;', '.hero p{font-size:16.5px;')
+html = html.replace('.intro-card{margin-top:22px;background:var(--bg-tint);border-radius:var(--radius-m);padding:20px 22px;font-size:13.5px;', '.intro-card{margin-top:22px;background:var(--bg-tint);border-radius:var(--radius-m);padding:20px 22px;font-size:14.5px;')
+html = html.replace('.field label{display:block;font-size:12.5px;', '.field label{display:block;font-size:13.5px;')
+html = html.replace('border-radius:99px;padding:9px 16px;font-size:13px;', 'border-radius:99px;padding:9px 16px;font-size:14px;')
+html = html.replace('.section-head h2{font-size:19px;', '.section-head h2{font-size:20px;')
+html = html.replace('.section-head .count{margin-left:auto;font-size:12.5px;', '.section-head .count{margin-left:auto;font-size:13.5px;')
+html = html.replace('.q-text{font-size:14.5px;', '.q-text{font-size:16px;')
+html = html.replace('cursor:pointer;font-size:11px;color:var(--ink-soft);', 'cursor:pointer;font-size:12px;color:var(--ink-soft);')
+html = html.replace('.scale label .n{display:block;font-weight:800;font-size:15px;', '.scale label .n{display:block;font-weight:800;font-size:16px;')
+html = html.replace('.scale-caption{display:flex;justify-content:space-between;font-size:10.5px;', '.scale-caption{display:flex;justify-content:space-between;font-size:11.5px;')
+html = html.replace('#submitBtn{font-size:15px;', '#submitBtn{font-size:16px;')
+
 /** Persist answers/results in localStorage + allow re-submit after edits */
 if (!html.includes('okbro-gate-check-v1')) {
   html = html.replace(
@@ -238,6 +261,30 @@ function restoreState(){
   )
 }
 
+// Shorten report UI: drop strong-item triggers + full response appendix
+html = html.replace(
+  /  \/\/ trigger questions per category \(score >=4\)\n  function triggersFor\(catKey\)\{[\s\S]*?return list\.sort\(\(a,b\)=>b\.v-a\.v\);\n  \}\n\n/,
+  ''
+)
+html = html.replace(
+  /    const triggers = triggersFor\(c\.key\);\n    const triggerHtml = triggers\.length \? `[\s\S]*?` : '';\n/,
+  ''
+)
+html = html.replace(/\n      \$\{triggerHtml\}/, '')
+html = html.replace(
+  /\n  \/\/ appendix: all 50 answers grouped by category\n  const appendixHtml = CATEGORIES\.map\(cat=>\{\n    const rows = QUESTIONS\.map\(\(q, idx\)=>\{[\s\S]*?\n    \}\)\.join\(''\);\n    return `[\s\S]*?`;\n  \}\)\.join\(''\);\n/,
+  '\n'
+)
+html = html.replace(
+  /\n      <div class="appendix">\n        <h4>전체 응답 내역<\/h4>\n        <p class="asub">50문항에 대한 응답을 영역별로 모두 정리했어요\. 궁금한 문항의 점수를 바로 확인할 수 있어요\.<\/p>\n        \$\{appendixHtml\}\n      <\/div>\n/,
+  '\n'
+)
+// Safety: strip any leftover broken appendix fragments from a partial prior replace
+html = html.replace(
+  /\n    return `<div class="agroup"><div class="agroup-title">\$\{cat\.label\}<\/div>\$\{rows\}<\/div>`;\n  \}\)\.join\(''\);\n/,
+  '\n'
+)
+
 const out = path.join(root, 'public', 'diagnosis-app.html')
 fs.mkdirSync(path.dirname(out), { recursive: true })
 fs.writeFileSync(out, html, 'utf8')
@@ -249,4 +296,6 @@ console.log({
   brand: html.includes('#FF2800'),
   persist: html.includes('okbro-gate-check-v1'),
   restore: html.includes('restoreState()'),
+  noTriggers: !html.includes('특히 이런 항목에서 강하게 나타났어요'),
+  noAppendix: !html.includes('전체 응답 내역'),
 })

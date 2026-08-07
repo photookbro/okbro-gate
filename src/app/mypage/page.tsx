@@ -275,7 +275,7 @@ export default function MyPage() {
         />
 
         <div className="card mb-4">
-          <h2 className="section-title">인증 연장</h2>
+          <h2 className="section-title">주문번호 인증과 만기연장</h2>
           <p className="mb-4 text-sm leading-relaxed text-muted">
             추가 주문번호로 인증하면 만료일이 연장돼요
           </p>

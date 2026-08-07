@@ -31,17 +31,30 @@ function UpcomingEventItem({
 
   const isMultiMode = event.locations.length > 1
   const hasPassData = isMultiMode ? event.gps_pass_groups.length > 0 : !!event.shoot_record
+  const canOpenDetail = !event.show_gps_toggle || trackingEnabled
+
+  const mainContent = (
+    <>
+      <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
+      <span className="events-event-name-row">
+        <span className="events-event-name">{event.name}</span>
+        {canOpenDetail ? <span className="events-event-detail-hint">상세보기 ›</span> : null}
+      </span>
+    </>
+  )
 
   return (
     <li className="event-upcoming-item">
       <div className="event-upcoming-row">
-        <Link href={`/events/${event.id}`} className="event-upcoming-main-link">
-          <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
-          <span className="events-event-name-row">
-            <span className="events-event-name">{event.name}</span>
-            <span className="events-event-detail-hint">상세보기 ›</span>
-          </span>
-        </Link>
+        {canOpenDetail ? (
+          <Link href={`/events/${event.id}`} className="event-upcoming-main-link">
+            {mainContent}
+          </Link>
+        ) : (
+          <div className="event-upcoming-main-link" aria-disabled="true">
+            {mainContent}
+          </div>
+        )}
         {event.show_gps_toggle ? (
           <div className="events-gps-switch-col">
             <GpsTrackingToggle

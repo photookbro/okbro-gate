@@ -8,7 +8,6 @@ import {
   hasGpsAlbumAccess,
   hasPurchaseAlbumAccess,
 } from '@/lib/album-access'
-import { LockedAlbumView } from '@/components/locked-album-view'
 
 type AlbumAccessSectionProps = {
   verification: VerificationInfo
@@ -21,7 +20,6 @@ type SectionView = 'main' | 'share-warning'
 export function AlbumAccessSection({
   verification,
   albumBUrl,
-  eventId,
 }: AlbumAccessSectionProps) {
   const [view, setView] = useState<SectionView>('main')
 
@@ -43,11 +41,7 @@ export function AlbumAccessSection({
     isValid && hasPurchaseAlbumAccess(verification) && !hasGpsAlbumAccess(verification)
 
   if (!canOpenAlbum) {
-    return (
-      <div className="card-section">
-        <LockedAlbumView eventId={eventId} albumReady />
-      </div>
-    )
+    return null
   }
 
   if (view === 'share-warning') {

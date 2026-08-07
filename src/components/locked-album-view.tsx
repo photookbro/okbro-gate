@@ -1,14 +1,12 @@
 'use client'
 
-import Link from 'next/link'
-
 type LockedAlbumViewProps = {
   eventId?: string
   /** true면 앨범 URL은 있으나 인증이 필요함. false면 아직 업로드 전 */
   albumReady?: boolean
 }
 
-export function LockedAlbumView({ eventId, albumReady = true }: LockedAlbumViewProps) {
+export function LockedAlbumView({ albumReady = true }: LockedAlbumViewProps) {
   return (
     <div className="space-y-4">
       <div className="alert-warning">
@@ -20,15 +18,6 @@ export function LockedAlbumView({ eventId, albumReady = true }: LockedAlbumViewP
 
       {!albumReady ? (
         <p className="text-sm text-muted">사진이 아직 도착하지 않았습니다. 조금만 기다려 주세요</p>
-      ) : null}
-
-      {eventId ? (
-        <Link
-          href={`/verify-order?eventId=${encodeURIComponent(eventId)}`}
-          className="btn-primary block w-full text-center text-base no-underline"
-        >
-          인증하고 앨범 보기
-        </Link>
       ) : null}
     </div>
   )

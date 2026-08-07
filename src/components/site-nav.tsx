@@ -18,6 +18,7 @@ export function SiteNav() {
   const [userId, setUserId] = useState<string | null>(null)
   const [checked, setChecked] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -45,9 +46,25 @@ export function SiteNav() {
     }
   }, [supabase.auth])
 
+  useEffect(() => {
+    setMenuOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
+    if (!menuOpen) return
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [menuOpen])
+
   async function handleLogout() {
     if (loggingOut) return
     setLoggingOut(true)
+    setMenuOpen(false)
     // 세션 종료 전에 GPS watch/로컬 CAPTURING을 먼저 끊음
     emitAuthLogout()
     await supabase.auth.signOut()
@@ -57,57 +74,77 @@ export function SiteNav() {
 
   if (!checked) return null
 
+  const links = (
+    <>
+      <Link href="/home" className={navLinkClass(pathname === '/home' || pathname === '/')}>
+        HOME
+      </Link>
+      <Link
+        href="/events"
+        className={navLinkClass(pathname === '/events' || pathname.startsWith('/events/'))}
+      >
+        EVENTS
+      </Link>
+      <Link
+        href="/shop"
+        className={navLinkClass(pathname === '/shop' || pathname.startsWith('/shop/'))}
+        data-guest-allowed
+      >
+        SHOP
+      </Link>
+      <Link
+        href="/diagnosis"
+        className={navLinkClass(pathname === '/diagnosis' || pathname.startsWith('/diagnosis/'))}
+        data-guest-allowed
+      >
+        CHECK
+      </Link>
+      {userId ? (
+        <>
+          <Link href="/mypage" className={navLinkClass(pathname === '/mypage')}>
+            MY PAGE
+          </Link>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="nav-btn-logout"
+          >
+            {loggingOut ? '로그아웃 중...' : 'LOG OUT'}
+          </button>
+        </>
+      ) : (
+        <Link href="/login" className={navLinkClass(pathname === '/login')}>
+          LOG IN
+        </Link>
+      )}
+    </>
+  )
+
   return (
     <nav className="site-nav">
       <div className="site-nav-inner">
         <Link href="/" className="nav-brand">
           <span className="nav-brand-accent">OKbro</span>GATE
         </Link>
-        <div className="nav-links">
-          <Link href="/home" className={navLinkClass(pathname === '/home' || pathname === '/')}>
-            HOME
-          </Link>
-          <Link
-            href="/events"
-            className={navLinkClass(pathname === '/events' || pathname.startsWith('/events/'))}
-          >
-            EVENTS
-          </Link>
-          <Link
-            href="/shop"
-            className={navLinkClass(pathname === '/shop' || pathname.startsWith('/shop/'))}
-            data-guest-allowed
-          >
-            SHOP
-          </Link>
-          <Link
-            href="/diagnosis"
-            className={navLinkClass(
-              pathname === '/diagnosis' || pathname.startsWith('/diagnosis/')
-            )}
-            data-guest-allowed
-          >
-            CHECK
-          </Link>
-          {userId ? (
-            <>
-              <Link href="/mypage" className={navLinkClass(pathname === '/mypage')}>
-                MY PAGE
-              </Link>
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={loggingOut}
-                className="nav-btn-logout"
-              >
-                {loggingOut ? '로그아웃 중...' : 'LOG OUT'}
-              </button>
-            </>
-          ) : (
-            <Link href="/login" className={navLinkClass(pathname === '/login')}>
-              LOG IN
-            </Link>
-          )}
+
+        <button
+          type="button"
+          className="nav-hamburger"
+          aria-label={menuOpen ? '메뉴 닫기' : '메뉴 열기'}
+          aria-expanded={menuOpen}
+          aria-controls="site-nav-menu"
+          onClick={() => setMenuOpen(open => !open)}
+        >
+          <span className="nav-hamburger-bars" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+        </button>
+
+        <div id="site-nav-menu" className={`nav-links${menuOpen ? ' nav-links-open' : ''}`}>
+          {links}
         </div>
       </div>
     </nav>

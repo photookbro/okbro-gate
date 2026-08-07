@@ -118,8 +118,19 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+.bottom-cta-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
 .bottom-cta-btn {
-  @apply inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-extrabold text-white shadow-[0_10px_24px_rgba(204,34,0,0.28)] transition-colors hover:bg-[var(--color-primary-hover)] focus:outline-none focus:ring-2 focus:ring-primary/30;
+  @apply inline-flex flex-1 items-center justify-center rounded-xl bg-primary px-2 py-3 text-xs font-extrabold text-white shadow-[0_10px_24px_rgba(204,34,0,0.28)] transition-colors hover:bg-[var(--color-primary-hover)] focus:outline-none focus:ring-2 focus:ring-primary/30 sm:px-3 sm:text-sm;
+  min-width: 0;
+  text-align: center;
+  line-height: 1.25;
+  text-decoration: none;
+  word-break: keep-all;
 }
 
 .page-shell {
@@ -257,7 +268,7 @@ body {
 }
 
 .site-nav-inner {
-  @apply mx-auto flex max-w-[1100px] items-center justify-between gap-4 px-4 py-3;
+  @apply relative mx-auto flex max-w-[1100px] items-center justify-between gap-4 px-4 py-3;
 }
 
 .nav-brand {
@@ -266,6 +277,40 @@ body {
 
 .nav-brand-accent {
   @apply text-okbro-orange;
+}
+
+.nav-hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: #161616;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.nav-hamburger:hover {
+  border-color: #ff2800;
+}
+
+.nav-hamburger-bars {
+  display: flex;
+  width: 1.1rem;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+
+.nav-hamburger-bars > span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  border-radius: 99px;
+  background: #ffffff;
 }
 
 .nav-links {
@@ -303,6 +348,51 @@ body {
 
 .nav-btn-logout {
   @apply border-none bg-transparent p-0 text-base font-medium tracking-wide text-[var(--text-muted)] transition-colors hover:text-danger disabled:opacity-60;
+}
+
+@media (max-width: 768px) {
+  .nav-hamburger {
+    display: inline-flex;
+  }
+
+  .nav-links {
+    display: none;
+    position: absolute;
+    top: calc(100% + 1px);
+    left: 0;
+    right: 0;
+    z-index: 60;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    margin: 0;
+    padding: 0.35rem 1rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 0 0 0.85rem 0.85rem;
+    background: #0d0d0d;
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.45);
+  }
+
+  .nav-links-open {
+    display: flex;
+  }
+
+  .nav-links .nav-link,
+  .nav-links .nav-btn-logout {
+    width: 100%;
+    padding: 0.9rem 0.15rem;
+    border-bottom: 1px solid #2a2a2a;
+    text-align: left;
+  }
+
+  .nav-links .nav-link:last-child,
+  .nav-links .nav-btn-logout:last-child {
+    border-bottom: none;
+  }
+
+  .nav-links .nav-btn-logout {
+    cursor: pointer;
+  }
 }
 
 /* Admin */
@@ -1111,7 +1201,7 @@ body {
   font-size: var(--font-caption-size);
   font-weight: 600;
   line-height: var(--font-caption-line-height);
-  color: var(--primary);
+  color: #2e7d32;
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
@@ -1126,8 +1216,9 @@ body {
 
 .events-gps-purchase-hint {
   font-size: var(--font-caption-size);
+  font-weight: 700;
   line-height: var(--font-caption-line-height);
-  color: var(--muted);
+  color: var(--primary);
   text-decoration: underline;
   text-underline-offset: 0.15em;
   white-space: nowrap;
@@ -1153,10 +1244,10 @@ body {
 
 .events-shoot-record {
   margin: 0;
-  font-size: var(--font-body-size);
-  font-weight: 500;
+  font-size: calc(var(--font-body-size) + 2px);
+  font-weight: 600;
   line-height: var(--font-body-line-height);
-  color: var(--text);
+  color: var(--primary);
 }
 
 .events-shoot-record-note {
@@ -1910,7 +2001,7 @@ body {
 
 .gps-pass-complete-time {
   margin: 0;
-  color: #2e7d32;
+  color: var(--primary);
   font-size: clamp(1.25rem, 4.2vw, 1.75rem);
   font-weight: 800;
   line-height: 1.25;
@@ -2019,7 +2110,7 @@ body {
 .shop-header-lead {
   margin: 0 0 0.85rem;
   color: #ffffff;
-  font-size: 0.9375rem;
+  font-size: 1.025rem;
   font-weight: 500;
   line-height: 1.45;
   word-break: keep-all;
@@ -2028,7 +2119,7 @@ body {
 .shop-header-notice {
   margin: 0 0 0.55rem;
   color: #ff2800;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.5;
   word-break: keep-all;
@@ -2037,7 +2128,7 @@ body {
 .shop-header-disclosure {
   margin: 0;
   color: #9a9a9a;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 400;
   line-height: 1.5;
   word-break: keep-all;
@@ -2085,7 +2176,7 @@ body {
   border-radius: 9999px;
   background: #1a1a1a;
   color: #ffffff;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.2;
   padding: 0.55rem 0.95rem;
@@ -2177,7 +2268,7 @@ body {
 .shop-card-store {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2187,7 +2278,7 @@ body {
 .shop-card-title {
   margin: 0;
   color: #ffffff;
-  font-size: 0.72rem;
+  font-size: 0.84rem;
   font-weight: 600;
   line-height: 1.35;
   word-break: keep-all;
@@ -2207,13 +2298,13 @@ body {
 
 .shop-card-price-discount {
   color: #ff2800;
-  font-size: 0.82rem;
+  font-size: 0.94rem;
   font-weight: 700;
 }
 
 .shop-card-price-original {
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   text-decoration: line-through;
 }
 
@@ -2223,8 +2314,8 @@ body {
 }
 
 .shop-card-cta.btn-primary {
-  padding: 0.45rem 0.4rem;
-  font-size: 0.72rem;
+  padding: 0.5rem 0.45rem;
+  font-size: 0.84rem;
   line-height: 1.2;
 }
 
@@ -2239,21 +2330,21 @@ body {
   }
 
   .shop-card-store {
-    font-size: var(--font-caption-size);
+    font-size: calc(var(--font-caption-size) + 1px);
     line-height: var(--font-caption-line-height);
   }
 
   .shop-card-title {
-    font-size: 0.9rem;
+    font-size: 1rem;
     line-height: 1.4;
   }
 
   .shop-card-price-discount {
-    font-size: 1.05rem;
+    font-size: 1.12rem;
   }
 
   .shop-card-price-original {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
   }
 
   .shop-card-cta {
@@ -2333,10 +2424,8 @@ body {
   width: 100%;
   margin: 0;
   padding: 0;
-  /* page-with-bottom-cta 하단 패딩을 진단 페이지에서는 상쇄 */
-  margin-bottom: calc(-84px - env(safe-area-inset-bottom, 0px));
-  height: calc(100dvh - var(--site-nav-height));
-  min-height: calc(100vh - var(--site-nav-height));
+  height: calc(100dvh - var(--site-nav-height) - 84px - env(safe-area-inset-bottom, 0px));
+  min-height: calc(100vh - var(--site-nav-height) - 84px - env(safe-area-inset-bottom, 0px));
   background: #0d0d0d;
 }
 
