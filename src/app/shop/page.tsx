@@ -93,7 +93,7 @@ export default function ShopPage() {
 
   return (
     <div className="page-shell shop-page">
-      <div className="page-container">
+      <div className="page-container-wide shop-container">
         <header className="shop-header">
           <h1 className="page-title">SHOP</h1>
           <p className="shop-header-lead">선수의 사진을 담기 위한 사랑이 필요합니다</p>

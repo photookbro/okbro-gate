@@ -2004,6 +2004,10 @@ body {
   color: #ffffff;
 }
 
+.shop-container {
+  max-width: 1400px;
+}
+
 .shop-header {
   margin: 0 0 1.5rem;
 }
@@ -2118,9 +2122,15 @@ body {
   }
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 960px) {
   .shop-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .shop-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
