@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>영양 성분 자가진단</title>
+<style>
+  :root{
+    --coral:#FF2800;
+    --coral-deep:#CC2000;
+    --coral-soft:rgba(255,40,0,0.18);
+    --ink:#FFFFFF;
+    --ink-soft:#A8A8A8;
+    --line:#2A2A2A;
+    --card:#161616;
+    --bg:#0d0d0d;
+    --bg-tint:#1a1a1a;
+    --amber:#FFB400;
+    --amber-soft:rgba(255,180,0,0.16);
+    --teal:#00C2B2;
+    --teal-soft:rgba(0,166,153,0.18);
+    --radius-l:24px;
+    --radius-m:16px;
+    --radius-s:10px;
+    --sans: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Segoe UI', Roboto, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:720px;margin:0 auto;padding:0 24px 120px;}
+
+  .topbar{
+    position:sticky;top:0;z-index:60;
+    background:rgba(13,13,13,.92);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+    padding:14px 0;
+  }
+  .topbar .inner{max-width:720px;margin:0 auto;padding:0 24px;}
+  .topbar-row{display:flex;align-items:center;gap:14px;}
+  .logo-dot{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--coral),#FF5533);flex-shrink:0;}
+  .topbar-text{flex:1;}
+  .topbar-title{font-size:14px;font-weight:700;}
+  .track{margin-top:8px;height:6px;border-radius:99px;background:var(--line);overflow:hidden;}
+  .fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--coral),#FF7A8A);width:0%;transition:width .3s ease;}
+
+  .hero{padding:40px 0 28px;}
+  .hero .eyebrow{display:inline-flex;align-items:center;gap:6px;background:var(--coral-soft);color:#FF6A45;font-size:12.5px;font-weight:700;padding:6px 14px;border-radius:99px;margin-bottom:18px;}
+  .hero h1{font-size:32px;line-height:1.3;margin:0 0 14px;font-weight:800;letter-spacing:-0.01em;}
+  .hero p{font-size:15.5px;color:var(--ink-soft);margin:0 0 8px;max-width:56ch;}
+  .intro-card{margin-top:22px;background:var(--bg-tint);border-radius:var(--radius-m);padding:20px 22px;font-size:13.5px;color:var(--ink-soft);line-height:1.7;}
+  .intro-card b{color:var(--ink);}
+
+  /* ---------- profile section ---------- */
+  .profile-card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius-l);
+    padding:26px 24px;margin-top:32px;
+  }
+  .profile-card .ptitle{font-size:17px;font-weight:800;margin:0 0 4px;display:flex;align-items:center;gap:10px;}
+  .profile-card .ptitle .badge{width:32px;height:32px;border-radius:50%;background:var(--coral-soft);color:#FF6A45;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;}
+  .profile-card .psub{font-size:13px;color:var(--ink-soft);margin:0 0 20px;}
+  .field-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .field{margin-bottom:14px;}
+  .field.full{grid-column:1 / -1;}
+  .field label{display:block;font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:7px;}
+  .field .opt{font-weight:400;color:var(--ink-soft);}
+  .field input[type=text], .field input[type=number], .field textarea{
+    width:100%;border:1.5px solid var(--line);border-radius:var(--radius-s);
+    padding:11px 13px;font-size:14px;font-family:inherit;background:var(--bg-tint);color:var(--ink);
+    transition:border-color .15s ease;
+  }
+  .field input:focus, .field textarea:focus{outline:none;border-color:var(--coral);}
+  .field textarea{resize:vertical;min-height:52px;}
+  .pillgroup{display:flex;gap:8px;flex-wrap:wrap;}
+  .pillgroup .pill{
+    border:1.5px solid var(--line);border-radius:99px;padding:9px 16px;font-size:13px;
+    cursor:pointer;color:var(--ink-soft);transition:all .15s ease;user-select:none;
+  }
+  .pillgroup .pill:hover{border-color:var(--coral);}
+  .pillgroup .pill.checked{background:var(--coral);border-color:var(--coral);color:#fff;font-weight:700;}
+  .profile-warn{font-size:12px;color:var(--coral-deep);margin-top:2px;display:none;}
+  .profile-warn.show{display:block;}
+
+  .section{margin-top:36px;}
+  .section-head{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+  .section-head .badge{width:36px;height:36px;border-radius:50%;background:var(--coral-soft);color:#FF6A45;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0;}
+  .section-head h2{font-size:19px;margin:0;font-weight:800;}
+  .section-head .count{margin-left:auto;font-size:12.5px;color:var(--ink-soft);background:var(--bg-tint);padding:4px 12px;border-radius:99px;}
+
+  .q{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-m);padding:20px 20px 18px;margin-bottom:12px;transition:box-shadow .2s ease;}
+  .q:hover{box-shadow:0 4px 18px rgba(0,0,0,.35);}
+  .q-text{font-size:14.5px;margin-bottom:14px;color:var(--ink);}
+  .scale{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
+  .scale label{border:1.5px solid var(--line);border-radius:var(--radius-s);background:var(--bg-tint);text-align:center;padding:10px 4px 8px;cursor:pointer;font-size:11px;color:var(--ink-soft);transition:all .15s ease;user-select:none;}
+  .scale label .n{display:block;font-weight:800;font-size:15px;color:var(--ink);margin-bottom:2px;}
+  .scale input{position:absolute;opacity:0;pointer-events:none;}
+  .scale label:hover{border-color:var(--coral);}
+  .scale label.checked{background:var(--coral);border-color:var(--coral);color:#fff;}
+  .scale label.checked .n{color:#fff;}
+  .scale-caption{display:flex;justify-content:space-between;font-size:10.5px;color:var(--ink-soft);margin-top:8px;padding:0 2px;}
+
+  .submit-zone{margin-top:44px;text-align:center;padding:32px 0;border-top:1px solid var(--line);}
+  #submitBtn{font-size:15px;font-weight:700;background:var(--coral);color:#fff;border:none;border-radius:99px;padding:15px 34px;cursor:pointer;box-shadow:0 6px 18px rgba(255,40,0,.28);transition:transform .15s ease, background .15s ease;}
+  #submitBtn:hover:not(:disabled){background:var(--coral-deep);transform:translateY(-1px);}
+  #submitBtn:disabled{background:var(--line);color:var(--ink-soft);box-shadow:none;cursor:not-allowed;}
+  .remain{font-size:13px;color:var(--ink-soft);margin-top:12px;}
+
+  #results{display:none;margin-top:8px;}
+  .report{margin-top:24px;}
+  .report-hero{background:linear-gradient(135deg,var(--coral),#FF5533);border-radius:var(--radius-l);padding:30px 26px;color:#fff;margin-bottom:20px;}
+  .report-hero .tag{display:inline-block;background:rgba(255,255,255,.22);font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;margin-bottom:12px;}
+  .report-hero h3{margin:0 0 8px;font-size:22px;font-weight:800;}
+  .report-hero p{margin:0;font-size:13.5px;opacity:.92;}
+
+  .profile-summary{background:rgba(255,255,255,.16);border-radius:var(--radius-m);padding:16px 18px;margin-top:18px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  .profile-summary .pitem{font-size:11.5px;}
+  .profile-summary .pitem .plabel{opacity:.8;margin-bottom:3px;}
+  .profile-summary .pitem .pval{font-size:14px;font-weight:800;}
+  .meds-flag{margin-top:14px;background:rgba(255,255,255,.2);border-radius:var(--radius-s);padding:10px 14px;font-size:12.5px;}
+
+  .bars-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-l);padding:24px 22px;margin-bottom:24px;}
+  .bars-card h4{margin:0 0 18px;font-size:15px;font-weight:800;}
+  .bar-row{display:grid;grid-template-columns:120px 1fr 40px;align-items:center;gap:10px;padding:9px 0;}
+  .bar-row .name{font-size:13px;font-weight:600;}
+  .bar-track{height:12px;border-radius:99px;background:var(--bg-tint);overflow:hidden;}
+  .bar-fill{height:100%;border-radius:99px;}
+  .bar-row .score{font-size:12.5px;text-align:right;color:var(--ink-soft);font-weight:700;}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:16px;font-size:11.5px;color:var(--ink-soft);}
+  .legend span{display:inline-flex;align-items:center;gap:5px;}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+  .priority-title{font-size:18px;font-weight:800;margin:0 0 4px;}
+  .priority-sub{font-size:13.5px;color:var(--ink-soft);margin:0 0 18px;line-height:1.7;}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-m);padding:22px 22px;margin-bottom:16px;}
+  .card.low{background:var(--teal-soft);border-color:transparent;padding:16px 20px;}
+  .card .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap;}
+  .card .card-head .cname{font-size:16.5px;font-weight:800;}
+  .card .card-head .avgtxt{font-size:12px;color:var(--ink-soft);font-weight:500;display:block;margin-top:2px;}
+  .card .card-head .tag{font-size:11px;font-weight:700;padding:5px 12px;border-radius:99px;color:#fff;white-space:nowrap;}
+
+  .why-box{font-size:13.5px;color:var(--ink-soft);line-height:1.75;margin-bottom:14px;padding:12px 14px;background:var(--bg-tint);border-radius:var(--radius-s);}
+  .why-box b{color:var(--ink);}
+
+  .trigger-box{margin-bottom:14px;}
+  .trigger-box .tt{font-size:12px;font-weight:700;color:var(--coral-deep);margin-bottom:8px;}
+  .trigger-item{font-size:12.5px;color:var(--ink);background:var(--bg-tint);border:1px solid var(--line);border-radius:var(--radius-s);padding:8px 12px;margin-bottom:6px;display:flex;justify-content:space-between;gap:10px;}
+  .trigger-item .tscore{font-weight:800;color:var(--coral-deep);flex-shrink:0;}
+
+  .subhead{font-size:12px;font-weight:700;color:var(--ink);margin:14px 0 8px;}
+  .card ul.ing{margin:0;padding-left:0;list-style:none;}
+  .card ul.ing li{font-size:13.5px;line-height:1.7;margin-bottom:12px;padding-left:18px;position:relative;color:var(--ink);}
+  .card ul.ing li:last-child{margin-bottom:0;}
+  .card ul.ing li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%;background:var(--coral);}
+  .card ul.ing li b{color:var(--coral-deep);}
+  .card ul.life{margin:0;padding-left:0;list-style:none;}
+  .card ul.life li{font-size:13px;line-height:1.7;margin-bottom:8px;padding-left:18px;position:relative;color:var(--ink-soft);}
+  .card ul.life li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%;background:var(--teal);}
+
+  .appendix{margin-top:28px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-l);padding:24px 22px;}
+  .appendix h4{margin:0 0 6px;font-size:15px;font-weight:800;}
+  .appendix .asub{font-size:12.5px;color:var(--ink-soft);margin:0 0 16px;}
+  .appendix .agroup{margin-bottom:16px;}
+  .appendix .agroup-title{font-size:12.5px;font-weight:700;color:var(--coral-deep);margin-bottom:8px;}
+  .appendix .arow{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;color:var(--ink-soft);padding:6px 0;border-bottom:1px dashed var(--line);}
+  .appendix .arow:last-child{border-bottom:none;}
+  .appendix .arow .aval{font-weight:800;color:var(--ink);flex-shrink:0;}
+
+  .footnote{background:var(--bg-tint);border-radius:var(--radius-m);padding:18px 20px;margin-top:20px;font-size:12px;color:var(--ink-soft);line-height:1.8;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="inner">
+    <div class="topbar-row">
+      <div class="logo-dot"></div>
+      <div class="topbar-text">
+        <div class="topbar-title" id="progressText">0 / 50 문항 응답</div>
+        <div class="track"><div class="fill" id="progressFill"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <span class="eyebrow">SELF CHECK · 5분이면 충분해요</span>
+    <h1>내 몸에 지금 필요한<br>영양 성분을 찾아드릴게요</h1>
+    <p>기본 정보와 최근 한 달간의 컨디션을 편하게 알려주시면, 영역별 점수와 지금 우선적으로 챙기면 좋은 성분을 최대한 자세하게 정리해드려요.</p>
+    <div class="intro-card">
+      전문적인 의학·영양학 지식을 바탕으로 구성한 자가진단 설문이에요. 어디까지나 생활습관을 스스로 점검해보는 참고 자료로 활용해주세요. 혈압·혈당·콜레스테롤 등 수치 이상 소견이 있거나 약을 복용 중이시라면, 보충제 섭취 전 의사·약사와 꼭 상의해주세요.
+    </div>
+  </div>
+
+  <div class="profile-card">
+    <div class="ptitle"><span class="badge">i</span>기본 정보</div>
+    <p class="psub">결과 리포트를 더 정확하게 맞춤화하기 위해 사용돼요. 입력한 정보는 저장되지 않고 이 화면에서만 계산에 사용돼요.</p>
+    <div class="field-grid">
+      <div class="field">
+        <label>나이</label>
+        <input type="number" id="pAge" placeholder="예: 52" min="1" max="120">
+      </div>
+      <div class="field">
+        <label>성별</label>
+        <div class="pillgroup" id="pGender">
+          <div class="pill" data-v="남성">남성</div>
+          <div class="pill" data-v="여성">여성</div>
+          <div class="pill" data-v="기타">기타</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>키 (cm)</label>
+        <input type="number" id="pHeight" placeholder="예: 175" min="100" max="230">
+      </div>
+      <div class="field">
+        <label>몸무게 (kg)</label>
+        <input type="number" id="pWeight" placeholder="예: 72" min="30" max="200">
+      </div>
+      <div class="field full">
+        <label>평소 운동 빈도</label>
+        <div class="pillgroup" id="pActivity">
+          <div class="pill" data-v="거의 안 함">거의 안 함</div>
+          <div class="pill" data-v="주 1~2회">주 1~2회</div>
+          <div class="pill" data-v="주 3~4회">주 3~4회</div>
+          <div class="pill" data-v="주 5회 이상">주 5회 이상</div>
+        </div>
+      </div>
+      <div class="field full">
+        <label>현재 복용 중인 약물이나 지병 <span class="opt">(선택, 있다면 적어주세요)</span></label>
+        <textarea id="pMeds" placeholder="예: 고혈압약 복용 중, 없음 등"></textarea>
+      </div>
+    </div>
+    <div class="profile-warn" id="profileWarn">나이, 성별, 키, 몸무게, 운동 빈도는 필수 입력이에요. 결과를 더 정확하게 만들기 위해 필요해요.</div>
+  </div>
+
+  <form id="quizForm"></form>
+
+  <div class="submit-zone">
+    <button id="submitBtn" disabled>결과 확인하기</button>
+    <div class="remain" id="remainText">기본 정보와 50문항을 모두 입력해주세요</div>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<script>
+const CATEGORIES = [
+  {key:'fatigue', label:'기초 대사 및 피로도'},
+  {key:'joint',   label:'관절·연골·근육 건강'},
+  {key:'eye',     label:'눈 건강'},
+  {key:'brain',   label:'뇌·스트레스·수면'},
+  {key:'cardio',  label:'심혈관·대사 기능'},
+  {key:'gut',     label:'소화기관·장·간 기능'},
+  {key:'immune',  label:'면역력·피부·항산화'},
+];
+
+const QUESTIONS = [
+ {c:'fatigue', t:'아침에 일어날 때 몸이 무겁고 피로가 전혀 풀리지 않은 느낌이 든다.'},
+ {c:'fatigue', t:'오후 3~4시경이 되면 급격한 체력 저하나 졸음을 느낀다.'},
+ {c:'fatigue', t:'예전과 동일한 강도의 활동을 소화해도 다음 날 체감되는 피로감이 훨씬 심하다.'},
+ {c:'fatigue', t:'평소보다 무거운 물건이나 짐을 들고 이동했을 때 체력적인 부담이 크게 남는다.'},
+ {c:'fatigue', t:'특별한 이유 없이 무기력해지거나 업무 및 취미에 대한 의욕이 떨어질 때가 있다.'},
+ {c:'fatigue', t:'신체 활동 후 원래의 컨디션으로 회복되는 데 걸리는 시간이 확연히 길어졌다.'},
+ {c:'fatigue', t:'피로를 이겨내기 위해 커피나 에너지 드링크 등 카페인에 의존하는 경향이 크다.'},
+ {c:'fatigue', t:'평소의 식단만으로는 하루에 필요한 에너지를 충분히 얻지 못한다고 느낀다.'},
+
+ {c:'joint', t:'장시간 걷기, 달리기, 혹은 자전거 주행 후 무릎이나 발목 관절에 뻐근함이 오래 남는다.'},
+ {c:'joint', t:'무거운 장비를 메고 장시간 활동할 때 허리, 목, 혹은 어깨에 묵직한 통증이 있다.'},
+ {c:'joint', t:'계단을 오르내리거나 앉았다 일어설 때 관절에서 소리가 나거나 시큰거리는 느낌이 있다.'},
+ {c:'joint', t:'아침에 기상했을 때 손가락이나 관절 부위가 뻣뻣하게 굳어 있는 느낌(조조강직)이 든다.'},
+ {c:'joint', t:'땀을 많이 흘리는 강도 높은 야외 활동 중 또는 직후에 근육 경련(쥐)이 자주 일어난다.'},
+ {c:'joint', t:'나이가 들면서 뼈 건강이나 골밀도 저하에 대한 우려가 생기기 시작했다.'},
+ {c:'joint', t:'규칙적으로 근육을 사용해도 예전만큼 근력이 유지되지 않거나 감소하는 느낌이 든다.'},
+ {c:'joint', t:'무리한 활동 후 특정 관절 부위에 열감이 느껴지거나 미세하게 부어오를 때가 있다.'},
+
+ {c:'eye', t:'모니터를 2시간 이상 쉬지 않고 집중해서 볼 때 눈이 뻑뻑하거나 시린 증상이 있다.'},
+ {c:'eye', t:'정밀한 색감 확인이나 디테일한 시각적 작업 시 시야가 일시적으로 흐려질 때가 있다.'},
+ {c:'eye', t:'강한 햇빛이나 자외선에 장시간 노출된 날에는 눈의 피로감과 건조함이 극심해진다.'},
+ {c:'eye', t:'야간에 운전하거나 활동할 때 빛 번짐이 심하거나 시야 확보가 예전 같지 않다.'},
+ {c:'eye', t:'눈에 모래가 들어간 듯한 이물감이 자주 느껴지거나 쉽게 충혈된다.'},
+ {c:'eye', t:'가까운 곳의 작은 글씨나 스마트폰 화면을 볼 때 초점이 빨리 맞지 않아 답답하다.'},
+ {c:'eye', t:'눈의 건조함을 해결하기 위해 평소 인공눈물을 자주 사용하는 편이다.'},
+ {c:'eye', t:'눈의 피로가 심해지면 관자놀이 부근의 두통이나 뒷목의 뻐근함이 동반된다.'},
+
+ {c:'brain', t:'복잡한 수치, 문서, 또는 기술적인 자료를 검토할 때 집중력이 예전보다 자주 흐트러진다.'},
+ {c:'brain', t:'최근 들어 중요한 일정, 사람 이름, 또는 단어가 즉각적으로 떠오르지 않을 때가 있다.'},
+ {c:'brain', t:'다수의 프로젝트 진행이나 책임감 있는 위치로 인해 일상적인 심리적 스트레스가 높다.'},
+ {c:'brain', t:'피곤한 상태로 잠자리에 누워도 생각이나 고민이 꼬리를 물어 쉽게 잠들지 못한다.'},
+ {c:'brain', t:'수면 중 이유 없이 자주 깨거나, 한 번 깬 후에 다시 깊은 잠에 빠지기 어렵다.'},
+ {c:'brain', t:'업무적 압박감이나 피로가 누적될 때 감정 기복이 심해지거나 평소보다 예민해진다.'},
+ {c:'brain', t:'출장이나 잦은 외부 일정 등으로 인해 규칙적인 수면 패턴을 유지하기 어렵다.'},
+
+ {c:'cardio', t:'건강검진 시 혈압, 혈당, 또는 콜레스테롤(지질) 수치 관리가 필요하다는 소견을 받은 적이 있다.'},
+ {c:'cardio', t:'식사량이 예전과 같음에도 불구하고 복부 비만이 쉽게 생기거나 체중 감량이 어렵다.'},
+ {c:'cardio', t:'평소 손발이 차갑거나 특정 부위가 저리는 등 혈액 순환이 원활하지 않다고 느낀다.'},
+ {c:'cardio', t:'외식 시 기름진 음식, 튀김류, 혹은 붉은 육류 위주의 식사를 자주 하는 편이다.'},
+ {c:'cardio', t:'장시간 앉아서 근무하거나 한 자세로 오래 있을 때 하체가 붓거나 무거운 느낌이 든다.'},
+ {c:'cardio', t:'식후에 급격하게 졸음이 쏟아지는 식곤증을 겪거나 단 음식이 강하게 당길 때가 많다.'},
+ {c:'cardio', t:'평소 숨이 찰 정도의 유산소 운동을 주 3회 이상 규칙적으로 하지 못하고 있다.'},
+
+ {c:'gut', t:'식사 후 배가 더부룩하거나 가스가 차고, 소화가 잘되지 않는 느낌을 자주 받는다.'},
+ {c:'gut', t:'배변 활동이 불규칙하거나 변비 혹은 설사 등 장염 증상이 비교적 잦은 편이다.'},
+ {c:'gut', t:'바쁜 일정으로 인해 식사를 거르거나 맵고 짠 자극적인 음식, 밀가루를 즐겨 먹는다.'},
+ {c:'gut', t:'비즈니스 미팅, 회식, 개인적인 모임 등으로 인해 주 2회 이상 음주를 한다.'},
+ {c:'gut', t:'과음한 다음 날 숙취가 지속되는 시간이 예전보다 길어지고 체력 회복이 더디다.'},
+ {c:'gut', t:'주말에 충분히 휴식을 취해도 간 피로로 추정되는 전신의 나른함이 완전히 가시지 않는다.'},
+ {c:'gut', t:'과도한 스트레스를 받을 때 속 쓰림, 위산 역류 등 위장 장애 증상이 즉각적으로 나타난다.'},
+
+ {c:'immune', t:'일교차가 큰 환절기가 되면 감기에 쉽게 걸리거나 비염 등 알레르기 증상이 심해진다.'},
+ {c:'immune', t:'피로가 쌓이면 입안이 헐거나(구내염) 입술 주위에 물집이 다른 사람보다 잘 생기는 편이다.'},
+ {c:'immune', t:'장시간 야외 활동으로 인해 피부가 쉽게 붉어지거나 거칠어지고 기미, 잡티가 늘었다.'},
+ {c:'immune', t:'가벼운 상처가 났을 때 아물고 회복되는 속도가 눈에 띄게 느려졌다고 느낀다.'},
+ {c:'immune', t:'일상적인 식사에서 신선한 채소나 과일 등 항산화 식품의 섭취량이 부족한 편이다.'},
+];
+
+const WHY = {
+  fatigue:'만성적인 피로는 단순한 수면 부족보다 세포 단위의 에너지 생산(미토콘드리아 ATP 합성) 저하나 미량 영양소 결핍과 관련된 경우가 많아요. 특히 활동량이 많은 날에는 비타민B군 소모가 빨라지고, 나이가 들수록 코엔자임Q10 등 자체 합성량이 줄어들어 회복 속도가 느려지는 경향이 있어요.',
+  joint:'관절 통증과 뻣뻣함은 반복적인 하중이 연골 기질을 마모시키고, 이 과정에서 발생하는 염증 반응이 통증 신호를 만들어내기 때문에 생겨요. 특히 고강도 유산소 활동(마라톤, 자전거)은 무릎·발목 관절에 체중의 2~3배에 달하는 충격을 반복적으로 가하기 때문에 연골 재생 속도보다 마모 속도가 빨라질 수 있어요.',
+  eye:'장시간 화면 응시는 눈 깜빡임 횟수를 줄여 눈물막을 불안정하게 만들고, 조절근(모양체근)을 지속적으로 긴장시켜 초점 전환 능력을 떨어뜨려요. 자외선 노출까지 더해지면 활성산소가 망막 세포를 산화시켜 눈의 피로도가 가중돼요.',
+  brain:'만성 스트레스는 코르티솔 분비를 지속적으로 상승시켜 해마(기억 담당 뇌 영역)의 기능을 저하시키고, 이는 다시 수면의 질을 떨어뜨리는 악순환으로 이어져요. 수면 부족은 다음 날의 집중력과 감정 조절 능력에 직접적인 영향을 줘요.',
+  cardio:'불규칙한 식사와 앉아있는 시간이 많은 생활 패턴은 인슐린 저항성을 높이고 내장지방 축적을 촉진해요. 이는 혈압·혈당·지질 수치에 순차적으로 영향을 미치기 때문에, 이 영역의 점수가 높다면 생활습관 개선과 함께 정기적인 수치 확인이 특히 중요해요.',
+  gut:'불규칙한 식사, 잦은 음주, 자극적인 음식은 장내 미생물 균형을 깨뜨리고 간의 해독 부담을 늘려요. 장과 간은 서로 밀접하게 연결되어 있어(장-간 축), 한쪽의 컨디션 저하가 다른 쪽에도 영향을 주는 경우가 많아요.',
+  immune:'면역력은 장 건강, 수면의 질, 항산화 섭취량과 밀접하게 연결되어 있어요. 특히 자외선에 자주 노출되는 야외 활동이 많다면 피부 세포의 산화 스트레스가 커지고, 이를 방어할 항산화 자원이 그만큼 더 많이 소모돼요.'
+};
+
+const LIFESTYLE = {
+  fatigue:['카페인 섭취를 오후 2시 이전으로 제한해 밤 수면의 질을 지켜보세요.','활동 강도가 높은 날은 다음 날 가벼운 회복 루틴(스트레칭, 산책)으로 대체해보세요.'],
+  joint:['고강도 활동 전후로 5~10분 동적 스트레칭을 추가해 관절 부담을 줄여보세요.','장비나 짐을 멜 때는 무게를 양쪽으로 분산하는 것이 좋아요.'],
+  eye:['모니터 작업 시 20-20-20 법칙(20분마다 20초간 6m 밖을 보기)을 시도해보세요.','야외 활동 시 UV 차단 선글라스 착용을 습관화해보세요.'],
+  brain:['잠들기 1시간 전 화면 사용을 줄이고 조명을 낮춰보세요.','업무 사이 5분이라도 의식적으로 호흡에 집중하는 시간을 가져보세요.'],
+  cardio:['주 3회, 30분 이상의 유산소 활동을 목표로 잡아보세요.','외식이 잦다면 튀김류보다 구이·찜 위주의 메뉴를 선택해보세요.'],
+  gut:['식사 시간을 최대한 규칙적으로 유지해보세요.','음주 다음 날은 최소 하루 정도 간에 휴식을 주는 것이 좋아요.'],
+  immune:['하루 한 끼 이상은 색이 다른 채소·과일을 챙겨보세요.','손 씻기와 충분한 수면은 여전히 가장 기본적이고 효과적인 면역 관리예요.']
+};
+
+const RECS = {
+  fatigue:[
+    {n:'벤포티아민 / 푸르설티아민 (활성형 비타민B1)', d:'지용성 티아민 유도체로 <b>혈액-신경장벽(BBB)</b>을 통과해 신경조직 내 티아민 농도를 유지해요. 일반 수용성 B1보다 체내 잔류율이 높아 만성 피로·젖산 축적 개선에 유리해요.'},
+    {n:'코엔자임Q10 (유비퀴놀 형태)', d:'미토콘드리아 전자전달계에서 ATP 생성에 관여하는 보조효소예요. 체내 자체 합성량이 나이와 함께 줄어들어 보충 필요성이 커져요.'},
+    {n:'철분 · 아연', d:'혈중 산소운반 및 에너지대사 보조인자예요. 결핍이 만성 피로의 흔한 원인이라, 보충 전 혈액검사(페리틴·아연 수치)를 함께 확인해보는 걸 추천해요.'}
+  ],
+  joint:[
+    {n:'저분자 콜라겐 펩타이드 + 비변성 콜라겐(UC-II)', d:'연골 기질 재생을 도와주고, UC-II는 면역 관용 기전을 통해 관절 염증 반응을 조절해요.'},
+    {n:'MSM + 보스웰리아 추출물', d:'염증성 사이토카인(IL-6, TNF-α) 생성을 억제해서 활동 후 관절 뻐근함·부종을 완화해줘요.'},
+    {n:'마그네슘 (글리시네이트 / 구연산 등 킬레이트형)', d:'산화마그네슘보다 생체이용률이 높아 근육 경련·이완에 효과적이에요. 산화마그네슘은 흡수율이 낮고 설사를 유발하기 쉬워 추천하지 않아요.'},
+    {n:'비타민D3 + K2(MK-7)', d:'D3는 칼슘 흡수를, K2는 칼슘이 뼈로 잘 침착되도록 도와 혈관 석회화를 방지하는 상호보완적 조합이에요.'}
+  ],
+  eye:[
+    {n:'루테인 · 지아잔틴 (5:1 비율)', d:'황반색소밀도(MPOD)를 유지해서 블루라이트·자외선으로 인한 광손상을 막아줘요.'},
+    {n:'아스타잔틴 (헤마토코쿠스 추출물)', d:'강력한 항산화력으로 망막 모세혈관 혈류를 개선하고, 특히 초점 전환(조절기능) 피로 완화에 특화된 성분이에요.'},
+    {n:'rTG형 오메가-3 (재에스터화 트리글리세리드)', d:'일반 EE(에틸에스터)형보다 흡수율이 최대 70% 가량 높은 정제 방식으로, 마이봄샘 기능 개선을 통한 안구건조증 완화에 도움을 줘요.'}
+  ],
+  brain:[
+    {n:'마그네슘 글리시네이트', d:'GABA 수용체 조절을 통해 이완·진정 작용을 하고 수면의 질 개선에 도움을 줘요.'},
+    {n:'L-테아닌', d:'알파파를 유도해 각성 상태를 유지하면서도 이완을 도와요. 카페인과 함께 복용하면 각성 부작용(불안, 심박 증가)을 완화하는 조합으로 활용돼요.'},
+    {n:'포스파티딜세린', d:'코르티솔(스트레스 호르몬) 분비를 조절하고 기억력 등 인지기능을 지원하는 인지질 성분이에요.'},
+    {n:'아쉬와간다 (KSM-66 등 표준화 추출물)', d:'부신의 스트레스 반응을 조절해 코르티솔 수치를 낮춘다는 임상 근거가 쌓여있는 적응원(adaptogen) 성분이에요.'}
+  ],
+  cardio:[
+    {n:'rTG형 오메가-3 (EPA 우위)', d:'중성지방 감소 및 혈관 내피 기능 개선에 작용해요. 콜레스테롤 소견이 있다면 EPA:DHA 비율이 높은 제품이 유리해요.'},
+    {n:'홍국(모나콜린K)', d:'LDL콜레스테롤 저해 기전을 가지지만 스타틴 계열 약물과 작용기전이 비슷해서, <b>스타틴을 복용 중이라면 반드시 의사와 병용 여부를 상담</b>해야 해요.'},
+    {n:'코엔자임Q10', d:'심근 에너지대사를 지원하고, 특히 스타틴 복용 시 체내에서 고갈되는 CoQ10을 보충하는 목적으로 함께 고려돼요.'},
+    {n:'수용성 식이섬유 (차전자피 등)', d:'식후 혈당 스파이크를 완만하게 하고 콜레스테롤 흡수를 낮추는 보조 작용을 해요.'}
+  ],
+  gut:[
+    {n:'다균주 프로바이오틱스', d:'락토바실러스·비피더스균 등 5종 이상, 100억 CFU 이상 함유 제품이 장내 미생물 다양성 회복에 유리해요.'},
+    {n:'밀크씨슬 (실리마린, 인지질 결합형 우선)', d:'간세포막 보호 및 재생에 관여해요. 일반 실리마린은 생체이용률이 낮아서 인지질과 결합한 포스포리포좀 형태가 흡수율 면에서 더 유리해요.'},
+    {n:'글루타치온 (리포조말형)', d:'간의 2상 해독 대사를 지원하는 항산화 보조인자예요.'},
+    {n:'소화효소 복합체 (브로멜라인, 파파인 등)', d:'단백질·지방 분해를 도와 식후 더부룩함을 줄이는 데 활용돼요.'}
+  ],
+  immune:[
+    {n:'리포조말 비타민C', d:'지질막으로 감싸 세포 투과성을 높인 형태라, 일반 비타민C보다 흡수율이 높고 콜라겐 합성과 항산화 작용을 동시에 지원해요.'},
+    {n:'아연 (피콜리네이트형)', d:'면역세포(T세포) 활성화 및 상처 회복 속도 개선에 관여하는, 흡수율 높은 킬레이트형이에요.'},
+    {n:'비타민D3', d:'선천 면역 조절에 핵심적인 역할을 하고, 혈중 25(OH)D 수치를 30ng/mL 이상으로 유지하는 게 권장돼요.'},
+    {n:'폴리페놀 복합 항산화제 (레스베라트롤, 커큐민 등)', d:'활성산소를 제거해서 자외선·활동 스트레스로 인한 세포 노화를 방지해줘요.'}
+  ],
+};
+
+// ---------- build profile pills ----------
+let profile = {gender:null, activity:null};
+document.querySelectorAll('#pGender .pill').forEach(p=>{
+  p.addEventListener('click', ()=>{
+    document.querySelectorAll('#pGender .pill').forEach(x=>x.classList.remove('checked'));
+    p.classList.add('checked');
+    profile.gender = p.dataset.v;
+    checkEnable();
+  });
+});
+document.querySelectorAll('#pActivity .pill').forEach(p=>{
+  p.addEventListener('click', ()=>{
+    document.querySelectorAll('#pActivity .pill').forEach(x=>x.classList.remove('checked'));
+    p.classList.add('checked');
+    profile.activity = p.dataset.v;
+    checkEnable();
+  });
+});
+['pAge','pHeight','pWeight'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', checkEnable);
+});
+
+// ---------- build questions ----------
+const form = document.getElementById('quizForm');
+let qIndex = 0;
+CATEGORIES.forEach((cat, ci)=>{
+  const qs = QUESTIONS.filter(q=>q.c===cat.key);
+  const sec = document.createElement('div');
+  sec.className='section';
+  sec.innerHTML = `<div class="section-head">
+      <span class="badge">${ci+1}</span>
+      <h2>${cat.label}</h2>
+      <span class="count">${qs.length}문항</span>
+    </div>`;
+  qs.forEach((q)=>{
+    qIndex++;
+    const localId = qIndex;
+    const qDiv = document.createElement('div');
+    qDiv.className='q';
+    qDiv.innerHTML = `
+      <div class="q-text">${q.t}</div>
+      <div class="scale" data-cat="${cat.key}">
+        ${[1,2,3,4,5].map(v=>`
+          <label data-v="${v}">
+            <input type="radio" name="q${localId}" value="${v}">
+            <span class="n">${v}</span>
+          </label>`).join('')}
+      </div>
+      <div class="scale-caption"><span>전혀 아니에요</span><span>매우 그래요</span></div>
+    `;
+    sec.appendChild(qDiv);
+  });
+  form.appendChild(sec);
+});
+
+const answers = {};
+form.addEventListener('click', (e)=>{
+  const label = e.target.closest('label[data-v]');
+  if(!label) return;
+  const scale = label.closest('.scale');
+  const cat = scale.dataset.cat;
+  const qNameEl = scale.parentElement.querySelector('input');
+  const qName = qNameEl.name;
+  scale.querySelectorAll('label').forEach(l=>l.classList.remove('checked'));
+  label.classList.add('checked');
+  const input = label.querySelector('input');
+  input.checked = true;
+  answers[qName] = {cat, val: parseInt(label.dataset.v,10)};
+  updateProgress();
+});
+
+const total = QUESTIONS.length;
+function profileValid(){
+  const age = document.getElementById('pAge').value;
+  const height = document.getElementById('pHeight').value;
+  const weight = document.getElementById('pWeight').value;
+  return !!(age && height && weight && profile.gender && profile.activity);
+}
+function checkEnable(){
+  document.getElementById('profileWarn').classList.remove('show');
+  updateProgress();
+}
+function updateProgress(){
+  const answered = Object.keys(answers).length;
+  document.getElementById('progressFill').style.width = (answered/total*100)+'%';
+  document.getElementById('progressText').textContent = `${answered} / ${total} 문항 응답`;
+  const ok = answered>=total && profileValid();
+  if(answered>=total && !profileValid()){
+    document.getElementById('remainText').textContent = '기본 정보 입력을 완료해주세요';
+  } else if(answered<total){
+    document.getElementById('remainText').textContent = `${total-answered}문항 남았어요`;
+  } else {
+    document.getElementById('remainText').textContent = '모든 준비가 끝났어요';
+  }
+  document.getElementById('submitBtn').disabled = !ok;
+}
+
+document.getElementById('submitBtn').addEventListener('click', ()=>{
+  if(!profileValid()){
+    document.getElementById('profileWarn').classList.add('show');
+    document.querySelector('.profile-card').scrollIntoView({behavior:'smooth', block:'center'});
+    return;
+  }
+  if(Object.keys(answers).length < total) return;
+  renderResults();
+  document.getElementById('results').style.display='block';
+  document.getElementById('results').scrollIntoView({behavior:'smooth'});
+});
+
+function scoreColor(avg){
+  if(avg>=3.5) return {bg:'var(--coral)', label:'우선 보충 추천', tag:'HIGH'};
+  if(avg>=2.5) return {bg:'var(--amber)', label:'관찰이 필요해요', tag:'MID'};
+  return {bg:'var(--teal)', label:'양호해요', tag:'LOW'};
+}
+
+function bmiInfo(height, weight){
+  const h = height/100;
+  const bmi = weight/(h*h);
+  let cat;
+  if(bmi<18.5) cat='저체중';
+  else if(bmi<23) cat='정상';
+  else if(bmi<25) cat='과체중';
+  else cat='비만';
+  return {bmi: bmi.toFixed(1), cat};
+}
+
+function renderResults(){
+  const age = document.getElementById('pAge').value;
+  const height = parseFloat(document.getElementById('pHeight').value);
+  const weight = parseFloat(document.getElementById('pWeight').value);
+  const meds = document.getElementById('pMeds').value.trim();
+  const bmi = bmiInfo(height, weight);
+
+  const catScores = {};
+  CATEGORIES.forEach(c=>catScores[c.key]={sum:0,count:0});
+  Object.values(answers).forEach(a=>{
+    catScores[a.cat].sum += a.val;
+    catScores[a.cat].count += 1;
+  });
+  const scored = CATEGORIES.map(c=>{
+    const avg = catScores[c.key].sum / catScores[c.key].count;
+    return {...c, avg};
+  }).sort((a,b)=>b.avg-a.avg);
+
+  const bars = scored.map(c=>{
+    const pct = (c.avg/5*100).toFixed(0);
+    const sc = scoreColor(c.avg);
+    return `<div class="bar-row">
+      <div class="name">${c.label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${sc.bg};"></div></div>
+      <div class="score">${c.avg.toFixed(1)}</div>
+    </div>`;
+  }).join('');
+
+  // trigger questions per category (score >=4)
+  function triggersFor(catKey){
+    const list = [];
+    QUESTIONS.forEach((q, idx)=>{
+      if(q.c!==catKey) return;
+      const a = answers['q'+(idx+1)];
+      if(a && a.val>=4) list.push({t:q.t, v:a.val});
+    });
+    return list.sort((a,b)=>b.v-a.v);
+  }
+
+  const cards = scored.map(c=>{
+    const sc = scoreColor(c.avg);
+    const isLow = c.avg < 2.5;
+    if(isLow){
+      const tip = LIFESTYLE[c.key][0];
+      return `<div class="card low">
+        <div class="card-head">
+          <span class="cname">${c.label}<span class="avgtxt">평균 ${c.avg.toFixed(1)} / 5</span></span>
+          <span class="tag" style="background:${sc.bg};">${sc.label}</span>
+        </div>
+        <div style="font-size:13px;color:var(--ink-soft);">이 영역은 지금 상태를 잘 유지하고 계세요. ${tip}</div>
+      </div>`;
+    }
+    const triggers = triggersFor(c.key);
+    const triggerHtml = triggers.length ? `
+      <div class="trigger-box">
+        <div class="tt">특히 이런 항목에서 강하게 나타났어요</div>
+        ${triggers.slice(0,4).map(tr=>`<div class="trigger-item"><span>${tr.t}</span><span class="tscore">${tr.v}점</span></div>`).join('')}
+      </div>` : '';
+    const ingHtml = RECS[c.key].map(r=>`<li><b>${r.n}</b><br>${r.d}</li>`).join('');
+    const lifeHtml = LIFESTYLE[c.key].map(l=>`<li>${l}</li>`).join('');
+    return `<div class="card">
+      <div class="card-head">
+        <span class="cname">${c.label}<span class="avgtxt">평균 ${c.avg.toFixed(1)} / 5</span></span>
+        <span class="tag" style="background:${sc.bg};">${sc.label}</span>
+      </div>
+      <div class="why-box"><b>왜 이 영역이 신호를 보내는 걸까요?</b><br>${WHY[c.key]}</div>
+      ${triggerHtml}
+      <div class="subhead">추천 성분</div>
+      <ul class="ing">${ingHtml}</ul>
+      <div class="subhead">함께 실천하면 좋아요</div>
+      <ul class="life">${lifeHtml}</ul>
+    </div>`;
+  }).join('');
+
+  const top = scored.filter(c=>c.avg>=2.5);
+  const overallNote = top.length===0
+    ? '7개 영역 모두 뚜렷한 결핍 신호는 보이지 않아요. 지금의 활동량과 생활 패턴을 잘 유지하면서, 기본적인 종합비타민·미네랄 정도로 컨디션을 관리해도 충분한 상태예요.'
+    : `가장 신경 쓰이는 영역은 <b>${scored[0].label}</b>이에요. 아래 영역별 카드를 순서대로 살펴보시고, 처음 접하는 성분이라면 낮은 용량부터 시작해서 2~3주간 몸의 반응을 지켜보시는 걸 추천해요.`;
+
+  const medsFlagHtml = meds && meds!=='없음' ? `<div class="meds-flag">⚠️ 입력하신 복용 약물/지병(“${meds}”) 정보가 있어요. 아래 추천 성분 중 상호작용이 우려되는 항목은 <b>반드시 의사·약사와 먼저 상담</b>해주세요.</div>` : '';
+
+  // appendix: all 50 answers grouped by category
+  const appendixHtml = CATEGORIES.map(cat=>{
+    const rows = QUESTIONS.map((q, idx)=>{
+      if(q.c!==cat.key) return '';
+      const a = answers['q'+(idx+1)];
+      return `<div class="arow"><span>${q.t}</span><span class="aval">${a?a.val:'-'}점</span></div>`;
+    }).join('');
+    return `<div class="agroup"><div class="agroup-title">${cat.label}</div>${rows}</div>`;
+  }).join('');
+
+  document.getElementById('results').innerHTML = `
+    <div class="report">
+      <div class="report-hero">
+        <span class="tag">RESULT · 셀프 진단 리포트</span>
+        <h3>${new Date().toLocaleDateString('ko-KR')} 기준 자가진단 리포트예요</h3>
+        <p>50문항 응답과 기본 정보를 바탕으로 7개 영역을 상세히 분석했어요.</p>
+        <div class="profile-summary">
+          <div class="pitem"><div class="plabel">나이</div><div class="pval">${age}세</div></div>
+          <div class="pitem"><div class="plabel">성별</div><div class="pval">${profile.gender}</div></div>
+          <div class="pitem"><div class="plabel">BMI</div><div class="pval">${bmi.bmi} (${bmi.cat})</div></div>
+          <div class="pitem"><div class="plabel">운동 빈도</div><div class="pval">${profile.activity}</div></div>
+        </div>
+        ${medsFlagHtml}
+      </div>
+
+      <div class="bars-card">
+        <h4>영역별 점수 한눈에 보기</h4>
+        ${bars}
+        <div class="legend">
+          <span><span class="dot" style="background:var(--coral);"></span>3.5 이상 · 우선 보충 추천</span>
+          <span><span class="dot" style="background:var(--amber);"></span>2.5~3.4 · 관찰이 필요해요</span>
+          <span><span class="dot" style="background:var(--teal);"></span>2.4 이하 · 양호해요</span>
+        </div>
+      </div>
+
+      <div class="priority-title">영역별 상세 리포트</div>
+      <p class="priority-sub">${overallNote}</p>
+      ${cards}
+
+      <div class="appendix">
+        <h4>전체 응답 내역</h4>
+        <p class="asub">50문항에 대한 응답을 영역별로 모두 정리했어요. 궁금한 문항의 점수를 바로 확인할 수 있어요.</p>
+        ${appendixHtml}
+      </div>
+
+      <div class="footnote">
+        이 리포트는 자가보고 응답을 바탕으로 한 참고 자료이며, 혈액검사·영상검사 같은 임상적 진단을 대신할 수 없어요. 특히 심혈관·대사 영역 점수가 높거나 약물(스타틴, 항응고제 등)을 복용 중이라면, 성분 간 상호작용 확인을 위해 꼭 의사·약사와 상담 후 섭취해주세요. 입력하신 개인 정보는 서버에 저장되지 않고 이 화면에서만 계산에 사용돼요.
+      </div>
+    </div>
+  `;
+}
+</script>
+</body>
+</html>

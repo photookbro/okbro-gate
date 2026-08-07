@@ -80,6 +80,15 @@ export function SiteNav() {
           >
             SHOP
           </Link>
+          <Link
+            href="/diagnosis"
+            className={navLinkClass(
+              pathname === '/diagnosis' || pathname.startsWith('/diagnosis/')
+            )}
+            data-guest-allowed
+          >
+            진단
+          </Link>
           {userId ? (
             <>
               <Link href="/mypage" className={navLinkClass(pathname === '/mypage')}>

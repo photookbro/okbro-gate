@@ -2319,6 +2319,21 @@ body {
   color: #ff6b52;
 }
 
-.terms-agreement-content {
-  color: #ffffff;
+.diagnosis-page {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  /* page-with-bottom-cta 하단 패딩을 진단 페이지에서는 상쇄 */
+  margin-bottom: calc(-84px - env(safe-area-inset-bottom, 0px));
+  height: calc(100dvh - var(--site-nav-height));
+  min-height: calc(100vh - var(--site-nav-height));
+  background: #0d0d0d;
+}
+
+.diagnosis-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #0d0d0d;
 }
