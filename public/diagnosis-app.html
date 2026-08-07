@@ -339,6 +339,37 @@ const LIFESTYLE = {
   immune:['하루 한 끼 이상은 색이 다른 채소·과일을 챙겨보세요.','손 씻기와 충분한 수면은 여전히 가장 기본적이고 효과적인 면역 관리예요.']
 };
 
+const FRUITS = {
+  fatigue:[
+    {n:'바나나', d:'칼륨과 당질이 빠르게 에너지원으로 쓰이는 편이라, 활동 전후 간식으로 챙기기 좋은 과일이에요.'},
+    {n:'오렌지·자몽', d:'비타민C 함량이 높은 편이라 피로 회복 루틴에 곁들이기 좋은 과일로 꼽혀요.'}
+  ],
+  joint:[
+    {n:'체리', d:'붉은 색소(안토시아닌) 함량이 높은 편이라, 활동량 많은 날 즐겨 찾는 과일로 꼽혀요.'},
+    {n:'파인애플', d:'브로멜라인이라는 효소를 함유하고 있어 활동 후 식단에 곁들이는 과일로 자주 언급돼요.'}
+  ],
+  eye:[
+    {n:'블루베리', d:'안토시아닌 함량이 높은 편이라 눈이 피로한 날 즐겨 찾는 과일로 꼽혀요.'},
+    {n:'포도(특히 껍질째)', d:'폴리페놀 함량이 높은 편이라 항산화 식단에 자주 등장하는 과일이에요.'}
+  ],
+  brain:[
+    {n:'바나나', d:'마그네슘과 트립토판을 함유하고 있어 이완이 필요한 저녁 시간대 간식으로 언급되는 과일이에요.'},
+    {n:'아보카도', d:'불포화지방산이 풍부한 편이라 두뇌활동이 많은 날 챙기는 과일로 꼽혀요.'}
+  ],
+  cardio:[
+    {n:'사과', d:'수용성 식이섬유(펙틴)가 풍부한 편이라 식후 혈당 관리 루틴에 곁들이기 좋은 과일이에요.'},
+    {n:'바나나', d:'칼륨 함량이 높은 편이라 혈압 관리 식단에 자주 등장하는 과일이에요.'}
+  ],
+  gut:[
+    {n:'키위', d:'식이섬유와 액티니딘 효소를 함유하고 있어 소화가 더딘 날 챙겨 먹는 과일로 꼽혀요.'},
+    {n:'배', d:'수분과 식이섬유 함량이 높은 편이라 부드러운 소화를 돕는 식단에 곁들이기 좋은 과일이에요.'}
+  ],
+  immune:[
+    {n:'감귤류(오렌지, 한라봉 등)', d:'비타민C 함량이 높은 편이라 환절기 식단에 자주 오르는 과일이에요.'},
+    {n:'키위', d:'비타민C 함량이 높은 대표적인 과일 중 하나로 꼽혀요.'}
+  ],
+};
+
 const RECS = {
   fatigue:[
     {n:'벤포티아민 / 푸르설티아민 (활성형 비타민B1)', d:'지용성 티아민 유도체로 <b>혈액-신경장벽(BBB)</b>을 통과해 신경조직 내 티아민 농도를 유지해요. 일반 수용성 B1보다 체내 잔류율이 높아 만성 피로·젖산 축적 개선에 유리해요.'},
@@ -552,12 +583,13 @@ function renderResults(){
     const isLow = c.avg < 2.5;
     if(isLow){
       const tip = LIFESTYLE[c.key][0];
+      const fruitTip = FRUITS[c.key][0];
       return `<div class="card low">
         <div class="card-head">
           <span class="cname">${c.label}<span class="avgtxt">평균 ${c.avg.toFixed(1)} / 5</span></span>
           <span class="tag" style="background:${sc.bg};">${sc.label}</span>
         </div>
-        <div style="font-size:13px;color:var(--ink-soft);">이 영역은 지금 상태를 잘 유지하고 계세요. ${tip}</div>
+        <div style="font-size:13px;color:var(--ink-soft);">이 영역은 지금 상태를 잘 유지하고 계세요. ${tip} 평소 즐겨 챙기면 좋은 과일로는 <b>${fruitTip.n}</b>이 있어요.</div>
       </div>`;
     }
     const triggers = triggersFor(c.key);
@@ -568,6 +600,7 @@ function renderResults(){
       </div>` : '';
     const ingHtml = RECS[c.key].map(r=>`<li><b>${r.n}</b><br>${r.d}</li>`).join('');
     const lifeHtml = LIFESTYLE[c.key].map(l=>`<li>${l}</li>`).join('');
+    const fruitHtml = FRUITS[c.key].map(f=>`<li><b>${f.n}</b><br>${f.d}</li>`).join('');
     return `<div class="card">
       <div class="card-head">
         <span class="cname">${c.label}<span class="avgtxt">평균 ${c.avg.toFixed(1)} / 5</span></span>
@@ -577,6 +610,8 @@ function renderResults(){
       ${triggerHtml}
       <div class="subhead">추천 성분</div>
       <ul class="ing">${ingHtml}</ul>
+      <div class="subhead">함께 챙기면 좋은 과일</div>
+      <ul class="ing">${fruitHtml}</ul>
       <div class="subhead">함께 실천하면 좋아요</div>
       <ul class="life">${lifeHtml}</ul>
     </div>`;

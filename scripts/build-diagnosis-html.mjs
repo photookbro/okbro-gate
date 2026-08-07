@@ -5,7 +5,43 @@ import { fileURLToPath } from 'url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.join(__dirname, '..')
 
-let html = fs.readFileSync(path.join(root, 'diagnosis-source.html'), 'utf8')
+/** Prefer OneDrive「오켱게이트」원본 when present; else local diagnosis-source.html */
+function resolveSourcePath() {
+  const local = path.join(root, 'diagnosis-source.html')
+  const oneDrive = process.env.ONEDRIVE || path.join(process.env.USERPROFILE || '', 'OneDrive')
+  try {
+    for (const dir of fs.readdirSync(oneDrive, { withFileTypes: true })) {
+      if (!dir.isDirectory()) continue
+      // Folder name includes GATE in Korean; match by recent diagnosis-like html size
+      const dirPath = path.join(oneDrive, dir.name)
+      let files = []
+      try {
+        files = fs.readdirSync(dirPath)
+      } catch {
+        continue
+      }
+      const hit = files.find(
+        f =>
+          f.endsWith('.html') &&
+          (f.includes('영양') || f.includes('진단') || f.includes('성분'))
+      )
+      if (hit) {
+        const full = path.join(dirPath, hit)
+        const st = fs.statSync(full)
+        if (st.size > 30_000) {
+          console.log('source (OneDrive):', full)
+          return full
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('OneDrive lookup skipped:', e.message)
+  }
+  console.log('source (local):', local)
+  return local
+}
+
+let html = fs.readFileSync(resolveSourcePath(), 'utf8')
 
 html = html.replace(
   /:root\{[\s\S]*?\n  \}/,
