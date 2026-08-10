@@ -88,6 +88,30 @@ export function calculateNewExpiresAt(
   return inclusiveKstPeriodEndsAt(now, verifiedPeriodDays)
 }
 
+/** 활성 만료일 후보 중 가장 늦은 값 (소스 간 스태킹 base) */
+export function latestActiveExpiresAt(
+  candidates: Array<Date | null | undefined>,
+  now: Date = new Date()
+): Date | null {
+  let best: Date | null = null
+  for (const candidate of candidates) {
+    if (!candidate || Number.isNaN(candidate.getTime())) continue
+    if (!isExpiryActive(candidate, now)) continue
+    const end = endOfKstCalendarDay(candidate)
+    if (!best || end.getTime() > best.getTime()) best = end
+  }
+  return best
+}
+
+/**
+ * 두 소스가 동시에 유효할 때 기간 합산 만료일.
+ * wall-clock: aExp + bExp - now (겹치는 구간을 한 번만 소모하지 않고 이어서 씀)
+ */
+export function stackConcurrentExpiresAt(a: Date, b: Date, now: Date = new Date()): Date {
+  const stacked = new Date(a.getTime() + b.getTime() - now.getTime())
+  return endOfKstCalendarDay(stacked)
+}
+
 export function resolveExpiresAt(
   order: OrderRecord,
   verifiedPeriodDays: number

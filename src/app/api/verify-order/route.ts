@@ -4,6 +4,7 @@ import { getAuthenticatedUser } from '@/lib/auth-server'
 import {
   addDays,
   calculateNewExpiresAt,
+  latestActiveExpiresAt,
 } from '@/lib/order-verification'
 import { validateNaverOrderNumber } from '@/lib/naver-order-number'
 import {
@@ -13,6 +14,7 @@ import {
 import { loadVerificationSettings } from '@/lib/verification-settings'
 import { sendKakaoNotify } from '@/lib/kakao-notify'
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rate-limit'
+import { getActiveInstagramBonusExpiresAt } from '@/lib/instagram-follow-bonus'
 
 function formatDbError(error: { message?: string; code?: string; details?: string | null }) {
   return {
@@ -137,11 +139,16 @@ export async function POST(req: NextRequest) {
     previousExpires = addDays(new Date(userLatestOrder.used_at), periodDays)
   }
 
-  const expiresAt = calculateNewExpiresAt(
-    previousExpires && !Number.isNaN(previousExpires.getTime()) ? previousExpires : null,
-    periodDays,
-    now
-  )
+  let instagramExpires: Date | null = null
+  try {
+    instagramExpires = await getActiveInstagramBonusExpiresAt(admin, user.id, now)
+  } catch (error) {
+    console.error('[verify-order] instagram bonus lookup', error)
+  }
+
+  const stackedBase = latestActiveExpiresAt([previousExpires, instagramExpires], now)
+
+  const expiresAt = calculateNewExpiresAt(stackedBase, periodDays, now)
 
   const { error } = await admin.from('orders').insert({
     user_id: user.id,

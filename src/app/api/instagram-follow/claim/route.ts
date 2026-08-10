@@ -8,6 +8,7 @@ import {
   getApprovedInstagramFollowBonus,
   getLatestInstagramFollowBonusAttempt,
 } from '@/lib/instagram-follow-bonus'
+import { latestActiveExpiresAt, resolveExpiresAt } from '@/lib/order-verification'
 import { ensureUserProfile } from '@/lib/user-profile-server'
 import { loadVerificationSettings } from '@/lib/verification-settings'
 import { supabaseAdmin } from '@/lib/supabase-admin'
@@ -82,7 +83,25 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const previousActiveExpires = await getActiveInstagramBonusExpiresAt(admin, user.id, now)
+  const previousInstagramExpires = await getActiveInstagramBonusExpiresAt(admin, user.id, now)
+
+  let purchaseExpires: Date | null = null
+  const { data: latestOrder } = await admin
+    .from('orders')
+    .select('order_number, used_at, created_at, expires_at')
+    .eq('user_id', user.id)
+    .order('expires_at', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (latestOrder) {
+    purchaseExpires = resolveExpiresAt(latestOrder, settings.verifiedPeriodDays)
+  }
+
+  const previousActiveExpires = latestActiveExpiresAt(
+    [previousInstagramExpires, purchaseExpires],
+    now
+  )
   const expiresAt = calculateInstagramBonusClaimExpiresAt(
     previousActiveExpires,
     bonusDays,

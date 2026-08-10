@@ -5,6 +5,8 @@ import {
   isUserExpiringSoon,
   resolveExpiresAt,
   getDaysRemaining,
+  latestActiveExpiresAt,
+  stackConcurrentExpiresAt,
   type VerificationInfo,
 } from '@/lib/order-verification'
 import {
@@ -123,6 +125,53 @@ async function getAlbumAccessStatus(req: NextRequest) {
         show_expiry_warning: showExpiryWarning,
       })
     }
+  }
+
+  // 구매+인스타 동시 유효: 접근 만료는 더 늦은 쪽.
+  // 예전 계정(인스타가 구매보다 짧거나 같으면) 한 번 합산 heal.
+  if (purchaseVerified && instagramActive && purchaseInfo.expires_at && instagramBonus?.expires_at) {
+    const purchaseExpires = new Date(purchaseInfo.expires_at)
+    let instagramExpires = new Date(instagramBonus.expires_at)
+    let effectiveExpires = latestActiveExpiresAt([purchaseExpires, instagramExpires])!
+
+    if (instagramExpires.getTime() <= purchaseExpires.getTime() + 60_000 && instagramBonus.id) {
+      const stackedExpires = stackConcurrentExpiresAt(purchaseExpires, instagramExpires)
+      if (stackedExpires.getTime() > effectiveExpires.getTime() + 60_000) {
+        const { error: healError } = await admin
+          .from('instagram_follow_bonus')
+          .update({
+            expires_at: stackedExpires.toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', instagramBonus.id)
+        if (healError) {
+          logAlbumStatusError('instagram_stack_heal', healError, {
+            userId: user.id,
+            bonusId: instagramBonus.id,
+          })
+        } else {
+          instagramExpires = stackedExpires
+          effectiveExpires = stackedExpires
+        }
+      }
+    }
+
+    const combinedAccess: VerificationInfo = {
+      status: 'valid',
+      access_source: 'purchase',
+      purchase_verified: true,
+      instagram_follow_verified: true,
+      gps_tracking_eligible: true,
+      verified_at: purchaseInfo.verified_at ?? instagramBonus.approved_at ?? undefined,
+      order_number: purchaseInfo.order_number,
+      expires_at: effectiveExpires.toISOString(),
+      days_remaining: getDaysRemaining(effectiveExpires),
+    }
+
+    return NextResponse.json({
+      ...combinedAccess,
+      show_expiry_warning: isUserExpiringSoon(effectiveExpires),
+    })
   }
 
   if (instagramActive) {

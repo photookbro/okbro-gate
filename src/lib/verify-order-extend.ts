@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { addDays, calculateNewExpiresAt } from '@/lib/order-verification'
+import { addDays, calculateNewExpiresAt, latestActiveExpiresAt } from '@/lib/order-verification'
+import { getActiveInstagramBonusExpiresAt } from '@/lib/instagram-follow-bonus'
 
 type ExtendResult = {
   expiresAt: Date
@@ -38,11 +39,16 @@ export async function extendUserOrderVerification(
     previousExpires = addDays(new Date(userLatestOrder.used_at), periodDays)
   }
 
-  const expiresAt = calculateNewExpiresAt(
-    previousExpires && !Number.isNaN(previousExpires.getTime()) ? previousExpires : null,
-    periodDays,
-    now
-  )
+  let instagramExpires: Date | null = null
+  try {
+    instagramExpires = await getActiveInstagramBonusExpiresAt(admin, userId, now)
+  } catch {
+    instagramExpires = null
+  }
+
+  const stackedBase = latestActiveExpiresAt([previousExpires, instagramExpires], now)
+
+  const expiresAt = calculateNewExpiresAt(stackedBase, periodDays, now)
 
   const payload = {
     used_at: now.toISOString(),
@@ -59,6 +65,6 @@ export async function extendUserOrderVerification(
 
   return {
     expiresAt,
-    extended: !!previousExpires,
+    extended: !!stackedBase,
   }
 }
