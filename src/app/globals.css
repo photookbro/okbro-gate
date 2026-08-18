@@ -451,6 +451,16 @@ body {
   @apply px-3 py-3.5 text-[var(--text)];
 }
 
+.admin-table-compact {
+  font-size: 0.7rem;
+}
+.admin-table-compact th {
+  @apply px-2 py-2 text-xs;
+}
+.admin-table-compact td {
+  @apply px-2 py-2;
+}
+
 .admin-event-table th {
   @apply normal-case;
 }

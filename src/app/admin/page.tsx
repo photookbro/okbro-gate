@@ -246,6 +246,7 @@ export default function AdminPage() {
   const [notifyingEventId, setNotifyingEventId] = useState<string | null>(null)
 
   const [players, setPlayers] = useState<PlayerRow[]>([])
+  const [playerSummary, setPlayerSummary] = useState<{ total_signups: number } | null>(null)
   const [loadingPlayers, setLoadingPlayers] = useState(false)
   const [playersError, setPlayersError] = useState('')
   const [playerInstagramFilter, setPlayerInstagramFilter] = useState<'all' | 'follow' | 'active'>(
@@ -383,6 +384,7 @@ export default function AdminPage() {
       return
     }
     setPlayers(data.players ?? [])
+    if (data.summary) setPlayerSummary(data.summary)
     setLoadingPlayers(false)
   }, [adminFetch, playerInstagramFilter])
 
@@ -937,6 +939,21 @@ export default function AdminPage() {
         {tab === 'players' && (
           <>
             <h2 className="section-title">PLAYERS</h2>
+
+            {playerSummary && (
+              <div className="mb-6 flex gap-4">
+                <div
+                  className="rounded-lg px-6 py-4"
+                  style={{ background: '#0d0d0d', border: '1px solid #222' }}
+                >
+                  <p className="text-xs text-muted mb-1">전체 회원수</p>
+                  <p className="text-3xl font-bold" style={{ color: '#FF2800' }}>
+                    {playerSummary.total_signups.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <p className="mb-4 text-sm text-muted">
               약관 동의·구매 인증·GPS 기록을 한곳에서 확인할 수 있어요. 행을 클릭하면 상세 프로필을 볼 수 있어요.
             </p>
@@ -967,7 +984,7 @@ export default function AdminPage() {
             ) : (
               <>
                 <div className="admin-table-wrap">
-                <table className="admin-table">
+                <table className="admin-table admin-table-compact">
                   <thead>
                     <tr>
                       {[

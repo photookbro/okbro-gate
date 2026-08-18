@@ -1,0 +1,22 @@
+
+> okbro-gate@0.1.0 dev
+> next dev --turbopack
+
+   ▲ Next.js 15.5.19 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://172.30.1.59:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · optimizePackageImports
+     · middlewareClientMaxBodySize: "25mb"
+
+ ✓ Starting...
+ ✓ Compiled middleware in 242ms
+ ✓ Ready in 2.5s
+ ○ Compiling / ...
+ ✓ Compiled / in 3s
+ GET / 200 in 3539ms
+ ✓ Compiled middleware in 3ms
+ ✓ Compiled in 134ms
+ ✓ Compiled middleware in 13ms
+ ✓ Compiled in 131ms
