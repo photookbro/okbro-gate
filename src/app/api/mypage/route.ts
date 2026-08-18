@@ -95,7 +95,12 @@ async function getMypage(req: NextRequest) {
     console.error('[mypage] instagram follow bonus unavailable:', error)
   }
 
-  const photoAccess = buildPhotoAccessSummary(userOrders, verifiedPeriodDays, now)
+  const photoAccess = buildPhotoAccessSummary(
+    userOrders,
+    verifiedPeriodDays,
+    instagramFollowBonus.expires_at,
+    now
+  )
 
   const verifications = userOrders.map(order => {
     const joinedEvent = Array.isArray(order.events) ? order.events[0] : order.events

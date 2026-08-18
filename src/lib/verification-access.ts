@@ -3,7 +3,9 @@ import {
   calculateNewExpiresAt,
   formatVerificationDate,
   getDaysRemaining,
+  latestActiveExpiresAt,
   resolveExpiresAt,
+  stackConcurrentExpiresAt,
   type OrderRecord,
 } from '@/lib/order-verification'
 
@@ -55,6 +57,7 @@ function buildBucket(expiresAt: Date | null, used: boolean, now: Date): Verifica
 export function buildPhotoAccessSummary(
   orders: OrderExpiryRow[],
   purchasePeriodDays: number,
+  instagramBonusExpiresAt?: string | Date | null,
   now: Date = new Date()
 ): PhotoAccessSummary {
   let purchaseExpires: Date | null = null
@@ -80,11 +83,27 @@ export function buildPhotoAccessSummary(
   }
 
   const purchase = buildBucket(purchaseExpires, purchaseUsed, now)
+  const instagramExpires =
+    instagramBonusExpiresAt != null ? new Date(instagramBonusExpiresAt) : null
+  const instagramActive =
+    !!instagramExpires &&
+    !Number.isNaN(instagramExpires.getTime()) &&
+    getNonNegativeDaysRemaining(instagramExpires, now) > 0
+  let photoAccessExpires = latestActiveExpiresAt(
+    [purchaseExpires, instagramActive ? instagramExpires : null],
+    now
+  )
+
+  if (purchase.days_remaining > 0 && instagramActive && purchaseExpires && instagramExpires) {
+    photoAccessExpires = stackConcurrentExpiresAt(purchaseExpires, instagramExpires, now)
+  }
+
+  const photoAccessDaysRemaining = getNonNegativeDaysRemaining(photoAccessExpires, now)
 
   return {
     purchase,
-    photo_access_days_remaining: purchase.days_remaining,
-    status: purchase.days_remaining > 0 ? 'valid' : purchaseUsed ? 'expired' : 'none',
+    photo_access_days_remaining: photoAccessDaysRemaining,
+    status: photoAccessDaysRemaining > 0 ? 'valid' : purchaseUsed || instagramExpires ? 'expired' : 'none',
   }
 }
 

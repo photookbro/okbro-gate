@@ -329,7 +329,7 @@ export async function GET(req: NextRequest) {
   if (Number.isFinite(verifiedPeriodDays) && verifiedPeriodDays > 0) {
     const now = new Date()
     for (const [userId, userOrders] of ordersByUser) {
-      const access = buildPhotoAccessSummary(userOrders, verifiedPeriodDays, now)
+      const access = buildPhotoAccessSummary(userOrders, verifiedPeriodDays, null, now)
       if (access.purchase.days_remaining <= 0) continue
 
       purchaseValidByUser.add(userId)
@@ -428,8 +428,13 @@ export async function GET(req: NextRequest) {
       user.last_sign_in_at
     )
     const verification = latestPurchaseByUser.get(user.id)
-    const access = buildPhotoAccessSummary(ordersByUser.get(user.id) ?? [], verifiedPeriodDays, now)
     const instagramBonus = instagramBonusByUser.get(user.id)
+    const access = buildPhotoAccessSummary(
+      ordersByUser.get(user.id) ?? [],
+      verifiedPeriodDays,
+      instagramBonus?.expires_at ?? null,
+      now
+    )
     const instagramBonusActive =
       !!instagramBonus?.expires_at && new Date(instagramBonus.expires_at) >= now
     const instagramBonusDaysRemaining =
