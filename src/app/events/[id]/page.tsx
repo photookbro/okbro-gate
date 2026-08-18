@@ -3,15 +3,12 @@
 import { useState, useEffect, use, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import type { VerificationInfo } from '@/lib/order-verification'
 import { AlbumAccessSection } from '@/components/album-access-section'
 import { BAlbumView } from '@/components/b-album-view'
-import { TermsAgreement } from '@/components/terms-agreement'
 import { GpsDetector } from '@/components/gps-detector'
 import { GpsTrackingBanner } from '@/components/gps-tracking-banner'
 import { EventPermissionGate } from '@/components/missing-permissions-modal'
-import { hasTermsAgreed } from '@/lib/terms-agreement'
 import { resolveEventAlbumBranch } from '@/lib/event-album-branch'
 import { getEventGpsLocations, type EventGpsFields } from '@/lib/gps-locations'
 
@@ -37,7 +34,6 @@ type Event = EventGpsFields & {
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const router = useRouter()
   const supabase = createClient()
   const [event, setEvent] = useState<Event | null>(null)
   const [eventLoading, setEventLoading] = useState(true)
@@ -45,18 +41,11 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [userId, setUserId] = useState<string | null>(null)
   const [verification, setVerification] = useState<VerificationInfo>({ status: 'none' })
   const [verificationChecked, setVerificationChecked] = useState(false)
-  const [termsReady, setTermsReady] = useState(false)
-  const [termsAgreed, setTermsAgreed] = useState(false)
 
   const locations = useMemo(
     () => (event ? getEventGpsLocations(event) : []),
     [event]
   )
-
-  useEffect(() => {
-    setTermsAgreed(hasTermsAgreed())
-    setTermsReady(true)
-  }, [])
 
   useEffect(() => {
     setEventLoading(true)
@@ -121,7 +110,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   // 앨범 접근: status===valid (구매|GPS로그|인스타). GPS 토글은 별도 게이트.
   const gpsTrackingEligible = verification.gps_tracking_eligible === true
 
-  if (!termsReady || eventLoading) {
+  if (eventLoading) {
     return (
       <div className="page-shell flex items-center justify-center">
         <p className="text-muted">잠시만 기다리세요. 대회 정보를 불러오고 있습니다.</p>
@@ -134,17 +123,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       <div className="page-shell flex items-center justify-center">
         <p className="text-muted">{eventError || '대회 정보를 불러오지 못했어요.'}</p>
       </div>
-    )
-  }
-
-  if (!termsAgreed) {
-    return (
-      <TermsAgreement
-        visible
-        mode="page"
-        onComplete={() => setTermsAgreed(true)}
-        onClose={() => router.push('/events')}
-      />
     )
   }
 
@@ -186,7 +164,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
           {locations.length > 0 ? (
             <div className="mb-6">
-              <EventPermissionGate enabled={termsAgreed && !!userId}>
+              <EventPermissionGate enabled={!!userId}>
                 <GpsDetector
                   eventId={event.id}
                   eventName={event.name}

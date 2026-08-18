@@ -21,8 +21,37 @@ function formatDbError(error: { message?: string; code?: string; details?: strin
   }
 }
 
+export async function GET(req: NextRequest) {
+  const user = await getAuthenticatedUser(req)
+  if (!user) {
+    return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
+  }
+
+  const admin = supabaseAdmin()
+  const { data, error } = await admin
+    .from('terms_agreements')
+    .select('id, agreed_at')
+    .eq('user_id', user.id)
+    .eq('version', TERMS_VERSION)
+    .maybeSingle()
+
+  if (error) {
+    const dbError = formatDbError(error)
+    console.error('[terms-agree] GET failed:', dbError)
+    return NextResponse.json(
+      { error: '동의 기록 조회 실패', db_error: dbError },
+      { status: 500 }
+    )
+  }
+
+  return NextResponse.json({
+    agreed: !!data,
+    agreed_at: data?.agreed_at ?? null,
+  })
+}
+
 export async function POST(req: NextRequest) {
-  const user = await getAuthenticatedUser()
+  const user = await getAuthenticatedUser(req)
   if (!user) {
     return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
   }

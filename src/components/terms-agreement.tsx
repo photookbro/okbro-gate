@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { saveTermsAgreement } from '@/lib/terms-agreement'
 import {
@@ -25,6 +25,35 @@ const checkboxRowStyle: React.CSSProperties = {
   gap: '0.5rem',
   marginTop: '0.5rem',
   cursor: 'pointer',
+}
+
+class GuideMarkdownBoundary extends Component<
+  { children: ReactNode; fallbackText: string },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode; fallbackText: string }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[terms-agreement] markdown render failed', error, info)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <p style={{ color: '#ffffff', fontSize: '0.85rem', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+          {this.props.fallbackText}
+        </p>
+      )
+    }
+    return this.props.children
+  }
 }
 
 export function TermsAgreement({
@@ -146,16 +175,17 @@ export function TermsAgreement({
       ) : (
         <div style={{ marginBottom: '1.25rem' }}>
           {blocks.map((block, index) => (
-            <div
-              key={index}
-              className="terms-guide-markdown"
-              style={{
-                fontSize: `${block.font_size}px`,
-                marginBottom: index === blocks.length - 1 ? 0 : '0.85rem',
-              }}
-            >
-              <ReactMarkdown>{block.text}</ReactMarkdown>
-            </div>
+            <GuideMarkdownBoundary key={index} fallbackText={typeof block.text === 'string' ? block.text : ''}>
+              <div
+                className="terms-guide-markdown"
+                style={{
+                  fontSize: `${Number.isFinite(block.font_size) ? block.font_size : 16}px`,
+                  marginBottom: index === blocks.length - 1 ? 0 : '0.85rem',
+                }}
+              >
+                <ReactMarkdown>{typeof block.text === 'string' ? block.text : ''}</ReactMarkdown>
+              </div>
+            </GuideMarkdownBoundary>
           ))}
         </div>
       )}

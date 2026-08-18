@@ -8,6 +8,7 @@ import { FixedFruitCta } from '@/components/fixed-fruit-cta'
 import { GuestAuthGate, useGuestAuth } from '@/components/guest-auth-gate'
 import { InappBrowserWarning } from '@/components/inapp-browser-warning'
 import { SiteNav } from '@/components/site-nav'
+import { TermsGate } from '@/components/terms-gate'
 
 function PlayerChromeBody({ children }: { children: React.ReactNode }) {
   const { isLoggedIn, authReady } = useGuestAuth()
@@ -39,7 +40,9 @@ export function PlayerAppChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <GuestAuthGate>
-      <PlayerChromeBody>{children}</PlayerChromeBody>
+      <TermsGate>
+        <PlayerChromeBody>{children}</PlayerChromeBody>
+      </TermsGate>
     </GuestAuthGate>
   )
 }
