@@ -247,6 +247,7 @@ export default function AdminPage() {
 
   const [players, setPlayers] = useState<PlayerRow[]>([])
   const [playerSummary, setPlayerSummary] = useState<{ total_signups: number } | null>(null)
+  const [playerSort, setPlayerSort] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'joined_at', dir: 'desc' })
   const [loadingPlayers, setLoadingPlayers] = useState(false)
   const [playersError, setPlayersError] = useState('')
   const [playerInstagramFilter, setPlayerInstagramFilter] = useState<'all' | 'follow' | 'active'>(
@@ -987,27 +988,50 @@ export default function AdminPage() {
                 <table className="admin-table admin-table-compact">
                   <thead>
                     <tr>
-                      {[
-                        '이름',
-                        '이메일',
-                        '가입일',
-                        '약관 동의',
-                        '구매 인증',
-                        'GPS 기록',
-                        '인스타 팔로우',
-                        '인스타 아이디',
-                        '혜택 적용 기간',
-                        '구매 인증일',
-                        '구매 만료일',
-                        '열람 가능(합산)',
-                        '마지막 활동',
-                      ].map(col => (
-                        <th key={col}>{col}</th>
+                      {([
+                        ['name', '이름'],
+                        ['email', '이메일'],
+                        ['joined_at', '가입일'],
+                        ['terms_agreed', '약관 동의'],
+                        ['purchase_verified', '구매 인증'],
+                        ['gps_record', 'GPS 기록'],
+                        ['instagram_follow_verified', '인스타 팔로우'],
+                        ['instagram_handle', '인스타 아이디'],
+                        ['instagram_benefit_period_display', '혜택 적용 기간'],
+                        ['verified_at_display', '구매 인증일'],
+                        ['expires_at_display', '구매 만료일'],
+                        ['photo_access_days_remaining', '열람 가능(합산)'],
+                        ['last_activity', '마지막 활동'],
+                      ] as const).map(([key, label]) => (
+                        <th
+                          key={key}
+                          className="cursor-pointer select-none"
+                          onClick={() =>
+                            setPlayerSort(prev =>
+                              prev.key === key
+                                ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+                                : { key, dir: 'asc' }
+                            )
+                          }
+                        >
+                          {label}{playerSort.key === key ? (playerSort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {players.map(player => (
+                    {[...players].sort((a, b) => {
+                      const k = playerSort.key as keyof PlayerRow
+                      const av = a[k], bv = b[k]
+                      let cmp = 0
+                      if (av == null && bv == null) cmp = 0
+                      else if (av == null) cmp = 1
+                      else if (bv == null) cmp = -1
+                      else if (typeof av === 'boolean') cmp = (av ? 1 : 0) - (bv ? 1 : 0)
+                      else if (typeof av === 'number') cmp = (av as number) - (bv as number)
+                      else cmp = String(av).localeCompare(String(bv), 'ko')
+                      return playerSort.dir === 'asc' ? cmp : -cmp
+                    }).map(player => (
                       <tr
                         key={player.id}
                         className="cursor-pointer hover:bg-[var(--bg)]/80"
