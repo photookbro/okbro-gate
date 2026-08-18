@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   formatWon,
   type ShopProduct,
@@ -13,6 +13,10 @@ type AdminShopPanelProps = {
 
 export function AdminShopPanel({ token }: AdminShopPanelProps) {
   const [products, setProducts] = useState<ShopProduct[]>([])
+  const [sort, setSort] = useState<{ key: 'product_name' | 'price_discount' | 'click_count' | 'is_active'; dir: 'asc' | 'desc' }>({
+    key: 'product_name',
+    dir: 'asc',
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [csvText, setCsvText] = useState('')
@@ -149,6 +153,37 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
     }
   }
 
+  const sortedProducts = useMemo(() => {
+    const next = [...products]
+    next.sort((a, b) => {
+      let cmp = 0
+      switch (sort.key) {
+        case 'product_name':
+          cmp = a.product_name.localeCompare(b.product_name, 'ko')
+          break
+        case 'price_discount':
+          cmp = a.price_discount - b.price_discount
+          break
+        case 'click_count':
+          cmp = a.click_count - b.click_count
+          break
+        case 'is_active':
+          cmp = Number(a.is_active) - Number(b.is_active)
+          break
+      }
+      return sort.dir === 'asc' ? cmp : -cmp
+    })
+    return next
+  }, [products, sort])
+
+  function toggleSort(key: 'product_name' | 'price_discount' | 'click_count' | 'is_active') {
+    setSort(prev =>
+      prev.key === key
+        ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: 'asc' }
+    )
+  }
+
   return (
     <div className="space-y-6">
       <section className="space-y-3">
@@ -260,14 +295,34 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
             <table className="w-full min-w-[40rem] text-left text-sm">
               <thead>
                 <tr className="border-b border-[var(--border)] text-muted">
-                  <th className="py-2 pr-2">상품</th>
-                  <th className="py-2 pr-2">가격</th>
-                  <th className="py-2 pr-2">클릭</th>
-                  <th className="py-2">ON/OFF</th>
+                  <th
+                    className="cursor-pointer select-none py-2 pr-2"
+                    onClick={() => toggleSort('product_name')}
+                  >
+                    상품{sort.key === 'product_name' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+                  </th>
+                  <th
+                    className="cursor-pointer select-none py-2 pr-2"
+                    onClick={() => toggleSort('price_discount')}
+                  >
+                    가격{sort.key === 'price_discount' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+                  </th>
+                  <th
+                    className="cursor-pointer select-none py-2 pr-2"
+                    onClick={() => toggleSort('click_count')}
+                  >
+                    클릭{sort.key === 'click_count' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+                  </th>
+                  <th
+                    className="cursor-pointer select-none py-2"
+                    onClick={() => toggleSort('is_active')}
+                  >
+                    ON/OFF{sort.key === 'is_active' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {products.map(p => (
+                {sortedProducts.map(p => (
                   <tr key={p.id} className="border-b border-[var(--border)]">
                     <td className="py-2 pr-2">
                       <p className="font-medium">{p.product_name}</p>
