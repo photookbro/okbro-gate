@@ -49,15 +49,7 @@ export function HomeLandingPage() {
             GPS로 촬영 포인트를 자동으로 기록해서, 대회가 끝나면 몇백 장 속에서 내 사진을 뒤질 필요 없이
             바로 찾아드립니다.
           </p>
-          <div className="hl-btnrow">
-            <Link href="/events" className="hl-btn hl-btn-fill" data-guest-allowed>
-              내 대회 찾기
-            </Link>
-            <a href="#solution" className="hl-btn hl-btn-ghost" data-guest-allowed>
-              어떻게 쓰나요
-            </a>
-          </div>
-          <div className="hl-hero-track">
+          <div className="hl-hero-track" style={{ marginTop: '2rem' }}>
             <div className="hl-checkpoint lit" style={{ left: '8%' }} />
             <div className="hl-checkpoint" style={{ left: '50%' }} />
             <div className="hl-checkpoint" style={{ left: '92%' }} />
