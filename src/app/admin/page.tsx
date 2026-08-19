@@ -9,6 +9,7 @@ import { NotificationsAdminPanel } from '@/components/admin/notifications-admin-
 import { AdminChatPanel } from '@/components/admin/admin-chat-panel'
 import { NaverOrdersAdminPanel } from '@/components/admin/naver-orders-admin-panel'
 import { AdminShopPanel } from '@/components/admin/admin-shop-panel'
+import { AdminStyleupPanel } from '@/components/admin/admin-styleup-panel'
 import { AppContentAdminPanel } from '@/components/admin/app-content-admin-panel'
 import {
   AdminGpsLocationMap,
@@ -173,6 +174,7 @@ const TAB_LABELS = {
   chat: 'CHAT',
   naver_orders: 'NAVER ORDERS',
   shop: 'SHOP',
+  styleup: 'STYLEUP',
 } as const
 
 function formatDateOnly(date: string | null | undefined): string {
@@ -212,6 +214,7 @@ export default function AdminPage() {
     | 'chat'
     | 'naver_orders'
     | 'shop'
+    | 'styleup'
   >('events')
   const [chatInitialUserId, setChatInitialUserId] = useState<string | null>(null)
   const [events, setEvents] = useState<Event[]>([])
@@ -1207,6 +1210,17 @@ export default function AdminPage() {
               제휴 상품 CSV/엑셀 등록 · ON/OFF를 관리해요.
             </p>
             <AdminShopPanel token={token} />
+          </>
+        )}
+
+        {tab === 'styleup' && (
+          <>
+            <h2 className="section-title mb-4">STYLEUP</h2>
+            <p className="mb-4 text-sm text-muted">
+              사진 보정 프리셋(오켱 스타일 기준값)을 조정해요. 「이 기기에 저장」은 이 브라우저에만
+              반영되며, /styleup 에서도 같은 기기·브라우저면 즉시 적용됩니다.
+            </p>
+            <AdminStyleupPanel />
           </>
         )}
 
