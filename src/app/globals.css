@@ -2700,7 +2700,8 @@ body {
 }
 
 .hl-section-head h2 {
-  font-size: clamp(28px, 4vw, 44px);
+  font-size: clamp(24px, 5vw, 44px);
+  word-break: keep-all;
 }
 
 .hl-section-head p {
@@ -2749,6 +2750,7 @@ body {
   font-family: var(--hl-font);
   font-weight: 700;
   font-size: 52px;
+  white-space: nowrap;
   color: var(--hl-accent);
   line-height: 1;
 }

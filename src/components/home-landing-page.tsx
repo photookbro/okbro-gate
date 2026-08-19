@@ -212,7 +212,7 @@ export function HomeLandingPage() {
             MORE THAN PHOTOS
           </div>
           <div className="hl-section-head">
-            <h2 className="hl-display">오켱 스타일, 오켱 프리셋으로 보정하기</h2>
+            <h2 className="hl-display">오켱 스타일, 오켱 프리셋으로 보정</h2>
           </div>
           <div className="hl-extra-grid hl-extra-grid-single">
             <div className="hl-extra-card">
@@ -265,20 +265,6 @@ export function HomeLandingPage() {
           <div className="hl-kicker hl-label">GET STARTED</div>
           <h2 className="hl-display">다음 대회, 오켱GATE와 함께</h2>
           <p>지금 팔로우하고 다음 대회 소식을 가장 먼저 받아보세요.</p>
-          <div className="hl-btnrow">
-            <Link href="/events" className="hl-btn hl-btn-fill" data-guest-allowed>
-              내 대회 찾기
-            </Link>
-            <a
-              href={INSTAGRAM_URL}
-              className="hl-btn hl-btn-ghost"
-              target="_blank"
-              rel="noreferrer"
-              data-guest-allowed
-            >
-              @photo_ok_bro 팔로우
-            </a>
-          </div>
         </section>
       </main>
 
