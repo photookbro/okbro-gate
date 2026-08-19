@@ -8,8 +8,26 @@ import {
   formatHomeCount,
 } from '@/lib/home-landing'
 
+const INSTAGRAM_URL = 'https://www.instagram.com/photo_ok_bro/'
+
+const FAQ_ITEMS = [
+  {
+    q: '앱을 껐다 켜도 촬영 기록이 이어지나요?',
+    a: '아니요. 백그라운드 GPS를 지원하지 않아서, 앱을 완전히 종료하면 기록이 멈춥니다. 화면만 꺼두는 건 괜찮습니다.',
+  },
+  {
+    q: '인증은 꼭 하나만 해야 하나요?',
+    a: '구매 인증이 우선적일 수는 있으나, 인스타그램 팔로우를 통해서도 열람 가능 기간을 늘릴 수 있습니다.',
+  },
+  {
+    q: '같은 주문번호를 여러 번 써도 되나요?',
+    a: '한 번 사용된 주문번호는 재사용할 수 없습니다. 연장을 원하시면 새 주문번호를 입력해주세요.',
+  },
+]
+
 export function HomeLandingPage() {
   const [daysSince, setDaysSince] = useState(() => daysSinceHomeStart())
+  const [openFaq, setOpenFaq] = useState(0)
 
   useEffect(() => {
     setDaysSince(daysSinceHomeStart())
@@ -195,18 +213,113 @@ export function HomeLandingPage() {
             <h2 className="hl-display">사진 다음으로 준비한 것들</h2>
           </div>
           <div className="hl-extra-grid hl-extra-grid-single">
-            <div className="hl-extra-card hl-extra-card-disabled">
-              <div className="hl-extra-tag hl-label">보정 · 개발 중</div>
+            <div className="hl-extra-card">
+              <div className="hl-extra-tag hl-label">보정</div>
               <h3>오켱 스타일로, 오켱 프리셋 보정</h3>
               <p>
                 서버 전송 없이 이 브라우저 안에서만 처리됩니다. 오켱 스포츠 프리셋을 입혀 원본과 비교해보고,
                 고화질로 저장하세요.
               </p>
-              <span className="hl-extra-link hl-extra-link-disabled">보정 시작하기 →</span>
+              <Link href="/styleup" className="hl-extra-link">
+                보정 시작하기 →
+              </Link>
             </div>
           </div>
         </section>
+
+        <hr className="hl-rule" />
+
+        <section id="faq">
+          <div className="hl-kicker hl-label" style={{ textAlign: 'center' }}>
+            FAQ
+          </div>
+          <div className="hl-section-head">
+            <h2 className="hl-display">자주 묻는 질문</h2>
+          </div>
+          <div className="hl-faq">
+            {FAQ_ITEMS.map((item, index) => {
+              const open = openFaq === index
+              return (
+                <div key={item.q} className={`hl-faq-item${open ? ' open' : ''}`}>
+                  <button
+                    type="button"
+                    className="hl-faq-q"
+                    aria-expanded={open}
+                    data-guest-allowed
+                    onClick={() => setOpenFaq(open ? -1 : index)}
+                  >
+                    {item.q} <span className="hl-plus">+</span>
+                  </button>
+                  <div className="hl-faq-a">{item.a}</div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+
+        <hr className="hl-rule" />
+
+        <section className="hl-closing">
+          <div className="hl-kicker hl-label">GET STARTED</div>
+          <h2 className="hl-display">다음 대회, 오켱GATE와 함께</h2>
+          <p>지금 팔로우하고 다음 대회 소식을 가장 먼저 받아보세요.</p>
+          <div className="hl-btnrow">
+            <Link href="/events" className="hl-btn hl-btn-fill" data-guest-allowed>
+              내 대회 찾기
+            </Link>
+            <a
+              href={INSTAGRAM_URL}
+              className="hl-btn hl-btn-ghost"
+              target="_blank"
+              rel="noreferrer"
+              data-guest-allowed
+            >
+              @photo_ok_bro 팔로우
+            </a>
+          </div>
+        </section>
       </main>
+
+      <footer className="hl-footer">
+        <div className="hl-wrap">
+          <div className="hl-foot-grid">
+            <div className="hl-foot-brand">
+              <div className="hl-logo">
+                <span>OKbro</span>GATE
+              </div>
+              <p>땀 흘리는 순간을 가장 가까이서 담는, 오켱의 대회 사진 서비스.</p>
+            </div>
+            <div className="hl-foot-links">
+              <div className="hl-foot-col">
+                <h4 className="hl-label">SERVICE</h4>
+                <a href="#solution" data-guest-allowed>
+                  이용 방법
+                </a>
+                <Link href="/shop" data-guest-allowed>
+                  SHOP
+                </Link>
+                <Link href="/diagnosis" data-guest-allowed>
+                  진단
+                </Link>
+              </div>
+              <div className="hl-foot-col">
+                <h4 className="hl-label">SUPPORT</h4>
+                <a href="#faq" data-guest-allowed>
+                  FAQ
+                </a>
+                <Link href="/mypage#chat">1:1 문의</Link>
+                <a href={INSTAGRAM_URL} target="_blank" rel="noreferrer" data-guest-allowed>
+                  인스타그램
+                </a>
+              </div>
+            </div>
+          </div>
+          <div className="hl-foot-bottom">
+            <div>© 2026 OKbroGATE. All rights reserved.</div>
+            <div>PHOTO OK BRO — Sweat Photographer</div>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

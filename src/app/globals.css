@@ -2447,6 +2447,30 @@ body {
   background: #0d0d0d;
 }
 
+.styleup-page {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  height: calc(100dvh - var(--site-nav-height) - 84px - env(safe-area-inset-bottom, 0px));
+  min-height: calc(100vh - var(--site-nav-height) - 84px - env(safe-area-inset-bottom, 0px));
+  background: #0a0c10;
+}
+
+.styleup-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #0a0c10;
+}
+
+.styleup-loading {
+  margin: 0;
+  padding: 2rem;
+  color: #8f8f8a;
+  text-align: center;
+}
+
 /* ---------- HOME landing (오켱GATE 홈 초안 이식) ---------- */
 .home-landing {
   --hl-bg: #0d0d0d;
