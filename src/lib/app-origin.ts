@@ -5,9 +5,22 @@
  * - OAuth redirect uses the current app origin (browser or request)
  *
  * Supabase Dashboard → Auth → URL Configuration:
- * - Site URL: production (e.g. https://okbro-gate.vercel.app)
- * - Redirect URLs: http://localhost:3000/** AND https://okbro-gate.vercel.app/**
+ * - Site URL: https://okbrogate.com (실제 접속 도메인과 동일하게)
+ * - Redirect URLs: getSupabaseAuthRedirectUrlPatterns() 참고
  */
+export const PRIMARY_APP_ORIGIN = 'https://okbrogate.com'
+
+/** Supabase Dashboard → Authentication → URL Configuration → Redirect URLs */
+export function getSupabaseAuthRedirectUrlPatterns(): readonly string[] {
+  return [
+    'http://localhost:3000/**',
+    'http://127.0.0.1:3000/**',
+    'https://okbrogate.com/**',
+    'https://www.okbrogate.com/**',
+    'https://okbro-gate.vercel.app/**',
+  ]
+}
+
 type RequestLike = {
   headers: Headers
   nextUrl?: URL

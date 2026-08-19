@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import {
   applySupabaseCookiesToResponse,
+  copySetCookieHeaders,
   isLocalDevHost,
 } from '@/lib/supabase/cookie-options'
 import { isGuestPublicPath } from '@/lib/guest-routes'
@@ -73,7 +74,7 @@ export async function middleware(request: NextRequest) {
     }
 
     const redirectResponse = NextResponse.redirect(loginUrl)
-    copyCookies(supabaseResponse, redirectResponse)
+    copySetCookieHeaders(supabaseResponse, redirectResponse)
     return redirectResponse
   }
 

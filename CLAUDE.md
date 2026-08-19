@@ -100,12 +100,17 @@ Auth resolution for API routes (`getAuthenticatedUser` in `src/lib/auth-server.t
 1. `/auth/callback` 쿠키 버그: `@supabase/ssr`의 `setAll`이 호출될 때마다 redirect 응답을 새로 만들면 이전 `Set-Cookie`가 사라짐 → 단일 redirect 응답에 쿠키를 누적하는 방식으로 수정 (`src/app/auth/callback/route.ts`, `src/lib/supabase/cookie-options.ts`, `src/lib/supabase/route-handler-client.ts`)
 2. localhost에서 `secure:true` 쿠키는 저장 안 됨 → dev 환경 `secure:false` 보정
 3. 마이페이지 인증: `resolveClientUser()` (`getUser` → `getSession` → `refreshSession` 순서로 시도), `authFetch()` (Bearer 헤더 + 401시 1회 재시도) — `src/lib/supabase/auth-client.ts`, `src/app/mypage/page.tsx`, `src/components/site-nav.tsx` 전부 이 로직 공유
-4. 로컬·Vercel 동시 OAuth 지원: Supabase Dashboard → Authentication → URL Configuration → Redirect URLs에 아래 전부 등록 필요 (Site URL은 Vercel 유지해도 무방):
-   - `http://localhost:3000/**`
-   - `http://127.0.0.1:3000/**`
-   - `https://okbro-gate.vercel.app/**`
+4. 로컬·프로덕션 OAuth: Supabase Dashboard → Authentication → URL Configuration:
+   - **Site URL**: `https://okbrogate.com` (실제 접속 도메인과 동일 — vercel.app만 남아 있으면 커스텀 도메인 로그인/세션 깨짐)
+   - **Redirect URLs** (`src/lib/app-origin.ts` → `getSupabaseAuthRedirectUrlPatterns()`):
+     - `http://localhost:3000/**`
+     - `http://127.0.0.1:3000/**`
+     - `https://okbrogate.com/**`
+     - `https://www.okbrogate.com/**`
+     - `https://okbro-gate.vercel.app/**`
 
-   콜백 URL 생성은 `src/lib/app-origin.ts`의 `buildAuthCallbackUrl()`로 중앙화됨(브라우저 `window.location.origin` 기준). `NEXT_PUBLIC_APP_URL` 환경변수는 절대 Vercel 주소로 고정하지 말 것(로컬 로그인이 Vercel로 튕기는 원인이 됨).
+   콜백 URL 생성은 `buildAuthCallbackUrl()`(브라우저 `window.location.origin` 기준). Vercel `NEXT_PUBLIC_APP_URL`은 **설정하지 않거나** `https://okbrogate.com` — vercel.app으로 고정하면 로컬/커스텀 도메인 OAuth가 어긋남.
+   체크리스트 출력: `node scripts/print-supabase-auth-checklist.mjs`
 5. 미들웨어: `/api` 경로에서도 세션 갱신 수행(`/api/admin`, `/api/auth` 제외), `/auth/callback`은 미들웨어 스킵(콜백 중 세션 간섭 방지)
 
 ### 관리자 PWA — 제거 완료

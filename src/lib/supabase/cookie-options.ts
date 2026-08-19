@@ -11,12 +11,22 @@ export function normalizeSupabaseCookieOptions(
   options: CookieOptions | undefined,
   isLocalDev: boolean
 ): CookieOptions | undefined {
-  if (!options || !isLocalDev) return options
+  if (!options) return options
+
+  if (isLocalDev) {
+    return {
+      ...options,
+      secure: false,
+      sameSite: options.sameSite ?? 'lax',
+      path: options.path ?? '/',
+    }
+  }
 
   return {
     ...options,
-    secure: false,
+    secure: options.secure ?? true,
     sameSite: options.sameSite ?? 'lax',
+    path: options.path ?? '/',
   }
 }
 
@@ -36,6 +46,22 @@ export function applySupabaseCookiesToResponse(
         response.headers.set(key, value)
       }
     }
+  }
+}
+
+/** middleware redirect 시 name/value만 복사하면 maxAge·secure가 날아가 세션이 브라우저 종료와 함께 사라질 수 있음 */
+export function copySetCookieHeaders(from: NextResponse, to: NextResponse) {
+  const headers = from.headers
+  if (typeof headers.getSetCookie === 'function') {
+    for (const cookie of headers.getSetCookie()) {
+      to.headers.append('Set-Cookie', cookie)
+    }
+    return
+  }
+
+  const raw = headers.get('set-cookie')
+  if (raw) {
+    to.headers.append('Set-Cookie', raw)
   }
 }
 
