@@ -86,6 +86,13 @@ export function SiteNav() {
         EVENTS
       </Link>
       <Link
+        href="/styleup"
+        className={navLinkClass(pathname === '/styleup' || pathname.startsWith('/styleup/'))}
+        data-guest-allowed
+      >
+        styleUP
+      </Link>
+      <Link
         href="/shop"
         className={navLinkClass(pathname === '/shop' || pathname.startsWith('/shop/'))}
         data-guest-allowed
