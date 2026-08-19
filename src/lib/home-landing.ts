@@ -1,5 +1,5 @@
 /** HOME 랜딩 기본 사진 수. 대회별 보너스는 getPhotoDeliveredCount()로 합산. */
-export const HOME_PHOTO_BASE_COUNT = 489_378
+export const HOME_PHOTO_BASE_COUNT = 289_378
 
 /**
  * 대회 ID로 5000~10000 사이 결정론적 랜덤 수를 반환.

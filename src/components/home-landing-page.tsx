@@ -212,7 +212,7 @@ export function HomeLandingPage() {
             MORE THAN PHOTOS
           </div>
           <div className="hl-section-head">
-            <h2 className="hl-display">사진 다음으로 준비한 것들</h2>
+            <h2 className="hl-display">오켱 스타일, 오켱 프리셋으로 보정하기</h2>
           </div>
           <div className="hl-extra-grid hl-extra-grid-single">
             <div className="hl-extra-card">
