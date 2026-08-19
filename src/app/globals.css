@@ -2915,6 +2915,11 @@ body {
   gap: 24px;
 }
 
+.hl-extra-grid-single {
+  grid-template-columns: minmax(0, 420px);
+  justify-content: center;
+}
+
 @media (max-width: 900px) {
   .hl-extra-grid {
     grid-template-columns: 1fr;
@@ -2931,6 +2936,15 @@ body {
 
 .hl-extra-card:hover {
   border-color: var(--hl-ink-faint);
+}
+
+.hl-extra-card-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.hl-extra-card-disabled:hover {
+  border-color: var(--hl-line);
 }
 
 .hl-extra-tag {
