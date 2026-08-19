@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import {
-  HOME_PHOTO_DELIVERED_COUNT,
+  HOME_PHOTO_BASE_COUNT,
+  getPhotoDeliveredCount,
   daysSinceHomeStart,
   formatHomeCount,
 } from '@/lib/home-landing'
@@ -27,10 +28,19 @@ const FAQ_ITEMS = [
 
 export function HomeLandingPage() {
   const [daysSince, setDaysSince] = useState(() => daysSinceHomeStart())
+  const [photoCount, setPhotoCount] = useState(HOME_PHOTO_BASE_COUNT)
   const [openFaq, setOpenFaq] = useState(0)
 
   useEffect(() => {
     setDaysSince(daysSinceHomeStart())
+
+    fetch('/api/events/list')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data?.past?.length) return
+        setPhotoCount(getPhotoDeliveredCount(data.past))
+      })
+      .catch(() => {})
   }, [])
 
   return (
@@ -84,7 +94,7 @@ export function HomeLandingPage() {
               <div className="hl-stat-duo">
                 <div className="hl-stat-block">
                   <div className="hl-stat-num">
-                    {formatHomeCount(HOME_PHOTO_DELIVERED_COUNT)}
+                    {formatHomeCount(photoCount)}
                     <span>장+</span>
                   </div>
                   <div className="hl-stat-label">선수들에게 전한 추억</div>
