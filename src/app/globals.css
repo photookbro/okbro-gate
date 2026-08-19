@@ -2700,7 +2700,7 @@ body {
 }
 
 .hl-section-head h2 {
-  font-size: clamp(24px, 5vw, 44px);
+  font-size: clamp(32px, 6vw, 52px);
   word-break: keep-all;
 }
 
