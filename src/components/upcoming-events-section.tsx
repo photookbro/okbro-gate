@@ -22,12 +22,13 @@ const PlayerLocationPreviewMap = dynamic(
 
 function UpcomingEventItem({
   event,
-  gpsTrackingEligible,
+  globalGpsTrackingEligible,
 }: {
   event: EventsListUpcomingEvent
-  gpsTrackingEligible: boolean
+  globalGpsTrackingEligible: boolean
 }) {
   const [trackingEnabled] = useGpsTrackingEnabled(event.id)
+  const canToggleGps = event.is_pay_event || globalGpsTrackingEligible
 
   const isMultiMode = event.locations.length > 1
   const hasPassData = isMultiMode ? event.gps_pass_groups.length > 0 : !!event.shoot_record
@@ -60,9 +61,11 @@ function UpcomingEventItem({
             <GpsTrackingToggle
               eventId={event.id}
               variant="events-list"
-              disabled={!gpsTrackingEligible}
+              disabled={!canToggleGps}
             />
-            {!gpsTrackingEligible ? (
+            {event.is_pay_event ? (
+              <span className="events-gps-purchase-hint">대회 서비스 일부로 제공</span>
+            ) : !canToggleGps ? (
               <Link
                 href="/verify-order"
                 className="events-gps-purchase-hint"
@@ -112,7 +115,7 @@ export function UpcomingEventsSection() {
   const [upcoming, setUpcoming] = useState<EventsListUpcomingEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [gpsTrackingEligible, setGpsTrackingEligible] = useState(false)
+  const [globalGpsTrackingEligible, setGlobalGpsTrackingEligible] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -121,10 +124,10 @@ export function UpcomingEventsSection() {
       .then(async res => {
         const data = await res.json()
         if (cancelled) return
-        setGpsTrackingEligible(res.ok && data?.gps_tracking_eligible === true)
+        setGlobalGpsTrackingEligible(res.ok && data?.gps_tracking_eligible === true)
       })
       .catch(() => {
-        if (!cancelled) setGpsTrackingEligible(false)
+        if (!cancelled) setGlobalGpsTrackingEligible(false)
       })
 
     return () => {
@@ -190,7 +193,7 @@ export function UpcomingEventsSection() {
               <UpcomingEventItem
                 key={event.id}
                 event={event}
-                gpsTrackingEligible={gpsTrackingEligible}
+                globalGpsTrackingEligible={globalGpsTrackingEligible}
               />
             ))
           )}

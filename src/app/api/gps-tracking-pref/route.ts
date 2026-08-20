@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   // 토글 ON만 제한 — OFF는 언제든 허용. 앨범 접근 게이트와 별개.
   if (enabled) {
-    const eligible = await resolveGpsTrackingEligible(admin, user.id)
+    const eligible = await resolveGpsTrackingEligible(admin, user.id, new Date(), event_id)
     if (!eligible) {
       return NextResponse.json({ error: '구매 인증 후 이용 가능해요' }, { status: 403 })
     }

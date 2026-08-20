@@ -38,6 +38,7 @@ type Event = {
   gps_3_radius_meters: number | null
   gps_enabled: boolean | null
   is_loop_course?: boolean | null
+  is_pay_event?: boolean | null
 }
 
 type EventForm = {
@@ -46,6 +47,7 @@ type EventForm = {
   album_a_url: string
   album_b_url: string
   gps_enabled: boolean
+  is_pay_event: boolean
   is_loop_course: boolean
   gps_1_lat: string
   gps_1_lng: string
@@ -64,6 +66,7 @@ const emptyForm: EventForm = {
   album_a_url: '',
   album_b_url: '',
   gps_enabled: false,
+  is_pay_event: false,
   is_loop_course: false,
   gps_1_lat: '',
   gps_1_lng: '',
@@ -581,6 +584,7 @@ export default function AdminPage() {
       album_a_url: event.album_a_url ?? '',
       album_b_url: event.album_b_url ?? '',
       gps_enabled: !!event.gps_enabled,
+      is_pay_event: event.is_pay_event === true,
       is_loop_course: event.is_loop_course === true,
       gps_1_lat:
         event.gps_1_lat != null
@@ -650,6 +654,7 @@ export default function AdminPage() {
       album_a_url: '',
       album_b_url: sourceForm.album_b_url,
       gps_enabled: sourceForm.gps_enabled,
+      is_pay_event: sourceForm.is_pay_event,
       gps_1_lat: sourceForm.gps_1_lat || null,
       gps_1_lng: sourceForm.gps_1_lng || null,
       gps_1_radius_meters: sourceForm.gps_1_radius_meters || 50,
@@ -1300,6 +1305,18 @@ export default function AdminPage() {
             )}
 
             <div className="card-section mb-4">
+              <label className="mb-3 flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.is_pay_event}
+                  onChange={e => setForm(f => ({ ...f, is_pay_event: e.target.checked }))}
+                />
+                <span className="text-sm font-semibold text-[var(--text)]">페이대회</span>
+              </label>
+              <p className="mb-3 text-xs text-muted">
+                주최측 사전결제 대회. 로그인·약관 동의는 그대로 요구하고, 구매/GPS/인스타 인증
+                유효기간만 건너뜁니다.
+              </p>
               <label className="mb-1 flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"

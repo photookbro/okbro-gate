@@ -97,6 +97,7 @@ export async function GET(req: NextRequest) {
         name: event.name,
         date: event.date,
         gps_enabled: event.gps_enabled,
+        is_pay_event: event.is_pay_event === true,
         has_album: hasAlbum,
         has_any_album: hasAlbum,
         photo_url: event.photo_url ?? null,
@@ -108,6 +109,7 @@ export async function GET(req: NextRequest) {
       name: event.name,
       date: event.date,
       gps_enabled: event.gps_enabled,
+      is_pay_event: event.is_pay_event === true,
       photo_url: event.photo_url ?? null,
       is_loop_course: false,
       locations: getEventGpsLocations(event).map(location => ({

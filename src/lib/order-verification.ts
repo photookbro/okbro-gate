@@ -14,11 +14,13 @@ export type MonitorStatus = 'active' | 'expired' | 'expiring_soon'
 
 export type VerificationInfo = {
   status: VerificationStatus
-  access_source?: 'purchase' | 'gps' | 'instagram_follow'
+  access_source?: 'purchase' | 'gps' | 'instagram_follow' | 'pay_event'
   purchase_verified?: boolean
   instagram_follow_verified?: boolean
   /** 앨범 접근과 별개 — GPS 토글 ON 가능 여부(구매 OR 인스타 혜택 유효) */
   gps_tracking_eligible?: boolean
+  /** 페이대회(주최측 사전결제) — 해당 이벤트만 구매/GPS/인스타 유효기간 스킵 */
+  is_pay_event?: boolean
   gps_passed_at?: string
   order_number?: string
   verified_at?: string

@@ -29,6 +29,7 @@ type Event = EventGpsFields & {
   album_a_url: string | null
   album_b_url: string | null
   gps_enabled: boolean | null
+  is_pay_event?: boolean | null
   is_loop_course: boolean | null
 }
 
@@ -106,9 +107,11 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       })
   }, [userId, id])
 
-  const albumBranch = verificationChecked ? resolveEventAlbumBranch(verification) : null
-  // 앨범 접근: status===valid (구매|GPS로그|인스타). GPS 토글은 별도 게이트.
-  const gpsTrackingEligible = verification.gps_tracking_eligible === true
+  const albumBranch = verificationChecked
+    ? resolveEventAlbumBranch(verification, event?.is_pay_event === true)
+    : null
+  const gpsTrackingEligible =
+    verification.gps_tracking_eligible === true || event?.is_pay_event === true
 
   if (eventLoading) {
     return (

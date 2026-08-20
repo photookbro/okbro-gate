@@ -17,8 +17,19 @@ export function isGpsTrackingEligible(options: {
 export async function resolveGpsTrackingEligible(
   admin: SupabaseClient,
   userId: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  eventId?: string | null
 ): Promise<boolean> {
+  if (eventId) {
+    const { data: event, error } = await admin
+      .from('events')
+      .select('is_pay_event')
+      .eq('id', eventId)
+      .maybeSingle()
+
+    if (!error && event?.is_pay_event === true) return true
+  }
+
   const [{ data: order }, settings, instagramBonus] = await Promise.all([
     admin
       .from('orders')

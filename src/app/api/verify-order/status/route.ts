@@ -98,6 +98,21 @@ async function getAlbumAccessStatus(req: NextRequest) {
     expiresAt != null &&
     isUserExpiringSoon(expiresAt)
 
+  let eventIsPayEvent = false
+  if (eventId) {
+    const { data: eventRow, error: eventError } = await admin
+      .from('events')
+      .select('is_pay_event')
+      .eq('id', eventId)
+      .maybeSingle()
+
+    if (eventError) {
+      logAlbumStatusError('events_query', eventError, { userId: user.id, eventId })
+    } else {
+      eventIsPayEvent = eventRow?.is_pay_event === true
+    }
+  }
+
   if (eventId) {
     const { data: gpsLog, error: gpsError } = await admin
       .from('gps_logs')
@@ -118,11 +133,27 @@ async function getAlbumAccessStatus(req: NextRequest) {
         gps_passed_at: gpsLog.passed_at,
         purchase_verified: purchaseVerified,
         instagram_follow_verified: instagramActive,
-        gps_tracking_eligible: gpsTrackingEligible,
+        gps_tracking_eligible: eventIsPayEvent || gpsTrackingEligible,
+        is_pay_event: eventIsPayEvent,
       }
       return NextResponse.json({
         ...gpsAccess,
         show_expiry_warning: showExpiryWarning,
+      })
+    }
+
+    if (eventIsPayEvent) {
+      const payEventAccess: VerificationInfo = {
+        status: 'valid',
+        access_source: 'pay_event',
+        is_pay_event: true,
+        purchase_verified: false,
+        instagram_follow_verified: false,
+        gps_tracking_eligible: true,
+      }
+      return NextResponse.json({
+        ...payEventAccess,
+        show_expiry_warning: false,
       })
     }
   }

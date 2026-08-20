@@ -102,6 +102,7 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_2_radius_meters integer DEFAULT 
 ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_3_lat double precision;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_3_lng double precision;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS gps_3_radius_meters integer DEFAULT 50;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS is_pay_event boolean NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS gps_logs (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,

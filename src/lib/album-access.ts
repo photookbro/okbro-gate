@@ -14,9 +14,24 @@ export function hasInstagramFollowAlbumAccess(verification: VerificationInfo): b
   return verification.instagram_follow_verified === true
 }
 
-/** 앨범 다운로드 플로우 — 구매 인증, GPS 통과, 인스타 팔로우 혜택 */
-export function hasBAlbumDownloadAccess(verification: VerificationInfo): boolean {
+export function isPayEventAlbumAccess(
+  verification: VerificationInfo,
+  eventIsPayEvent = false
+): boolean {
   return (
+    eventIsPayEvent ||
+    verification.is_pay_event === true ||
+    verification.access_source === 'pay_event'
+  )
+}
+
+/** 앨범 다운로드 플로우 — 구매 인증, GPS 통과, 인스타 팔로우 혜택, 페이대회 */
+export function hasBAlbumDownloadAccess(
+  verification: VerificationInfo,
+  eventIsPayEvent = false
+): boolean {
+  return (
+    isPayEventAlbumAccess(verification, eventIsPayEvent) ||
     hasPurchaseAlbumAccess(verification) ||
     hasGpsAlbumAccess(verification) ||
     hasInstagramFollowAlbumAccess(verification)
@@ -24,8 +39,10 @@ export function hasBAlbumDownloadAccess(verification: VerificationInfo): boolean
 }
 
 export function resolveAlbumBDownloadAction(
-  verification: VerificationInfo
+  verification: VerificationInfo,
+  eventIsPayEvent = false
 ): AlbumBDownloadAction {
+  if (isPayEventAlbumAccess(verification, eventIsPayEvent)) return 'open-album'
   if (hasGpsAlbumAccess(verification)) return 'open-album'
   if (hasInstagramFollowAlbumAccess(verification)) return 'open-album'
   if (!hasPurchaseAlbumAccess(verification)) return 'verify-order'
