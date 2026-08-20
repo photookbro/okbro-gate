@@ -6,6 +6,7 @@ import Link from 'next/link'
 import type { VerificationInfo } from '@/lib/order-verification'
 import { AlbumAccessSection } from '@/components/album-access-section'
 import { BAlbumView } from '@/components/b-album-view'
+import { LockedAlbumView } from '@/components/locked-album-view'
 import { GpsDetector } from '@/components/gps-detector'
 import { GpsTrackingBanner } from '@/components/gps-tracking-banner'
 import { EventPermissionGate } from '@/components/missing-permissions-modal'
@@ -148,6 +149,10 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           eventId={event!.id}
         />
       )
+    }
+
+    if (albumBranch === 'locked' && event!.is_pay_event !== true) {
+      return <LockedAlbumView eventId={event!.id} albumReady={!!albumUrl} />
     }
 
     return null
