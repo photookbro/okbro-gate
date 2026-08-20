@@ -3,6 +3,10 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 
 let vapidConfigured = false
 
+export function isWebPushConfigured(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY)
+}
+
 function configureWebPush(): boolean {
   if (vapidConfigured) return true
 
@@ -11,6 +15,9 @@ function configureWebPush(): boolean {
   const subject = process.env.VAPID_SUBJECT ?? 'mailto:admin@okbro.com'
 
   if (!publicKey || !privateKey) {
+    console.error(
+      '[web-push] VAPID keys missing — set NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY'
+    )
     return false
   }
 
@@ -25,12 +32,36 @@ export type PushPayload = {
   url?: string
 }
 
+export type PushSendResult = {
+  sent: number
+  failed: number
+  no_subscription: boolean
+  vapid_missing: boolean
+  query_error: boolean
+}
+
 export async function sendPushToUser(
   userId: string,
   payload: PushPayload
-): Promise<{ sent: number; failed: number }> {
+): Promise<PushSendResult> {
+  if (!userId) {
+    return {
+      sent: 0,
+      failed: 0,
+      no_subscription: true,
+      vapid_missing: false,
+      query_error: false,
+    }
+  }
+
   if (!configureWebPush()) {
-    return { sent: 0, failed: 0 }
+    return {
+      sent: 0,
+      failed: 0,
+      no_subscription: false,
+      vapid_missing: true,
+      query_error: false,
+    }
   }
 
   const admin = supabaseAdmin()
@@ -39,8 +70,25 @@ export async function sendPushToUser(
     .select('id, endpoint, p256dh, auth')
     .eq('user_id', userId)
 
-  if (error || !subscriptions?.length) {
-    return { sent: 0, failed: 0 }
+  if (error) {
+    console.error('[web-push] push_subscriptions query failed:', error)
+    return {
+      sent: 0,
+      failed: 0,
+      no_subscription: false,
+      vapid_missing: false,
+      query_error: true,
+    }
+  }
+
+  if (!subscriptions?.length) {
+    return {
+      sent: 0,
+      failed: 0,
+      no_subscription: true,
+      vapid_missing: false,
+      query_error: false,
+    }
   }
 
   const payloadStr = JSON.stringify({
@@ -73,5 +121,11 @@ export async function sendPushToUser(
     })
   )
 
-  return { sent, failed }
+  return {
+    sent,
+    failed,
+    no_subscription: sent === 0 && failed === 0,
+    vapid_missing: false,
+    query_error: false,
+  }
 }

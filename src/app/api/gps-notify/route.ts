@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/admin-auth'
 import { buildGpsShootNotifyBody } from '@/lib/gps-access'
-import { sendPushToUser } from '@/lib/web-push-server'
+import { isWebPushConfigured, sendPushToUser } from '@/lib/web-push-server'
 
 export async function POST(req: NextRequest) {
   const denied = requireAdmin(req)
@@ -11,6 +11,17 @@ export async function POST(req: NextRequest) {
   const { event_id } = await req.json()
   if (!event_id) {
     return NextResponse.json({ error: 'event_id가 필요해요' }, { status: 400 })
+  }
+
+  if (!isWebPushConfigured()) {
+    return NextResponse.json(
+      {
+        error:
+          '웹푸시 VAPID 키가 서버에 설정되지 않았어요. Vercel 환경변수 NEXT_PUBLIC_VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY를 확인해주세요.',
+        vapid_missing: true,
+      },
+      { status: 503 }
+    )
   }
 
   const admin = supabaseAdmin()
@@ -30,6 +41,7 @@ export async function POST(req: NextRequest) {
     .select('id, user_id, passed_at')
     .eq('event_id', event_id)
     .eq('notified', false)
+    .not('user_id', 'is', null)
     .order('passed_at', { ascending: true })
 
   if (logsError) {
@@ -47,6 +59,7 @@ export async function POST(req: NextRequest) {
       push_sent: 0,
       push_failed: 0,
       no_subscription: 0,
+      query_error: 0,
     })
   }
 
@@ -54,16 +67,33 @@ export async function POST(req: NextRequest) {
   let pushSent = 0
   let pushFailed = 0
   let noSubscription = 0
+  let queryError = 0
 
   for (const log of logs) {
     const body = buildGpsShootNotifyBody(log.passed_at)
-    const { sent, failed } = await sendPushToUser(log.user_id, {
+    const result = await sendPushToUser(log.user_id, {
       title: 'OKbroGATE',
       body,
       url: `/events/${event_id}`,
     })
 
-    if (sent > 0) {
+    if (result.vapid_missing) {
+      return NextResponse.json(
+        {
+          error:
+            '웹푸시 VAPID 키가 서버에 설정되지 않았어요. Vercel 환경변수 NEXT_PUBLIC_VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY를 확인해주세요.',
+          vapid_missing: true,
+        },
+        { status: 503 }
+      )
+    }
+
+    if (result.query_error) {
+      queryError++
+      continue
+    }
+
+    if (result.sent > 0) {
       const { error: updateError } = await admin
         .from('gps_logs')
         .update({ notified: true })
@@ -71,11 +101,11 @@ export async function POST(req: NextRequest) {
 
       if (!updateError) {
         notified++
-        pushSent += sent
+        pushSent += result.sent
       }
-    } else if (failed > 0) {
-      pushFailed += failed
-    } else {
+    } else if (result.failed > 0) {
+      pushFailed += result.failed
+    } else if (result.no_subscription) {
       noSubscription++
     }
   }
@@ -89,5 +119,6 @@ export async function POST(req: NextRequest) {
     push_sent: pushSent,
     push_failed: pushFailed,
     no_subscription: noSubscription,
+    query_error: queryError,
   })
 }

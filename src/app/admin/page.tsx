@@ -364,7 +364,14 @@ export default function AdminPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        alert(data.error ?? '발송 실패')
+        if (data.vapid_missing) {
+          alert(
+            data.error ??
+              '웹푸시 VAPID 키가 서버에 설정되지 않았어요. Vercel 환경변수를 확인해주세요.'
+          )
+        } else {
+          alert(data.error ?? '발송 실패')
+        }
         return
       }
 
@@ -373,6 +380,7 @@ export default function AdminPage() {
       const parts = [`${data.pending}명 중 ${data.notified}명 발송 완료`]
       if (data.no_subscription > 0) parts.push(`${data.no_subscription}명은 알림 미구독 상태`)
       if (data.push_failed > 0) parts.push(`${data.push_failed}건 발송 실패`)
+      if (data.query_error > 0) parts.push(`${data.query_error}건 구독 조회 오류`)
       alert(`${parts.join(', ')}입니다`)
     } finally {
       setSendingEventNotify(false)
@@ -530,13 +538,22 @@ export default function AdminPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        alert(data.error ?? '발송 실패')
+        if (data.vapid_missing) {
+          alert(
+            data.error ??
+              '웹푸시 VAPID 키가 서버에 설정되지 않았어요. Vercel 환경변수를 확인해주세요.'
+          )
+        } else {
+          alert(data.error ?? '발송 실패')
+        }
         return
       }
 
-      alert(
-        `발송 완료 — 성공 ${data.notified}건 · 구독 없음 ${data.no_subscription}건 · 실패 ${data.push_failed}건`
-      )
+      const summaryParts = [`성공 ${data.notified}건`]
+      if (data.no_subscription > 0) summaryParts.push(`구독 없음 ${data.no_subscription}건`)
+      if (data.push_failed > 0) summaryParts.push(`실패 ${data.push_failed}건`)
+      if (data.query_error > 0) summaryParts.push(`구독 조회 오류 ${data.query_error}건`)
+      alert(`발송 완료 — ${summaryParts.join(' · ')}`)
     } finally {
       setNotifyingEventId(null)
     }
