@@ -10,6 +10,7 @@ import { AdminChatPanel } from '@/components/admin/admin-chat-panel'
 import { NaverOrdersAdminPanel } from '@/components/admin/naver-orders-admin-panel'
 import { AdminShopPanel } from '@/components/admin/admin-shop-panel'
 import { AdminStyleupPanel } from '@/components/admin/admin-styleup-panel'
+import { AdminDashboardPanel } from '@/components/admin/admin-dashboard-panel'
 import { AppContentAdminPanel } from '@/components/admin/app-content-admin-panel'
 import {
   AdminGpsLocationMap,
@@ -169,6 +170,7 @@ type EventMonitorRow = {
 }
 
 const TAB_LABELS = {
+  dashboard: '대시보드',
   events: 'MANAGE EVENTS',
   settings: 'SETTINGS',
   guide: '이용안내',
@@ -209,6 +211,7 @@ function OxBadge({ value }: { value: boolean }) {
 export default function AdminPage() {
   const token = useAdminToken()
   const [tab, setTab] = useState<
+    | 'dashboard'
     | 'events'
     | 'settings'
     | 'guide'
@@ -806,6 +809,13 @@ export default function AdminPage() {
       </div>
 
       <div className="admin-panel">
+        {tab === 'dashboard' && (
+          <>
+            <h2 className="section-title">대시보드</h2>
+            <AdminDashboardPanel token={token} />
+          </>
+        )}
+
         {tab === 'events' && (
           <>
             <div className="mb-4 flex items-center justify-between">

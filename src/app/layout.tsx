@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { PlayerAppChrome } from '@/components/player-app-chrome'
 
@@ -37,6 +38,7 @@ export default function RootLayout({
     <html lang="ko">
       <body>
         <PlayerAppChrome>{children}</PlayerAppChrome>
+        <Analytics />
       </body>
     </html>
   )

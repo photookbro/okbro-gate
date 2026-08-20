@@ -159,8 +159,13 @@ GRANT ALL ON instagram_followers TO service_role;
 CREATE TABLE IF NOT EXISTS profiles (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   first_created_at timestamptz NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  last_active_at timestamptz
 );
+
+CREATE INDEX IF NOT EXISTS profiles_last_active_at_idx
+  ON profiles (last_active_at DESC)
+  WHERE last_active_at IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS instagram_follow_bonus (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
