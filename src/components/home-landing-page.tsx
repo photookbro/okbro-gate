@@ -56,7 +56,7 @@ export function HomeLandingPage() {
             <span className="hl-accent">가장 가까이서</span>
           </h1>
           <p>
-            GPS로 촬영 포인트를 자동으로 기록해서, 대회가 끝나면 몇백 장 속에서 내 사진을 뒤질 필요 없이
+            GPS로 촬영 포인트를 자동으로 기록해서, 대회가 끝나면 몇천 장 속에서 내 사진을 뒤질 필요 없이
             바로 찾아드립니다.
           </p>
           <div className="hl-hero-track" style={{ marginTop: '2rem' }}>
@@ -80,9 +80,9 @@ export function HomeLandingPage() {
           <div className="hl-problem-row">
             <div className="hl-problem-copy">
               <h3>
-                번호를 검색하고, 시간대별로
+                가려진 번호표, 구겨진 번호표,
                 <br />
-                몇백 장을 스크롤하고...
+                고글까지 썼다면
               </h3>
               <p>
                 대회가 끝나면 보통 사진첩 하나에 모든 참가자의 사진이 뒤섞여 올라옵니다. 내 사진 몇 장을
@@ -170,16 +170,16 @@ export function HomeLandingPage() {
             <div className="hl-diff-copy">
               <div className="hl-kicker hl-label">WHY OKBROGATE</div>
               <h2 className="hl-display">
-                알고리즘이 아니라,
+                AI+알고리즘이 아니라,
                 <br />
                 사람이 찍습니다
               </h2>
               <p>
-                오켱GATE는 익명의 플랫폼이 아니라, 오켱이 직접 코스에 나가 카메라를 들고 찍은 사진으로
+                오켱GATE는 플랫폼이 아니라, 오켱이 직접 코스에 나가 카메라를 들고 찍은 사진으로
                 채워집니다. 사진 매칭도, 서비스도 결국 그 현장의 감각에서 시작합니다.
               </p>
               <p>
-                질문이 있으면 채팅으로 바로 사람에게 물어보세요. 다음 대회 소식도 사람이 직접 인스타그램으로
+                질문이 있으면 채팅으로 바로 오켱에게 물어보세요. 다음 대회 소식도 사람이 직접 인스타그램으로
                 전합니다.
               </p>
               <div className="hl-badges">
