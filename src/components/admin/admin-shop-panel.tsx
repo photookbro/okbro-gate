@@ -191,7 +191,7 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
         <p className="text-sm text-muted">
           헤더: 상품명, 쇼핑몰, 이미지URL, 정가, 할인가, 제휴링크, 카테고리
           <br />
-          .xlsx 엑셀 파일을 그대로 올려도 돼요. 같은 제휴링크면 갱신(upsert)됩니다.
+          .xlsx 엑셀을 올리면 엑셀에 있는 상품만 ON으로 남고, 엑셀에 없는 기존 상품은 OFF됩니다.
         </p>
 
         <label className="block max-w-md">

@@ -7,6 +7,7 @@ import {
 
 export type ShopUpsertResult = {
   upserted: number
+  deactivated: number
   parse_errors: string[]
   summary: string
 }
@@ -27,6 +28,8 @@ export async function upsertShopProductRows(
     is_active: true,
   }))
 
+  const keepUrls = new Set(payload.map(row => row.affiliate_url))
+
   const { data, error } = await admin
     .from('shop_products')
     .upsert(payload, {
@@ -39,11 +42,45 @@ export async function upsertShopProductRows(
     throw error
   }
 
+  // 엑셀에 없는 기존 상품은 선수 화면에 안 보이게 OFF
+  const { data: existing, error: listError } = await admin
+    .from('shop_products')
+    .select('id, affiliate_url, is_active')
+
+  if (listError) {
+    throw listError
+  }
+
+  const deactivateIds = (existing ?? [])
+    .filter(row => row.is_active !== false && !keepUrls.has(row.affiliate_url))
+    .map(row => row.id)
+
+  let deactivated = 0
+  const chunkSize = 100
+  for (let i = 0; i < deactivateIds.length; i += chunkSize) {
+    const chunk = deactivateIds.slice(i, i + chunkSize)
+    const { error: deactivateError } = await admin
+      .from('shop_products')
+      .update({ is_active: false })
+      .in('id', chunk)
+
+    if (deactivateError) {
+      throw deactivateError
+    }
+    deactivated += chunk.length
+  }
+
   const upserted = data?.length ?? payload.length
+  const summaryParts = [`${upserted.toLocaleString('ko-KR')}건 등록·갱신됨`]
+  if (deactivated > 0) {
+    summaryParts.push(`엑셀에 없는 ${deactivated.toLocaleString('ko-KR')}건 OFF`)
+  }
+
   return {
     upserted,
+    deactivated,
     parse_errors: [],
-    summary: `${upserted.toLocaleString('ko-KR')}건 등록·갱신됨`,
+    summary: summaryParts.join(' · '),
   }
 }
 
