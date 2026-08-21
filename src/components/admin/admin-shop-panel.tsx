@@ -191,7 +191,7 @@ export function AdminShopPanel({ token }: AdminShopPanelProps) {
         <p className="text-sm text-muted">
           헤더: 상품명, 쇼핑몰, 이미지URL, 정가, 할인가, 제휴링크, 카테고리
           <br />
-          .xlsx 엑셀을 올리면 엑셀에 있는 상품만 ON으로 남고, 엑셀에 없는 기존 상품은 OFF됩니다.
+          .xlsx 엑셀을 올리면 목록이 엑셀 내용으로 교체됩니다. (엑셀에 없는 기존 상품은 삭제)
         </p>
 
         <label className="block max-w-md">

@@ -7,7 +7,7 @@ import {
 
 export type ShopUpsertResult = {
   upserted: number
-  deactivated: number
+  deleted: number
   parse_errors: string[]
   summary: string
 }
@@ -42,43 +42,40 @@ export async function upsertShopProductRows(
     throw error
   }
 
-  // 엑셀에 없는 기존 상품은 선수 화면에 안 보이게 OFF
+  // 엑셀에 없는 기존 상품은 삭제 (목록에 엑셀 상품만 남김)
   const { data: existing, error: listError } = await admin
     .from('shop_products')
-    .select('id, affiliate_url, is_active')
+    .select('id, affiliate_url')
 
   if (listError) {
     throw listError
   }
 
-  const deactivateIds = (existing ?? [])
-    .filter(row => row.is_active !== false && !keepUrls.has(row.affiliate_url))
+  const deleteIds = (existing ?? [])
+    .filter(row => !keepUrls.has(row.affiliate_url))
     .map(row => row.id)
 
-  let deactivated = 0
+  let deleted = 0
   const chunkSize = 100
-  for (let i = 0; i < deactivateIds.length; i += chunkSize) {
-    const chunk = deactivateIds.slice(i, i + chunkSize)
-    const { error: deactivateError } = await admin
-      .from('shop_products')
-      .update({ is_active: false })
-      .in('id', chunk)
+  for (let i = 0; i < deleteIds.length; i += chunkSize) {
+    const chunk = deleteIds.slice(i, i + chunkSize)
+    const { error: deleteError } = await admin.from('shop_products').delete().in('id', chunk)
 
-    if (deactivateError) {
-      throw deactivateError
+    if (deleteError) {
+      throw deleteError
     }
-    deactivated += chunk.length
+    deleted += chunk.length
   }
 
   const upserted = data?.length ?? payload.length
   const summaryParts = [`${upserted.toLocaleString('ko-KR')}건 등록·갱신됨`]
-  if (deactivated > 0) {
-    summaryParts.push(`엑셀에 없는 ${deactivated.toLocaleString('ko-KR')}건 OFF`)
+  if (deleted > 0) {
+    summaryParts.push(`엑셀에 없는 ${deleted.toLocaleString('ko-KR')}건 삭제`)
   }
 
   return {
     upserted,
-    deactivated,
+    deleted,
     parse_errors: [],
     summary: summaryParts.join(' · '),
   }
