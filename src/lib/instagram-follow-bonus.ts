@@ -21,6 +21,7 @@ export type InstagramFollowBonusRow = {
 
 export type InstagramFollowBonusUserState =
   | 'not_submitted'
+  | 'pending'
   | 'not_matched'
   | 'active'
   | 'expired'
@@ -165,6 +166,18 @@ export function buildInstagramFollowBonusStatus(
       period_label: approved.expires_at
         ? `${formatVerificationDate(approved.approved_at)} ~ ${formatVerificationDate(approved.expires_at)}`
         : null,
+    }
+  }
+
+  if (latestAttempt?.status === 'pending') {
+    return {
+      state: 'pending',
+      bonus_days_setting: bonusDaysSetting,
+      instagram_handle: latestAttempt.instagram_handle,
+      approved_at: null,
+      expires_at: null,
+      days_remaining: null,
+      period_label: null,
     }
   }
 

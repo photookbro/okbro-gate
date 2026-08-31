@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import type { InstagramFollowBonusStatus } from '@/lib/instagram-follow-bonus'
+import { INSTAGRAM_HANDLE, INSTAGRAM_LATE_MATCH_NOTICE } from '@/lib/instagram-follow-copy'
 
 type PhotoAccess = {
   purchase_days_remaining: number
@@ -113,14 +114,18 @@ function FollowerAccessRow({
     <div className="mypage-access-row">
       <p className="mypage-access-row-label">팔로워 인증 열람일</p>
       <p className="mb-3 text-sm leading-relaxed text-muted">
-        인스타그램(@photo_ok_bro)을 팔로우하고 계신가요? 팔로워로 확인된 아이디를 알려주시면
+        인스타그램(@{INSTAGRAM_HANDLE})을 팔로우하고 계신가요? 팔로워로 확인된 아이디를 알려주시면
         입력할 때마다 {bonus_days_setting}일씩 열람 기간이 늘어나요. 다른 아이디도 추가로
-        등록할 수 있어요. (같은 아이디는 중복 사용 불가)
+        등록할 수 있어요. (같은 아이디는 중복 사용 불가) {INSTAGRAM_LATE_MATCH_NOTICE}.
       </p>
+      {state === 'pending' ? (
+        <p className="alert-success mb-4">
+          제출 완료! {INSTAGRAM_LATE_MATCH_NOTICE}
+        </p>
+      ) : null}
       {state === 'not_matched' ? (
         <p className="alert-warning mb-4">
-          아직 확인되지 않았어요. 매주 금요일 오후에 확인 후 반영되니, 그 이후 다시
-          시도해주세요.
+          아직 확인되지 않았어요. {INSTAGRAM_LATE_MATCH_NOTICE} 그 이후 다시 시도해주세요.
         </p>
       ) : null}
       <Link href="/instagram-follow" className="btn-primary-inline inline-flex no-underline">

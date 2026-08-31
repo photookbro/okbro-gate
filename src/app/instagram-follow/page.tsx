@@ -5,6 +5,11 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { authFetch } from '@/lib/supabase/auth-client'
+import {
+  INSTAGRAM_HANDLE,
+  INSTAGRAM_LATE_MATCH_NOTICE,
+  instagramFollowSubmitCompleteMessage,
+} from '@/lib/instagram-follow-copy'
 import type { InstagramFollowBonusStatus } from '@/lib/instagram-follow-bonus'
 
 function InstagramFollowContent() {
@@ -76,7 +81,9 @@ function InstagramFollowContent() {
         return
       }
 
-      setSuccessMsg(typeof data.message === 'string' ? data.message : '혜택이 적용됐어요')
+      setSuccessMsg(
+        typeof data.message === 'string' ? data.message : instagramFollowSubmitCompleteMessage()
+      )
       if (data.status) setStatus(data.status as InstagramFollowBonusStatus)
       setHandleInput('')
     } catch {
@@ -147,14 +154,18 @@ function InstagramFollowContent() {
           <div className="card mb-4">
             <p className="mb-3 text-base leading-relaxed text-[var(--text)]">
               인스타그램(
-              <span className="font-bold text-[#FF2800]">@photo_ok_bro</span>
+              <span className="font-bold text-[#FF2800]">@{INSTAGRAM_HANDLE}</span>
               )을 팔로우하고 계신가요? 확인된 아이디를 알려주시면 등록할 때마다 {bonusDays}일씩
               열람 기간이 늘어나요.
             </p>
             <p className="mb-4 text-sm text-muted">
-              인스타그램 팔로우는 매주 금요일 오후에 확인 후 사용 권한이 부여돼요. 팔로우 즉시 바로
-              되는 게 아니니 참고해주세요.
+              인스타그램 팔로우는 {INSTAGRAM_LATE_MATCH_NOTICE}. 팔로우 즉시 바로 되는 게 아니니
+              참고해주세요.
             </p>
+
+            {status?.state === 'pending' ? (
+              <p className="alert-success mb-4">{instagramFollowSubmitCompleteMessage()}</p>
+            ) : null}
 
             {status?.state === 'not_matched' ? (
               <p className="alert-warning mb-4">

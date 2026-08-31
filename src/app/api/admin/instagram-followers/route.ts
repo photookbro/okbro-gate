@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { chunkArray, parseInstagramFollowersFromHtml } from '@/lib/instagram-followers-parse'
+import { matchPendingInstagramFollowClaims } from '@/lib/instagram-follow-approve-server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024
@@ -84,6 +85,21 @@ export async function POST(req: NextRequest) {
   const newCount = parsedUsernames.filter(username => !existing.has(username)).length
   const updatedCount = uniqueCount - newCount
 
+  let matchResult = { approved: 0, push_sent: 0, push_failed: 0, no_subscription: 0 }
+  try {
+    matchResult = await matchPendingInstagramFollowClaims(admin, parsedUsernames)
+  } catch (error) {
+    console.error('[admin/instagram-followers] match', error)
+  }
+
+  const matchParts: string[] = []
+  if (matchResult.approved > 0) {
+    matchParts.push(`대기 중 ${matchResult.approved.toLocaleString('ko-KR')}건 승인`)
+  }
+  if (matchResult.push_sent > 0) {
+    matchParts.push(`푸시 ${matchResult.push_sent.toLocaleString('ko-KR')}건 발송`)
+  }
+
   return NextResponse.json({
     success: true,
     file_name: file.name,
@@ -91,6 +107,13 @@ export async function POST(req: NextRequest) {
     unique_count: uniqueCount,
     new_count: newCount,
     updated_count: updatedCount,
-    summary: `총 ${uniqueCount.toLocaleString('ko-KR')}건 중 ${newCount.toLocaleString('ko-KR')}건 신규 추가됨`,
+    matched_approved: matchResult.approved,
+    push_sent: matchResult.push_sent,
+    push_failed: matchResult.push_failed,
+    no_subscription: matchResult.no_subscription,
+    summary: [
+      `총 ${uniqueCount.toLocaleString('ko-KR')}건 중 ${newCount.toLocaleString('ko-KR')}건 신규 추가됨`,
+      ...matchParts,
+    ].join(' · '),
   })
 }

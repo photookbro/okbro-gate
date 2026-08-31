@@ -10,6 +10,7 @@ import { InappBrowserWarning } from '@/components/inapp-browser-warning'
 import { SiteNav } from '@/components/site-nav'
 import { TermsGate } from '@/components/terms-gate'
 import { ActivityTracker } from '@/components/activity-tracker'
+import { InstagramFollowBenefitBanner } from '@/components/instagram-follow-benefit-banner'
 
 function PlayerChromeBody({ children }: { children: React.ReactNode }) {
   const { isLoggedIn, authReady } = useGuestAuth()
@@ -25,6 +26,7 @@ function PlayerChromeBody({ children }: { children: React.ReactNode }) {
         </>
       ) : null}
       <InappBrowserWarning />
+      <InstagramFollowBenefitBanner />
       <SiteNav />
       <div className="page-with-bottom-cta">{children}</div>
       <FixedFruitCta />

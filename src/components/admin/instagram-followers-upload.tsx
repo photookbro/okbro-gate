@@ -66,7 +66,8 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
       <p className="text-sm text-muted">
         인스타그램 &quot;내 정보 다운로드&quot;의 팔로워 HTML 파일(followers_1.html 등)을 업로드하세요.
         <br />
-        대용량 파일(2MB 이상)은 분석·저장에 1~2분 걸릴 수 있어요.
+        업로드 후 대기 중인 팔로워 인증 신청과 자동 대조·승인되며, 승인된 유저에게 푸시 알림이
+        발송돼요. 대용량 파일(2MB 이상)은 1~2분 걸릴 수 있어요.
       </p>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { authFetch } from '@/lib/supabase/auth-client'
+import { INSTAGRAM_LATE_MATCH_NOTICE, instagramFollowSubmitCompleteMessage } from '@/lib/instagram-follow-copy'
 import type { InstagramFollowBonusStatus } from '@/lib/instagram-follow-bonus'
 
 type InstagramFollowOnboardingModalProps = {
@@ -83,6 +84,8 @@ export function InstagramFollowOnboardingModal({
         return
       }
 
+      setErrorMsg('')
+      alert(instagramFollowSubmitCompleteMessage())
       onComplete()
     } catch {
       setErrorMsg('요청 중 오류가 발생했어요')
@@ -108,8 +111,7 @@ export function InstagramFollowOnboardingModal({
             </h2>
             <p className="mb-4 text-sm leading-relaxed text-muted">
               @photo_ok_bro를 팔로우하고 계시면 확인된 아이디 등록 시 {bonusDays}일씩 열람 기간이
-              늘어나요. 다른 아이디도 추가로 등록할 수 있어요. 매주 금요일 오후에 확인 후
-              반영돼요.
+              늘어나요. 다른 아이디도 추가로 등록할 수 있어요. {INSTAGRAM_LATE_MATCH_NOTICE}.
             </p>
             <div className="btn-row">
               <button type="button" className="btn-secondary" onClick={onSkip}>
@@ -126,8 +128,7 @@ export function InstagramFollowOnboardingModal({
               인스타 아이디 입력
             </h2>
             <p className="mb-4 text-sm leading-relaxed text-muted">
-              인스타그램 프로필에 보이는 아이디를 입력해주세요. 매주 금요일 오후에 확인 후
-              반영돼요.
+              인스타그램 프로필에 보이는 아이디를 입력해주세요. {INSTAGRAM_LATE_MATCH_NOTICE}.
             </p>
             <form onSubmit={e => void handleSubmit(e)} className="space-y-3">
               <input
