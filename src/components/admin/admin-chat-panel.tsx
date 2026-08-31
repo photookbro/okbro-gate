@@ -42,6 +42,7 @@ export function AdminChatPanel({
   const [error, setError] = useState('')
   const [searchQ, setSearchQ] = useState('')
   const [searchResults, setSearchResults] = useState<SearchUser[]>([])
+  const [showConversation, setShowConversation] = useState(false)
   const listRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
 
@@ -72,6 +73,7 @@ export function AdminChatPanel({
 
   const openThread = useCallback(
     async (userId: string, name?: string, email?: string) => {
+      setShowConversation(true)
       setSelectedUserId(userId)
       if (name) setSelectedName(name)
       if (email !== undefined) setSelectedEmail(email)
@@ -105,6 +107,17 @@ export function AdminChatPanel({
     },
     [headers, loadThreads, token]
   )
+
+  const closeConversation = useCallback(() => {
+    setShowConversation(false)
+    setSelectedUserId(null)
+    setSelectedName('')
+    setSelectedEmail('')
+    setMessages([])
+    setDraft('')
+    setError('')
+    if (inputRef.current) inputRef.current.value = ''
+  }, [])
 
   useEffect(() => {
     void loadThreads()
@@ -189,7 +202,9 @@ export function AdminChatPanel({
   }
 
   return (
-    <div className="admin-chat-layout">
+    <div
+      className={`admin-chat-layout${showConversation ? ' admin-chat-layout-detail' : ''}`}
+    >
       <aside className="admin-chat-sidebar">
         <div>
           <label className="label-field" htmlFor="admin-chat-search">
@@ -256,10 +271,19 @@ export function AdminChatPanel({
         {selectedUserId ? (
           <>
             <div className="admin-chat-main-header">
-              {selectedName}
-              {selectedEmail ? (
-                <span className="ml-2 text-sm font-normal text-muted">{selectedEmail}</span>
-              ) : null}
+              <button
+                type="button"
+                className="admin-chat-back-btn"
+                onClick={closeConversation}
+              >
+                ← 목록
+              </button>
+              <span className="admin-chat-main-header-text">
+                {selectedName}
+                {selectedEmail ? (
+                  <span className="ml-2 text-sm font-normal text-muted">{selectedEmail}</span>
+                ) : null}
+              </span>
             </div>
             <div ref={listRef} className="admin-chat-main-list">
               {loadingMessages ? (
