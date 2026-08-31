@@ -1,14 +1,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isNaverOrderNumberFormat } from '@/lib/naver-order-number'
+import { buildCanonicalLookup } from '@/lib/naver-order-resolve'
 import { resolveUserEmails } from '@/lib/order-duplicate'
-import { chunkArray } from '@/lib/naver-orders-parse'
 
 export type SuspectKind = 'forgery' | 'duplicate'
 
 export type SuspectOrderRow = {
   kind: SuspectKind
   order_id: string
+  /** 선수가 입력·저장한 번호 */
   order_number: string
+  /** 주문번호(부모) — 목록에 있을 때만 */
+  canonical_order_number?: string
   user_id: string
   email: string
   name: string
@@ -18,6 +21,7 @@ export type SuspectOrderRow = {
   first_email?: string
   first_name?: string
   first_verified_at?: string | null
+  first_order_number?: string
 }
 
 type OrderRow = {
@@ -55,85 +59,72 @@ export async function findSuspectNaverOrders(
     return { forgery: [], duplicate: [] }
   }
 
-  const uniqueNumbers = [...new Set(candidates.map(r => r.order_number.trim()))]
-  const verified = new Set<string>()
-
-  for (const batch of chunkArray(uniqueNumbers, 500)) {
-    const { data, error: vErr } = await admin
-      .from('verified_naver_orders')
-      .select('order_number')
-      .in('order_number', batch)
-
-    if (vErr) {
-      console.error('[naver-orders-reconcile] verified', vErr)
-      throw new Error('검증 주문번호 조회 실패')
-    }
-
-    for (const row of data ?? []) {
-      if (typeof row.order_number === 'string') verified.add(row.order_number)
-    }
-  }
-
-  // order_number → 인증 시각순 정렬된 주문들
-  const byNumber = new Map<string, OrderRow[]>()
-  for (const row of candidates) {
-    const key = row.order_number.trim()
-    const list = byNumber.get(key) ?? []
-    list.push(row)
-    byNumber.set(key, list)
-  }
-  for (const list of byNumber.values()) {
-    list.sort((a, b) => {
-      const ta = verifiedAt(a) ?? ''
-      const tb = verifiedAt(b) ?? ''
-      if (ta !== tb) return ta.localeCompare(tb)
-      return a.id.localeCompare(b.id)
-    })
-  }
-
-  const forgery: SuspectOrderRow[] = []
-  const duplicate: SuspectOrderRow[] = []
+  const canonicalLookup = await buildCanonicalLookup(
+    admin,
+    candidates.map(r => r.order_number)
+  )
 
   const allUserIds = [...new Set(candidates.map(r => r.user_id))]
   const emailByUserId = await resolveUserEmails(admin, allUserIds)
 
-  for (const row of candidates) {
-    const orderNumber = row.order_number.trim()
-    const email = emailByUserId.get(row.user_id) ?? row.user_id.slice(0, 8)
-    const name = email
+  const forgery: SuspectOrderRow[] = []
+  const byCanonical = new Map<string, OrderRow[]>()
 
-    if (!verified.has(orderNumber)) {
+  for (const row of candidates) {
+    const entered = row.order_number.trim()
+    const canonical = canonicalLookup.get(entered)
+    const email = emailByUserId.get(row.user_id) ?? row.user_id.slice(0, 8)
+
+    if (!canonical) {
       forgery.push({
         kind: 'forgery',
         order_id: row.id,
-        order_number: orderNumber,
+        order_number: entered,
         user_id: row.user_id,
         email,
-        name,
+        name: email,
         verified_at: verifiedAt(row),
       })
       continue
     }
 
-    const peers = byNumber.get(orderNumber) ?? []
+    const list = byCanonical.get(canonical) ?? []
+    list.push(row)
+    byCanonical.set(canonical, list)
+  }
+
+  const duplicate: SuspectOrderRow[] = []
+
+  for (const [, peers] of byCanonical) {
+    peers.sort((a, b) => {
+      const ta = verifiedAt(a) ?? ''
+      const tb = verifiedAt(b) ?? ''
+      if (ta !== tb) return ta.localeCompare(tb)
+      return a.id.localeCompare(b.id)
+    })
+
     const first = peers[0]
     if (!first) continue
 
-    // 같은 번호로 여러 계정이 있으면, 첫 계정 이후는 중복 사용
-    if (peers.length > 1 && first.user_id !== row.user_id) {
+    for (let i = 1; i < peers.length; i++) {
+      const row = peers[i]
+      const email = emailByUserId.get(row.user_id) ?? row.user_id.slice(0, 8)
       const firstEmail = emailByUserId.get(first.user_id) ?? first.user_id.slice(0, 8)
+
       duplicate.push({
         kind: 'duplicate',
         order_id: row.id,
-        order_number: orderNumber,
+        order_number: row.order_number.trim(),
+        canonical_order_number: canonicalLookup.get(row.order_number.trim()),
         user_id: row.user_id,
         email,
-        name,
+        name: email,
         verified_at: verifiedAt(row),
         first_user_id: first.user_id,
         first_email: firstEmail,
         first_name: firstEmail,
         first_verified_at: verifiedAt(first),
+        first_order_number: first.order_number.trim(),
       })
     }
   }

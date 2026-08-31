@@ -190,7 +190,8 @@ export function NaverOrdersAdminPanel({ token }: NaverOrdersAdminPanelProps) {
         <p className="text-sm text-muted">
           네이버 판매자센터에서 다운로드한 주문내역 엑셀(.xlsx)을 업로드하세요.
           <br />
-          맨 왼쪽(또는 &quot;상품주문번호&quot;) 컬럼을 읽어 실제 주문 목록에 저장합니다.
+          A열(상품주문번호)과 B열(주문번호)을 함께 읽어 저장합니다. 업로드 시 기존 목록은
+          교체됩니다.
         </p>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -243,11 +244,11 @@ export function NaverOrdersAdminPanel({ token }: NaverOrdersAdminPanelProps) {
       <div className="space-y-3 border-t border-[var(--border)] pt-5">
         <h4 className="text-sm font-semibold text-[var(--text)]">주문번호 대조 · 의심 계정</h4>
         <p className="text-sm text-muted">
-          형식 검증만으로 통과된 주문번호를 업로드된 실주문 목록과 대조합니다.
+          상품주문번호·주문번호 어느 쪽으로 인증했든 목록과 대조합니다.
           <br />
-          <span className="text-[var(--primary)]">위조 의심</span>: 목록에 없음 ·{' '}
-          <span className="text-[var(--primary)]">중복 사용</span>: 목록에는 있으나 다른 계정이 먼저
-          인증
+          <span className="text-[var(--primary)]">위조 의심</span>: 입력 번호가 목록 어디에도 없음 ·{' '}
+          <span className="text-[var(--primary)]">중복 사용</span>: 목록에는 있으나 같은 주문번호로
+          먼저 인증한 기록이 있음
         </p>
 
         <button

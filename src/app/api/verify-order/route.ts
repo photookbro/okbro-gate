@@ -8,6 +8,10 @@ import {
 } from '@/lib/order-verification'
 import { validateNaverOrderNumber } from '@/lib/naver-order-number'
 import {
+  findExistingOrdersForCanonical,
+  lookupVerifiedNaverOrder,
+} from '@/lib/naver-order-resolve'
+import {
   ORDER_DUPLICATE_ERROR,
   logDuplicateVerificationAttempt,
 } from '@/lib/order-duplicate'
@@ -78,15 +82,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: validation.error }, { status: 400 })
   }
 
-  const { data: existingOrders } = await admin
-    .from('orders')
-    .select('id, user_id')
-    .eq('order_number', trimmedOrderNumber)
-    .eq('platform', platformValue)
+  let verifiedRow
+  try {
+    verifiedRow = await lookupVerifiedNaverOrder(admin, trimmedOrderNumber)
+  } catch (error) {
+    console.error('[verify-order] verified lookup', error)
+    return NextResponse.json({ error: '주문번호 확인에 실패했어요' }, { status: 500 })
+  }
 
-  // 하드락: (platform, order_number) 존재 시 본인/타인 모두 거부
-  // 만기 연장은 아직 쓰이지 않은 새 주문번호 insert로만 가능
-  const existing = existingOrders?.[0]
+  if (!verifiedRow) {
+    return NextResponse.json({ error: validation.error }, { status: 400 })
+  }
+
+  const canonicalOrderNumber = verifiedRow.order_number
+
+  let existingOrders
+  try {
+    existingOrders = await findExistingOrdersForCanonical(
+      admin,
+      canonicalOrderNumber,
+      platformValue
+    )
+  } catch (error) {
+    console.error('[verify-order] canonical duplicate lookup', error)
+    return NextResponse.json({ error: '주문번호 확인에 실패했어요' }, { status: 500 })
+  }
+
+  // 하드락: 같은 주문번호(부모)로 이미 인증된 경우 거부
+  const existing = existingOrders[0]
   if (existing) {
     after(() =>
       logDuplicateVerificationAttempt(admin, {
@@ -152,7 +175,7 @@ export async function POST(req: NextRequest) {
 
   const { error } = await admin.from('orders').insert({
     user_id: user.id,
-    order_number: trimmedOrderNumber,
+    order_number: canonicalOrderNumber,
     platform: platformValue,
     used_at: now.toISOString(),
     expires_at: expiresAt.toISOString(),
@@ -203,7 +226,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  after(() => notifyVerifySuccess(admin, user.email, event_id || null, trimmedOrderNumber))
+  after(() => notifyVerifySuccess(admin, user.email, event_id || null, canonicalOrderNumber))
 
   return NextResponse.json({
     success: true,

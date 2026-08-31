@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
-import {
-  chunkArray,
-  parseNaverOrderNumbersFromXlsx,
-} from '@/lib/naver-orders-parse'
+import { chunkArray, parseNaverOrdersFromXlsx } from '@/lib/naver-orders-parse'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024
 const UPSERT_BATCH_SIZE = 500
-const EXISTING_LOOKUP_BATCH_SIZE = 500
 
 export async function POST(req: NextRequest) {
   const denied = requireAdmin(req)
@@ -42,66 +38,61 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '파일 내용을 읽지 못했어요' }, { status: 400 })
   }
 
-  let orderNumbers: string[]
+  let parsedRows
   try {
-    orderNumbers = parseNaverOrderNumbersFromXlsx(buffer)
+    parsedRows = parseNaverOrdersFromXlsx(buffer)
   } catch (error) {
     console.error('[admin/naver-orders/upload] parse', error)
     return NextResponse.json({ error: '엑셀을 해석하지 못했어요' }, { status: 400 })
   }
 
-  if (orderNumbers.length === 0) {
+  if (parsedRows.length === 0) {
     return NextResponse.json(
-      { error: '상품주문번호를 찾지 못했어요. 맨 왼쪽 컬럼을 확인해주세요.' },
+      {
+        error:
+          '상품주문번호·주문번호를 찾지 못했어요. A열(상품주문번호), B열(주문번호)을 확인해주세요.',
+      },
       { status: 400 }
     )
   }
 
   const admin = supabaseAdmin()
-  const existing = new Set<string>()
+  const now = new Date().toISOString()
 
-  for (const batch of chunkArray(orderNumbers, EXISTING_LOOKUP_BATCH_SIZE)) {
-    const { data, error } = await admin
-      .from('verified_naver_orders')
-      .select('order_number')
-      .in('order_number', batch)
+  const { error: clearError } = await admin
+    .from('verified_naver_orders')
+    .delete()
+    .not('product_order_number', 'is', null)
 
-    if (error) {
-      console.error('[admin/naver-orders/upload] lookup', error)
-      return NextResponse.json({ error: '기존 주문번호 조회 실패' }, { status: 500 })
-    }
-
-    for (const row of data ?? []) {
-      if (typeof row.order_number === 'string') existing.add(row.order_number)
-    }
+  if (clearError) {
+    console.error('[admin/naver-orders/upload] clear', clearError)
+    return NextResponse.json({ error: '기존 주문 목록 삭제 실패' }, { status: 500 })
   }
 
-  const now = new Date().toISOString()
-  const rows = orderNumbers.map(order_number => ({
-    order_number,
+  const rows = parsedRows.map(row => ({
+    product_order_number: row.product_order_number,
+    order_number: row.order_number,
     imported_at: now,
   }))
 
   for (const batch of chunkArray(rows, UPSERT_BATCH_SIZE)) {
-    const { error } = await admin
-      .from('verified_naver_orders')
-      .upsert(batch, { onConflict: 'order_number', ignoreDuplicates: false })
+    const { error } = await admin.from('verified_naver_orders').insert(batch)
 
     if (error) {
-      console.error('[admin/naver-orders/upload] upsert', error)
+      console.error('[admin/naver-orders/upload] insert', error)
       return NextResponse.json({ error: '주문번호 저장 실패' }, { status: 500 })
     }
   }
 
-  const uniqueCount = orderNumbers.length
-  const newCount = orderNumbers.filter(n => !existing.has(n)).length
+  const uniqueOrders = new Set(parsedRows.map(row => row.order_number)).size
 
   return NextResponse.json({
     success: true,
     file_name: file.name,
-    total_parsed: uniqueCount,
-    new_count: newCount,
-    updated_count: uniqueCount - newCount,
-    summary: `총 ${uniqueCount.toLocaleString('ko-KR')}건 중 ${newCount.toLocaleString('ko-KR')}건 신규 추가됨`,
+    total_parsed: parsedRows.length,
+    unique_order_numbers: uniqueOrders,
+    new_count: parsedRows.length,
+    updated_count: 0,
+    summary: `상품주문번호 ${parsedRows.length.toLocaleString('ko-KR')}건 · 주문번호 ${uniqueOrders.toLocaleString('ko-KR')}건 저장됨 (기존 목록 교체)`,
   })
 }

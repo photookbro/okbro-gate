@@ -227,9 +227,13 @@ CREATE POLICY "chat_messages_update_own_read"
 GRANT ALL ON chat_messages TO service_role;
 
 CREATE TABLE IF NOT EXISTS verified_naver_orders (
-  order_number text PRIMARY KEY,
+  product_order_number text PRIMARY KEY,
+  order_number text NOT NULL,
   imported_at timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE INDEX IF NOT EXISTS verified_naver_orders_order_number_idx
+  ON verified_naver_orders (order_number);
 
 CREATE INDEX IF NOT EXISTS verified_naver_orders_imported_at_idx
   ON verified_naver_orders (imported_at DESC);
