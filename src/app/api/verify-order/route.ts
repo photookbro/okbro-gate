@@ -90,11 +90,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '주문번호 확인에 실패했어요' }, { status: 500 })
   }
 
-  if (!verifiedRow) {
-    return NextResponse.json({ error: validation.error }, { status: 400 })
-  }
-
-  const canonicalOrderNumber = verifiedRow.order_number
+  // verified_naver_orders는 사후 위조·중복 모니터링용 — 목록에 없어도 인증은 허용
+  const canonicalOrderNumber = verifiedRow?.order_number ?? trimmedOrderNumber
 
   let existingOrders
   try {
