@@ -129,3 +129,106 @@ export async function sendPushToUser(
     query_error: false,
   }
 }
+
+export type PushBroadcastResult = {
+  users_targeted: number
+  push_sent: number
+  push_failed: number
+  no_subscription_users: number
+  vapid_missing: boolean
+  query_error: boolean
+}
+
+/** 구독 중인 모든 유저(중복 user_id 제거)에게 동일 페이로드 발송. */
+export async function sendPushToAllSubscribers(
+  payload: PushPayload
+): Promise<PushBroadcastResult> {
+  if (!configureWebPush()) {
+    return {
+      users_targeted: 0,
+      push_sent: 0,
+      push_failed: 0,
+      no_subscription_users: 0,
+      vapid_missing: true,
+      query_error: false,
+    }
+  }
+
+  const admin = supabaseAdmin()
+  const { data: rows, error } = await admin.from('push_subscriptions').select('user_id')
+
+  if (error) {
+    console.error('[web-push] broadcast user_id query failed:', error)
+    return {
+      users_targeted: 0,
+      push_sent: 0,
+      push_failed: 0,
+      no_subscription_users: 0,
+      vapid_missing: false,
+      query_error: true,
+    }
+  }
+
+  const userIds = [
+    ...new Set(
+      (rows ?? [])
+        .map(row => (typeof row.user_id === 'string' ? row.user_id : ''))
+        .filter((id): id is string => id.length > 0)
+    ),
+  ]
+
+  if (!userIds.length) {
+    return {
+      users_targeted: 0,
+      push_sent: 0,
+      push_failed: 0,
+      no_subscription_users: 0,
+      vapid_missing: false,
+      query_error: false,
+    }
+  }
+
+  let pushSent = 0
+  let pushFailed = 0
+  let noSubscriptionUsers = 0
+
+  for (const userId of userIds) {
+    const result = await sendPushToUser(userId, payload)
+    if (result.vapid_missing) {
+      return {
+        users_targeted: userIds.length,
+        push_sent: pushSent,
+        push_failed: pushFailed,
+        no_subscription_users: noSubscriptionUsers,
+        vapid_missing: true,
+        query_error: false,
+      }
+    }
+    if (result.query_error) {
+      return {
+        users_targeted: userIds.length,
+        push_sent: pushSent,
+        push_failed: pushFailed,
+        no_subscription_users: noSubscriptionUsers,
+        vapid_missing: false,
+        query_error: true,
+      }
+    }
+    if (result.sent > 0) {
+      pushSent += result.sent
+    } else if (result.failed > 0) {
+      pushFailed += result.failed
+    } else if (result.no_subscription) {
+      noSubscriptionUsers++
+    }
+  }
+
+  return {
+    users_targeted: userIds.length,
+    push_sent: pushSent,
+    push_failed: pushFailed,
+    no_subscription_users: noSubscriptionUsers,
+    vapid_missing: false,
+    query_error: false,
+  }
+}

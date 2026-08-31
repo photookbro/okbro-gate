@@ -9,13 +9,21 @@ export function hasEventAlbum(event: Pick<EventListRow, 'album_b_url'>): boolean
   return typeof event.album_b_url === 'string' && event.album_b_url.trim().length > 0
 }
 
-export function todayDateStringInKorea(): string {
+export function todayDateStringInKorea(from = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Seoul',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(new Date())
+  }).format(from)
+}
+
+/** KST 기준 오늘(또는 from)부터 days일 뒤 날짜 (YYYY-MM-DD). */
+export function kstDateStringPlusDays(days: number, from = new Date()): string {
+  const base = todayDateStringInKorea(from)
+  const [year, month, day] = base.split('-').map(Number)
+  const utcMidnight = Date.UTC(year, month - 1, day + days)
+  return todayDateStringInKorea(new Date(utcMidnight))
 }
 
 export function twelveMonthsAgoDateString(from = new Date()): string {
