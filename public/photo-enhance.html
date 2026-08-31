@@ -338,7 +338,7 @@
       const JPEG_QUALITY = 0.95;
       const MAX_FILE_BYTES = 100 * 1024 * 1024;
       const CSS_FALLBACK_FILTER = "contrast(1.18) saturate(1.26) brightness(1.05)";
-      const WATERMARK = { en: "OKBRO GATE", ko: "오켱게이트" };
+      const WATERMARK_TEXT = "OKBRO GATE";
 
       const VERT_SRC =
         "attribute vec2 a_pos;\n" +
@@ -699,10 +699,7 @@
         try {
           if (document.fonts && document.fonts.load) {
             await Promise.race([
-              Promise.all([
-                document.fonts.load('800 48px "Barlow Condensed"'),
-                document.fonts.load('700 24px "Noto Sans KR"'),
-              ]),
+              document.fonts.load('800 48px "Barlow Condensed"'),
               new Promise(function (r) { setTimeout(r, 2500); }),
             ]);
           }
@@ -712,9 +709,7 @@
       function drawWatermark(ctx, width, height) {
         const shortEdge = Math.min(width, height);
         const pad = Math.round(shortEdge * 0.040);
-        const enSize = Math.max(12, Math.round(shortEdge * 0.042));
-        const koSize = Math.max(8, Math.round(enSize * 0.55));
-        const gap = Math.round(enSize * 0.14);
+        const enSize = Math.max(6, Math.round(shortEdge * 0.021));
         const x = width - pad;
         const y = height - pad;
 
@@ -726,10 +721,8 @@
         ctx.shadowBlur = enSize * 0.18;
         ctx.shadowOffsetY = 1;
         ctx.fillStyle = "#ffffff";
-        ctx.font = '800 ' + enSize + 'px "Barlow Condensed", "Noto Sans KR", sans-serif';
-        ctx.fillText(WATERMARK.en, x, y - koSize - gap);
-        ctx.font = '700 ' + koSize + 'px "Noto Sans KR", sans-serif';
-        ctx.fillText(WATERMARK.ko, x, y);
+        ctx.font = '800 ' + enSize + 'px "Barlow Condensed", sans-serif';
+        ctx.fillText(WATERMARK_TEXT, x, y);
         ctx.restore();
       }
 
