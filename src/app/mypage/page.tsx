@@ -12,6 +12,7 @@ import {
   GPS_SHOOT_RECORD_DISCLAIMER,
 } from '@/lib/events-list-client'
 import { ensurePushSubscription } from '@/lib/push-client'
+import { emitAuthLogout } from '@/lib/gps-tracking-storage'
 import { OrderNumberGuide } from '@/components/order-number-guide'
 import { MypageAlbumAccessStatus } from '@/components/mypage-album-access-status'
 import { MypageChat } from '@/components/mypage-chat'
@@ -66,6 +67,8 @@ export default function MyPage() {
   const [enablingNotification, setEnablingNotification] = useState(false)
   const [notificationMsg, setNotificationMsg] = useState('')
   const [chatUnreadCount, setChatUnreadCount] = useState(0)
+  const [withdrawing, setWithdrawing] = useState(false)
+  const [withdrawError, setWithdrawError] = useState('')
 
   const loadMypage = useCallback(async () => {
     try {
@@ -253,6 +256,36 @@ export default function MyPage() {
     }
   }
 
+  async function handleWithdraw() {
+    if (withdrawing) return
+
+    const confirmed = window.confirm(
+      '정말 탈퇴할까요?\n\n구매 인증·촬영 이력·문의 내역이 모두 삭제되며 복구할 수 없어요.'
+    )
+    if (!confirmed) return
+
+    setWithdrawing(true)
+    setWithdrawError('')
+
+    try {
+      const res = await authFetch('/api/account/delete', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok || !data.success) {
+        setWithdrawError(typeof data.error === 'string' ? data.error : '회원 탈퇴에 실패했어요')
+        return
+      }
+
+      emitAuthLogout()
+      await supabase.auth.signOut()
+      router.replace('/login')
+    } catch {
+      setWithdrawError('회원 탈퇴 중 오류가 발생했어요')
+    } finally {
+      setWithdrawing(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="page-shell mypage-page flex items-center justify-center">
@@ -401,6 +434,23 @@ export default function MyPage() {
             }}
           />
         </div>
+
+        <section className="mypage-withdraw-section">
+          <h2 className="section-title">회원 탈퇴</h2>
+          <p className="mb-4 text-sm leading-relaxed text-muted">
+            탈퇴하면 구매 인증, 촬영 이력, 1:1 문의, 알림 설정이 모두 삭제되며 복구할 수
+            없어요.
+          </p>
+          {withdrawError ? <p className="alert-danger mb-3">{withdrawError}</p> : null}
+          <button
+            type="button"
+            onClick={() => void handleWithdraw()}
+            disabled={withdrawing}
+            className="mypage-withdraw-btn"
+          >
+            {withdrawing ? '처리 중...' : '회원 탈퇴하기'}
+          </button>
+        </section>
       </div>
     </div>
   )

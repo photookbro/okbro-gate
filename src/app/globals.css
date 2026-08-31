@@ -667,6 +667,34 @@ body {
   font-size: var(--font-body-size);
 }
 
+.mypage-withdraw-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.mypage-withdraw-btn {
+  display: inline-block;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-danger-border);
+  background: transparent;
+  color: #ff6b52;
+  font-size: var(--font-body-size);
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.mypage-withdraw-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.mypage-withdraw-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .mypage-chat-unread-dot {
   display: inline-block;
   width: 0.55rem;
