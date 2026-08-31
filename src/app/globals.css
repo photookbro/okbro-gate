@@ -1721,6 +1721,46 @@ body {
   color: var(--text-muted);
 }
 
+/* 인스타 팔로우 혜택 배너 — 네비 아래 (page-with-bottom-cta 안) */
+.instagram-follow-benefit-banner {
+  border-bottom: 0.5px solid var(--border);
+  background: #1a1200;
+  padding: 0.75rem 1rem;
+}
+
+.instagram-follow-benefit-banner-inner {
+  display: flex;
+  width: 100%;
+  max-width: 48rem;
+  margin: 0 auto;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .instagram-follow-benefit-banner-inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.instagram-follow-benefit-banner-text {
+  margin: 0;
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line-height);
+  color: var(--text);
+}
+
+.instagram-follow-benefit-banner-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 /* 인증 만료 배너 — 대회목록 탭 최상단 고정 노출 */
 .verification-expiry-banner {
   position: sticky;
@@ -2023,13 +2063,20 @@ body {
 
 .gps-tracking-banner {
   position: sticky;
-  top: 0;
+  top: var(--site-nav-height);
   z-index: 45;
   background-color: var(--primary);
-  padding: 16px;
+  padding: 1rem;
   color: #ffffff;
   font-size: var(--font-body-size);
   line-height: var(--font-body-line-height);
+}
+
+.gps-tracking-banner-inner {
+  width: 100%;
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 0 1rem;
 }
 
 .gps-tracking-banner-title {

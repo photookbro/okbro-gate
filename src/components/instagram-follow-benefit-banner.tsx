@@ -63,12 +63,12 @@ export function InstagramFollowBenefitBanner() {
   if (!visible || bonusDays === null) return null
 
   return (
-    <div className="border-b border-[var(--border)] bg-[#1a1200] px-4 py-3">
-      <div className="page-container mx-auto flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="mb-0 text-sm leading-relaxed text-[var(--text)]">
+    <div className="instagram-follow-benefit-banner" role="region" aria-label="인스타 팔로우 혜택 안내">
+      <div className="instagram-follow-benefit-banner-inner">
+        <p className="instagram-follow-benefit-banner-text">
           {instagramFollowBenefitLine(bonusDays)}
         </p>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="instagram-follow-benefit-banner-actions">
           <a
             href={INSTAGRAM_PROFILE_URL}
             target="_blank"

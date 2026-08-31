@@ -26,9 +26,11 @@ function PlayerChromeBody({ children }: { children: React.ReactNode }) {
         </>
       ) : null}
       <InappBrowserWarning />
-      <InstagramFollowBenefitBanner />
       <SiteNav />
-      <div className="page-with-bottom-cta">{children}</div>
+      <div className="page-with-bottom-cta">
+        <InstagramFollowBenefitBanner />
+        {children}
+      </div>
       <FixedFruitCta />
     </>
   )
