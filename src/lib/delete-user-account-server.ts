@@ -26,11 +26,20 @@ export async function deleteUserAccount(admin: SupabaseClient, userId: string): 
     throw new Error('user_id required')
   }
 
+  // FK 순서: downloads → orders, 그다음 auth.users를 참조하는 나머지 테이블
+  await deleteUserRows(admin, 'downloads', userId)
+  await deleteUserRows(admin, 'orders', userId)
+  await deleteUserRows(admin, 'gps_logs', userId)
+  await deleteUserRows(admin, 'order_verification_attempts', userId)
+
   await Promise.all([
-    deleteUserRows(admin, 'gps_logs', userId),
-    deleteUserRows(admin, 'orders', userId),
-    deleteUserRows(admin, 'downloads', userId),
-    deleteUserRows(admin, 'order_verification_attempts', userId),
+    deleteUserRows(admin, 'user_gps_tracking_prefs', userId),
+    deleteUserRows(admin, 'gps_tracking_prefs', userId),
+    deleteUserRows(admin, 'instagram_follow_bonus', userId),
+    deleteUserRows(admin, 'push_subscriptions', userId),
+    deleteUserRows(admin, 'chat_messages', userId),
+    deleteUserRows(admin, 'terms_agreements', userId),
+    deleteUserRows(admin, 'profiles', userId),
   ])
 
   const { error: usersError } = await admin.from('users').delete().eq('id', userId)

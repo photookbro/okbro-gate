@@ -13,7 +13,14 @@ export async function POST(req: NextRequest) {
     await deleteUserAccount(supabaseAdmin(), user.id)
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('[account/delete]', error)
+    const detail =
+      error && typeof error === 'object'
+        ? {
+            message: 'message' in error ? String(error.message) : undefined,
+            code: 'code' in error ? String(error.code) : undefined,
+          }
+        : { message: String(error) }
+    console.error('[account/delete]', detail, error)
     return NextResponse.json({ error: '회원 탈퇴에 실패했어요' }, { status: 500 })
   }
 }
