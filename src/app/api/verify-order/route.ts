@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getAuthenticatedUser } from '@/lib/auth-server'
+import { requireTermsAgreement } from '@/lib/terms-agreement-server'
 import {
   addDays,
   calculateNewExpiresAt,
@@ -66,10 +67,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '필수 값이 없어요' }, { status: 400 })
   }
 
-  const user = await getAuthenticatedUser()
-  if (!user) {
-    return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
-  }
+  const authUser = await getAuthenticatedUser()
+  const user = await requireTermsAgreement(authUser)
+  if (user instanceof NextResponse) return user
 
   const trimmedOrderNumber = order_number.trim()
   const platformValue = String(platform).trim() || 'naver'

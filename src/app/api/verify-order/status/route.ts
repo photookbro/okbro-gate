@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-server'
+import { requireTermsAgreement } from '@/lib/terms-agreement-server'
 import {
   getVerificationInfo,
   isUserExpiringSoon,
@@ -43,11 +44,9 @@ export async function GET(req: NextRequest) {
 }
 
 async function getAlbumAccessStatus(req: NextRequest) {
-  const user = await getAuthenticatedUser()
-  if (!user) {
-    // 의도적 클라/인증 오류 — 앨범 페이지는 비로그인으로 취급
-    return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
-  }
+  const authUser = await getAuthenticatedUser()
+  const user = await requireTermsAgreement(authUser)
+  if (user instanceof NextResponse) return user
 
   const eventId = new URL(req.url).searchParams.get('event_id')
   const admin = supabaseAdmin()

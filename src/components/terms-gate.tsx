@@ -1,10 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { TermsAgreement } from '@/components/terms-agreement'
 import { useGuestAuth } from '@/components/guest-auth-gate'
-import { fetchTermsAgreementStatus, hasTermsAgreed, setTermsAgreed } from '@/lib/terms-agreement'
+import {
+  clearLocalTermsAgreed,
+  fetchTermsAgreementStatus,
+  setTermsAgreed,
+} from '@/lib/terms-agreement'
 import { isGuestClickExemptPath } from '@/lib/guest-routes'
 
 type GateStatus = 'idle' | 'checking' | 'required' | 'passed'
@@ -13,9 +17,20 @@ export function TermsGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { isLoggedIn, authReady } = useGuestAuth()
   const [status, setStatus] = useState<GateStatus>('idle')
-  const [serverChecked, setServerChecked] = useState(false)
 
   const exempt = isGuestClickExemptPath(pathname)
+
+  const verifyTermsFromServer = useCallback(async () => {
+    const result = await fetchTermsAgreementStatus()
+    if (result.agreed) {
+      setTermsAgreed()
+      setStatus('passed')
+      return true
+    }
+    clearLocalTermsAgreed()
+    setStatus('required')
+    return false
+  }, [])
 
   useEffect(() => {
     if (!authReady) return
@@ -24,33 +39,17 @@ export function TermsGate({ children }: { children: React.ReactNode }) {
       return
     }
 
-    if (hasTermsAgreed()) {
-      setStatus('passed')
-      if (serverChecked) return
-
-      let cancelled = false
-      void (async () => {
-        const result = await fetchTermsAgreementStatus()
-        if (cancelled) return
-        setServerChecked(true)
-        if (!result.agreed) {
-          setStatus('required')
-        }
-      })()
-      return () => { cancelled = true }
-    }
-
     let cancelled = false
     setStatus('checking')
 
     void (async () => {
       const result = await fetchTermsAgreementStatus()
       if (cancelled) return
-      setServerChecked(true)
       if (result.agreed) {
         setTermsAgreed()
         setStatus('passed')
       } else {
+        clearLocalTermsAgreed()
         setStatus('required')
       }
     })()
@@ -58,7 +57,25 @@ export function TermsGate({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [authReady, isLoggedIn, exempt, serverChecked])
+  }, [authReady, isLoggedIn, exempt, pathname])
+
+  // PWA/오래된 탭: 포커스·가시성 복귀 시 서버 재검증 (localStorage만 믿지 않음)
+  useEffect(() => {
+    if (!authReady || !isLoggedIn || exempt) return
+
+    function recheck() {
+      void verifyTermsFromServer()
+    }
+
+    window.addEventListener('focus', recheck)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') recheck()
+    })
+
+    return () => {
+      window.removeEventListener('focus', recheck)
+    }
+  }, [authReady, isLoggedIn, exempt, verifyTermsFromServer])
 
   if (!authReady || (isLoggedIn && !exempt && (status === 'idle' || status === 'checking'))) {
     return (
@@ -73,7 +90,10 @@ export function TermsGate({ children }: { children: React.ReactNode }) {
       <TermsAgreement
         visible
         mode="page"
-        onComplete={() => setStatus('passed')}
+        onComplete={() => {
+          setTermsAgreed()
+          setStatus('passed')
+        }}
       />
     )
   }

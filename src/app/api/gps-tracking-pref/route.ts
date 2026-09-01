@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getAuthenticatedUser } from '@/lib/auth-server'
+import { requireTermsAgreement } from '@/lib/terms-agreement-server'
 import { USER_GPS_TRACKING_PREFS_TABLE } from '@/lib/user-gps-tracking-prefs-server'
 import { sendKakaoNotify } from '@/lib/kakao-notify'
 import { resolveGpsTrackingEligible } from '@/lib/gps-tracking-eligibility'
@@ -16,10 +17,9 @@ async function notifyGpsTrackingEnabled(
 }
 
 export async function GET(req: NextRequest) {
-  const user = await getAuthenticatedUser(req)
-  if (!user) {
-    return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
-  }
+  const authUser = await getAuthenticatedUser(req)
+  const user = await requireTermsAgreement(authUser)
+  if (user instanceof NextResponse) return user
 
   const eventId = req.nextUrl.searchParams.get('event_id')?.trim()
   if (!eventId) {
@@ -42,10 +42,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getAuthenticatedUser(req)
-  if (!user) {
-    return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
-  }
+  const authUser = await getAuthenticatedUser(req)
+  const user = await requireTermsAgreement(authUser)
+  if (user instanceof NextResponse) return user
 
   const { event_id, enabled } = await req.json()
   if (!event_id || typeof enabled !== 'boolean') {

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-server'
+import { requireTermsAgreement } from '@/lib/terms-agreement-server'
 import { ensureUserProfile } from '@/lib/user-profile-server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export async function POST(req: NextRequest) {
-  const user = await getAuthenticatedUser(req)
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authUser = await getAuthenticatedUser(req)
+  const user = await requireTermsAgreement(authUser)
+  if (user instanceof NextResponse) return user
 
   const admin = supabaseAdmin()
   const now = new Date().toISOString()

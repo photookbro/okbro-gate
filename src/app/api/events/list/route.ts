@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { fetchEventsList, hasEventAlbum } from '@/lib/event-query'
 import { getAuthenticatedUser } from '@/lib/auth-server'
+import { requireTermsAgreement } from '@/lib/terms-agreement-server'
 import { getEventGpsLocations } from '@/lib/gps-locations'
 import { MAX_EVENT_LIST_GPS_LOGS } from '@/lib/event-gps-logs'
 import { buildPastGpsPassDisplay, emailToUsername } from '@/lib/shoot-record'
@@ -18,7 +19,13 @@ export async function GET(req: NextRequest) {
   const gpsLogsByEvent: Record<string, { username: string; time: string }[]> = {}
   const upcomingShootRecordByEvent: Record<string, { username: string; time: string }> = {}
   const upcomingPassGroupsByEvent: Record<string, GpsLocationPassGroup[]> = {}
-  const user = await getAuthenticatedUser(req)
+  const authUser = await getAuthenticatedUser(req)
+  let user = authUser
+  if (authUser) {
+    const termsUser = await requireTermsAgreement(authUser)
+    if (termsUser instanceof NextResponse) return termsUser
+    user = termsUser
+  }
 
   if (user && pastEvents.length > 0) {
     const admin = supabaseAdmin()

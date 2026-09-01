@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getAuthenticatedUser } from '@/lib/auth-server'
+import { requireTermsAgreement } from '@/lib/terms-agreement-server'
 import { haversineDistance } from '@/lib/geo'
 import { getEventGpsLocations, parseLocationNumber } from '@/lib/gps-locations'
 
@@ -13,10 +14,9 @@ const EVENT_GPS_FIELDS =
   'gps_1_lat, gps_1_lng, gps_1_radius_meters, gps_2_lat, gps_2_lng, gps_2_radius_meters, gps_3_lat, gps_3_lng, gps_3_radius_meters, gps_lat, gps_lng, gps_radius_meters, gps_enabled'
 
 export async function GET(req: NextRequest) {
-  const user = await getAuthenticatedUser(req)
-  if (!user) {
-    return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
-  }
+  const authUser = await getAuthenticatedUser(req)
+  const user = await requireTermsAgreement(authUser)
+  if (user instanceof NextResponse) return user
 
   const eventId = new URL(req.url).searchParams.get('event_id')
   if (!eventId) {
@@ -78,10 +78,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getAuthenticatedUser(req)
-  if (!user) {
-    return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
-  }
+  const authUser = await getAuthenticatedUser(req)
+  const user = await requireTermsAgreement(authUser)
+  if (user instanceof NextResponse) return user
 
   const body = await req.json()
   const { event_id, lat, lng, location_number: rawLocationNumber } = body

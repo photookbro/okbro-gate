@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getAuthenticatedUser } from '@/lib/auth-server'
+import { requireTermsAgreement } from '@/lib/terms-agreement-server'
 import {
   formatVerificationDate,
   getDaysRemaining,
@@ -44,10 +45,9 @@ export async function GET(req: NextRequest) {
 }
 
 async function getMypage(req: NextRequest) {
-  const user = await getAuthenticatedUser(req)
-  if (!user) {
-    return NextResponse.json({ error: '???? ????' }, { status: 401 })
-  }
+  const authUser = await getAuthenticatedUser(req)
+  const user = await requireTermsAgreement(authUser)
+  if (user instanceof NextResponse) return user
 
   const admin = supabaseAdmin()
 
