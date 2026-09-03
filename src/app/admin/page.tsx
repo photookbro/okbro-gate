@@ -221,6 +221,14 @@ function OxBadge({ value }: { value: boolean }) {
   )
 }
 
+/** 즉시 승인 컬럼: 버튼(할 일) → 불일치 검토 → 수동 승인 대기 → 해당 없음 */
+function instagramManualApproveSortRank(player: PlayerRow): number {
+  if (player.instagram_can_manual_approve) return 0
+  if (player.instagram_manual_unlock_mismatch) return 1
+  if (player.instagram_manually_unlocked) return 2
+  return 3
+}
+
 export default function AdminPage() {
   const token = useAdminToken()
   const [tab, setTab] = useState<
@@ -272,9 +280,9 @@ export default function AdminPage() {
   const [playerSort, setPlayerSort] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'joined_at', dir: 'desc' })
   const [loadingPlayers, setLoadingPlayers] = useState(false)
   const [playersError, setPlayersError] = useState('')
-  const [playerInstagramFilter, setPlayerInstagramFilter] = useState<'all' | 'follow' | 'active'>(
-    'all'
-  )
+  const [playerInstagramFilter, setPlayerInstagramFilter] = useState<
+    'all' | 'follow' | 'active' | 'mismatch'
+  >('all')
   const [playerDetail, setPlayerDetail] = useState<PlayerDetail | null>(null)
   const [loadingPlayerDetail, setLoadingPlayerDetail] = useState(false)
   const [playerDetailError, setPlayerDetailError] = useState('')
@@ -407,6 +415,7 @@ export default function AdminPage() {
     const params = new URLSearchParams()
     if (playerInstagramFilter === 'follow') params.set('instagram_follow_only', '1')
     if (playerInstagramFilter === 'active') params.set('instagram_bonus_active_only', '1')
+    if (playerInstagramFilter === 'mismatch') params.set('instagram_manual_mismatch_only', '1')
     const query = params.toString()
     const res = await adminFetch(`/api/admin/players${query ? `?${query}` : ''}`)
     const data = await res.json()
@@ -1050,6 +1059,7 @@ export default function AdminPage() {
                 { id: 'all', label: '전체' },
                 { id: 'follow', label: '인스타 팔로우 확인' },
                 { id: 'active', label: '혜택 유효' },
+                { id: 'mismatch', label: '불일치만 보기' },
               ].map(option => (
                 <button
                   key={option.id}
@@ -1057,7 +1067,11 @@ export default function AdminPage() {
                   className={
                     playerInstagramFilter === option.id ? 'btn-primary-inline' : 'btn-secondary-inline'
                   }
-                  onClick={() => setPlayerInstagramFilter(option.id as 'all' | 'follow' | 'active')}
+                  onClick={() =>
+                    setPlayerInstagramFilter(
+                      option.id as 'all' | 'follow' | 'active' | 'mismatch'
+                    )
+                  }
                 >
                   {option.label}
                 </button>
@@ -1082,6 +1096,7 @@ export default function AdminPage() {
                         ['instagram_follow_verified', '인스타 팔로우'],
                         ['instagram_handle', '인스타 아이디'],
                         ['instagram_manual_approve', '즉시 승인'],
+                        ['instagram_manual_unlock_mismatch', '대조 결과'],
                         ['instagram_benefit_period_display', '혜택 적용 기간'],
                         ['verified_at_display', '구매 인증일'],
                         ['expires_at_display', '구매 만료일'],
@@ -1106,15 +1121,25 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {[...players].sort((a, b) => {
-                      const k = playerSort.key as keyof PlayerRow
-                      const av = a[k], bv = b[k]
                       let cmp = 0
-                      if (av == null && bv == null) cmp = 0
-                      else if (av == null) cmp = 1
-                      else if (bv == null) cmp = -1
-                      else if (typeof av === 'boolean') cmp = (av ? 1 : 0) - (bv ? 1 : 0)
-                      else if (typeof av === 'number') cmp = (av as number) - (bv as number)
-                      else cmp = String(av).localeCompare(String(bv), 'ko')
+                      if (playerSort.key === 'instagram_manual_approve') {
+                        cmp =
+                          instagramManualApproveSortRank(a) - instagramManualApproveSortRank(b)
+                      } else if (playerSort.key === 'instagram_manual_unlock_mismatch') {
+                        // 첫 클릭(asc): 불일치가 위로
+                        cmp =
+                          (a.instagram_manual_unlock_mismatch ? 0 : 1) -
+                          (b.instagram_manual_unlock_mismatch ? 0 : 1)
+                      } else {
+                        const k = playerSort.key as keyof PlayerRow
+                        const av = a[k], bv = b[k]
+                        if (av == null && bv == null) cmp = 0
+                        else if (av == null) cmp = 1
+                        else if (bv == null) cmp = -1
+                        else if (typeof av === 'boolean') cmp = (av ? 1 : 0) - (bv ? 1 : 0)
+                        else if (typeof av === 'number') cmp = (av as number) - (bv as number)
+                        else cmp = String(av).localeCompare(String(bv), 'ko')
+                      }
                       return playerSort.dir === 'asc' ? cmp : -cmp
                     }).map(player => (
                       <tr
@@ -1134,11 +1159,6 @@ export default function AdminPage() {
                           {player.instagram_manually_unlocked && (
                             <span className="ml-1 text-xs text-amber-600">(수동 승인)</span>
                           )}
-                          {player.instagram_manual_unlock_mismatch && (
-                            <div className="mt-1 text-xs font-semibold text-red-600">
-                              수동 승인 — 대조 결과 팔로워 목록에 없음
-                            </div>
-                          )}
                         </td>
                         <td className="whitespace-nowrap" onClick={e => e.stopPropagation()}>
                           {player.instagram_can_manual_approve ? (
@@ -1152,6 +1172,13 @@ export default function AdminPage() {
                             >
                               {manualApprovingUserId === player.id ? '처리 중...' : '즉시 승인'}
                             </button>
+                          ) : (
+                            <span className="text-muted">-</span>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap">
+                          {player.instagram_manual_unlock_mismatch ? (
+                            <span className="text-xs font-semibold text-red-600">⚠ 불일치</span>
                           ) : (
                             <span className="text-muted">-</span>
                           )}
@@ -1173,7 +1200,7 @@ export default function AdminPage() {
                     ))}
                     {players.length === 0 && (
                       <tr>
-                        <td colSpan={14} className="py-8 text-center text-muted">
+                        <td colSpan={15} className="py-8 text-center text-muted">
                           등록된 선수가 없어요
                         </td>
                       </tr>

@@ -562,6 +562,8 @@ export async function GET(req: NextRequest) {
   const instagramFollowOnly = new URL(req.url).searchParams.get('instagram_follow_only') === '1'
   const instagramBonusActiveOnly =
     new URL(req.url).searchParams.get('instagram_bonus_active_only') === '1'
+  const instagramManualMismatchOnly =
+    new URL(req.url).searchParams.get('instagram_manual_mismatch_only') === '1'
 
   let filteredPlayers = players
   if (instagramFollowOnly) {
@@ -569,6 +571,9 @@ export async function GET(req: NextRequest) {
   }
   if (instagramBonusActiveOnly) {
     filteredPlayers = filteredPlayers.filter(player => player.instagram_bonus_active)
+  }
+  if (instagramManualMismatchOnly) {
+    filteredPlayers = filteredPlayers.filter(player => player.instagram_manual_unlock_mismatch)
   }
 
   const summary = {
@@ -578,6 +583,9 @@ export async function GET(req: NextRequest) {
     gps_users: filteredPlayers.filter(player => player.gps_record).length,
     instagram_follow_verified: filteredPlayers.filter(player => player.instagram_follow_verified).length,
     instagram_bonus_active: filteredPlayers.filter(player => player.instagram_bonus_active).length,
+    instagram_manual_mismatch: filteredPlayers.filter(
+      player => player.instagram_manual_unlock_mismatch
+    ).length,
   }
 
   filteredPlayers.sort((a, b) => {
