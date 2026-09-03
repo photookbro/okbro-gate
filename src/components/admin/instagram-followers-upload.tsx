@@ -8,20 +8,26 @@ type UploadResult = {
   new_count: number
   updated_count: number
   file_name: string
+  file_count: number
 }
 
 type InstagramFollowersUploadProps = {
   token: string
 }
 
+function formatSelectedFilesLabel(files: File[]): string {
+  const names = files.map(f => f.name).join(', ')
+  return `선택된 파일: ${names} (${files.length}개)`
+}
+
 export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<UploadResult | null>(null)
 
   async function handleUpload() {
-    if (!selectedFile) {
+    if (selectedFiles.length === 0) {
       setError('업로드할 HTML 파일을 선택해주세요')
       return
     }
@@ -31,7 +37,9 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
     setResult(null)
 
     const formData = new FormData()
-    formData.append('file', selectedFile)
+    for (const file of selectedFiles) {
+      formData.append('file', file)
+    }
 
     try {
       const res = await fetch('/api/admin/instagram-followers', {
@@ -51,9 +59,10 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
         total_parsed: data.total_parsed ?? 0,
         new_count: data.new_count ?? 0,
         updated_count: data.updated_count ?? 0,
-        file_name: data.file_name ?? selectedFile.name,
+        file_name: data.file_name ?? selectedFiles.map(f => f.name).join(', '),
+        file_count: data.file_count ?? selectedFiles.length,
       })
-      setSelectedFile(null)
+      setSelectedFiles([])
     } catch {
       setError('업로드 중 오류가 발생했어요')
     } finally {
@@ -64,7 +73,8 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">
-        인스타그램 &quot;내 정보 다운로드&quot;의 팔로워 HTML 파일(followers_1.html 등)을 업로드하세요.
+        인스타그램 &quot;내 정보 다운로드&quot;의 팔로워 HTML 파일(followers_1.html,
+        followers_2.html 등)을 업로드하세요. 여러 개를 한 번에 선택할 수 있어요.
         <br />
         업로드 후 대기 중인 팔로워 인증 신청과 자동 대조·승인되며, 승인된 유저에게 푸시 알림이
         발송돼요. 대용량 파일(2MB 이상)은 1~2분 걸릴 수 있어요.
@@ -72,14 +82,16 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <label className="block min-w-0 flex-1">
-          <span className="label-field">HTML 파일</span>
+          <span className="label-field">HTML 파일 (여러 개 선택 가능)</span>
           <input
             type="file"
             accept=".html,text/html"
+            multiple
             disabled={uploading}
             className="input-field"
             onChange={e => {
-              setSelectedFile(e.target.files?.[0] ?? null)
+              const next = Array.from(e.target.files ?? [])
+              setSelectedFiles(next)
               setError('')
               setResult(null)
             }}
@@ -88,17 +100,15 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
         <button
           type="button"
           className="btn-primary-inline shrink-0"
-          disabled={uploading || !selectedFile}
+          disabled={uploading || selectedFiles.length === 0}
           onClick={() => void handleUpload()}
         >
           {uploading ? '분석·저장 중...' : 'UPLOAD'}
         </button>
       </div>
 
-      {selectedFile ? (
-        <p className="text-sm text-muted">
-          선택: {selectedFile.name} ({(selectedFile.size / (1024 * 1024)).toFixed(2)} MB)
-        </p>
+      {selectedFiles.length > 0 ? (
+        <p className="text-sm text-muted">{formatSelectedFilesLabel(selectedFiles)}</p>
       ) : null}
 
       {uploading ? (

@@ -32,9 +32,29 @@ export function parseInstagramFollowersFromHtml(html: string): string[] {
     const username = match[1]
     if (!username) continue
     if (RESERVED_PATHS.has(username.toLowerCase())) continue
-    if (seen.has(username)) continue
-    seen.add(username)
+    const key = username.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
     usernames.push(username)
+  }
+
+  return usernames
+}
+
+/** 여러 HTML에서 뽑은 아이디를 대소문자 무시하고 합침(먼저 나온 표기 유지) */
+export function mergeInstagramFollowerUsernames(lists: string[][]): string[] {
+  const seen = new Set<string>()
+  const usernames: string[] = []
+
+  for (const list of lists) {
+    for (const username of list) {
+      const trimmed = username.trim()
+      if (!trimmed) continue
+      const key = trimmed.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      usernames.push(trimmed)
+    }
   }
 
   return usernames
