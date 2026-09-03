@@ -14,6 +14,53 @@ export type InstagramMatchResult = {
   push_sent: number
   push_failed: number
   no_subscription: number
+  manual_unlock_mismatches: number
+}
+
+type InstagramUnlockFields = {
+  approved_at: string
+  bonus_days_granted: number
+  expires_at: string
+}
+
+async function calculateInstagramFollowUnlockFields(
+  admin: SupabaseClient,
+  userId: string,
+  bonusDays: number,
+  verifiedPeriodDays: number,
+  now: Date = new Date()
+): Promise<InstagramUnlockFields> {
+  const previousInstagramExpires = await getActiveInstagramBonusExpiresAt(admin, userId, now)
+
+  let purchaseExpires: Date | null = null
+  const { data: latestOrder } = await admin
+    .from('orders')
+    .select('order_number, used_at, created_at, expires_at')
+    .eq('user_id', userId)
+    .order('expires_at', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (latestOrder) {
+    purchaseExpires = resolveExpiresAt(latestOrder, verifiedPeriodDays)
+  }
+
+  const previousActiveExpires = latestActiveExpiresAt(
+    [previousInstagramExpires, purchaseExpires],
+    now
+  )
+  const expiresAt = calculateInstagramBonusClaimExpiresAt(
+    previousActiveExpires,
+    bonusDays,
+    now
+  )
+  const nowIso = now.toISOString()
+
+  return {
+    approved_at: nowIso,
+    bonus_days_granted: bonusDays,
+    expires_at: expiresAt.toISOString(),
+  }
 }
 
 export async function approveInstagramFollowPendingRow(
@@ -37,28 +84,11 @@ export async function approveInstagramFollowPendingRow(
     return null
   }
 
-  const previousInstagramExpires = await getActiveInstagramBonusExpiresAt(admin, row.user_id, now)
-
-  let purchaseExpires: Date | null = null
-  const { data: latestOrder } = await admin
-    .from('orders')
-    .select('order_number, used_at, created_at, expires_at')
-    .eq('user_id', row.user_id)
-    .order('expires_at', { ascending: false, nullsFirst: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (latestOrder) {
-    purchaseExpires = resolveExpiresAt(latestOrder, verifiedPeriodDays)
-  }
-
-  const previousActiveExpires = latestActiveExpiresAt(
-    [previousInstagramExpires, purchaseExpires],
-    now
-  )
-  const expiresAt = calculateInstagramBonusClaimExpiresAt(
-    previousActiveExpires,
+  const unlockFields = await calculateInstagramFollowUnlockFields(
+    admin,
+    row.user_id,
     bonusDays,
+    verifiedPeriodDays,
     now
   )
   const nowIso = now.toISOString()
@@ -67,9 +97,11 @@ export async function approveInstagramFollowPendingRow(
     .from('instagram_follow_bonus')
     .update({
       status: 'approved',
-      approved_at: nowIso,
-      bonus_days_granted: bonusDays,
-      expires_at: expiresAt.toISOString(),
+      approved_at: unlockFields.approved_at,
+      bonus_days_granted: unlockFields.bonus_days_granted,
+      expires_at: unlockFields.expires_at,
+      manually_unlocked: false,
+      manual_unlock_verified_mismatch: false,
       updated_at: nowIso,
     })
     .eq('id', row.id)
@@ -81,13 +113,117 @@ export async function approveInstagramFollowPendingRow(
   return (approved as InstagramFollowBonusRow | null) ?? null
 }
 
+export async function manuallyUnlockInstagramFollowPendingRow(
+  admin: SupabaseClient,
+  row: Pick<InstagramFollowBonusRow, 'id' | 'user_id' | 'instagram_handle'>,
+  bonusDays: number,
+  verifiedPeriodDays: number,
+  now: Date = new Date()
+): Promise<InstagramFollowBonusRow | null> {
+  const handle = row.instagram_handle.trim()
+  if (!handle) return null
+
+  const { data: handleTaken } = await admin
+    .from('instagram_follow_bonus')
+    .select('user_id')
+    .eq('instagram_handle', handle)
+    .eq('status', 'approved')
+    .maybeSingle()
+
+  if (handleTaken && handleTaken.user_id !== row.user_id) {
+    return null
+  }
+
+  const unlockFields = await calculateInstagramFollowUnlockFields(
+    admin,
+    row.user_id,
+    bonusDays,
+    verifiedPeriodDays,
+    now
+  )
+  const nowIso = now.toISOString()
+
+  const { data: unlocked, error } = await admin
+    .from('instagram_follow_bonus')
+    .update({
+      status: 'pending',
+      approved_at: unlockFields.approved_at,
+      bonus_days_granted: unlockFields.bonus_days_granted,
+      expires_at: unlockFields.expires_at,
+      manually_unlocked: true,
+      manual_unlock_verified_mismatch: false,
+      updated_at: nowIso,
+    })
+    .eq('id', row.id)
+    .eq('status', 'pending')
+    .select('*')
+    .maybeSingle()
+
+  if (error) throw error
+  return (unlocked as InstagramFollowBonusRow | null) ?? null
+}
+
+export async function sendInstagramFollowApprovedPush(
+  userId: string,
+  bonusDays: number
+): Promise<{ sent: number; failed: number; no_subscription: boolean }> {
+  const push = await sendPushToUser(userId, {
+    title: 'OKbroGATE',
+    body: instagramFollowApprovedPushBody(bonusDays),
+    url: '/mypage',
+  })
+
+  return {
+    sent: push.sent,
+    failed: push.failed,
+    no_subscription: push.sent === 0 && push.failed === 0,
+  }
+}
+
+async function flagManualUnlockMismatchesAfterFollowerUpload(
+  admin: SupabaseClient,
+  handleSet: Set<string>,
+  now: Date = new Date()
+): Promise<number> {
+  const { data: manualPendingRows, error } = await admin
+    .from('instagram_follow_bonus')
+    .select('id, instagram_handle')
+    .eq('status', 'pending')
+    .eq('manually_unlocked', true)
+
+  if (error) throw error
+
+  const nowIso = now.toISOString()
+  let mismatches = 0
+
+  for (const row of manualPendingRows ?? []) {
+    const handle = row.instagram_handle.trim().toLowerCase()
+    if (!handle || handleSet.has(handle)) continue
+
+    const { error: updateError } = await admin
+      .from('instagram_follow_bonus')
+      .update({
+        manual_unlock_verified_mismatch: true,
+        updated_at: nowIso,
+      })
+      .eq('id', row.id)
+      .eq('status', 'pending')
+      .eq('manually_unlocked', true)
+
+    if (updateError) throw updateError
+    mismatches++
+  }
+
+  return mismatches
+}
+
 export async function matchPendingInstagramFollowClaims(
   admin: SupabaseClient,
   usernames: string[]
 ): Promise<InstagramMatchResult> {
   const handleSet = new Set(usernames.map(u => u.trim().toLowerCase()).filter(Boolean))
   if (handleSet.size === 0) {
-    return { approved: 0, push_sent: 0, push_failed: 0, no_subscription: 0 }
+    return { approved: 0, push_sent: 0, push_failed: 0, no_subscription: 0, manual_unlock_mismatches: 0 }
   }
 
   const settings = await loadVerificationSettings(admin)
@@ -96,7 +232,7 @@ export async function matchPendingInstagramFollowClaims(
 
   const { data: pendingRows, error } = await admin
     .from('instagram_follow_bonus')
-    .select('id, user_id, instagram_handle')
+    .select('id, user_id, instagram_handle, manually_unlocked')
     .eq('status', 'pending')
 
   if (error) throw error
@@ -122,23 +258,31 @@ export async function matchPendingInstagramFollowClaims(
 
     approved++
 
+    if (row.manually_unlocked) continue
+
     if (notifiedUsers.has(row.user_id)) continue
     notifiedUsers.add(row.user_id)
 
-    const push = await sendPushToUser(row.user_id, {
-      title: 'OKbroGATE',
-      body: instagramFollowApprovedPushBody(bonusDays),
-      url: '/mypage',
-    })
-
+    const push = await sendInstagramFollowApprovedPush(row.user_id, bonusDays)
     if (push.sent > 0) {
       pushSent += push.sent
     } else if (push.failed > 0) {
       pushFailed += push.failed
-    } else {
+    } else if (push.no_subscription) {
       noSubscription++
     }
   }
 
-  return { approved, push_sent: pushSent, push_failed: pushFailed, no_subscription: noSubscription }
+  const manualUnlockMismatches = await flagManualUnlockMismatchesAfterFollowerUpload(
+    admin,
+    handleSet
+  )
+
+  return {
+    approved,
+    push_sent: pushSent,
+    push_failed: pushFailed,
+    no_subscription: noSubscription,
+    manual_unlock_mismatches: manualUnlockMismatches,
+  }
 }

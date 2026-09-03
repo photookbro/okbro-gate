@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-server'
 import {
   buildInstagramFollowBonusStatus,
-  getApprovedInstagramFollowBonus,
+  getEffectiveInstagramFollowBonus,
   getLatestInstagramFollowBonusAttempt,
 } from '@/lib/instagram-follow-bonus'
 import { ensureUserProfile } from '@/lib/user-profile-server'
@@ -21,13 +21,13 @@ export async function GET(req: NextRequest) {
 
     await ensureUserProfile(admin, user.id, user.created_at ?? new Date().toISOString())
 
-    const [approved, latestAttempt] = await Promise.all([
-      getApprovedInstagramFollowBonus(admin, user.id),
+    const [effectiveBonus, latestAttempt] = await Promise.all([
+      getEffectiveInstagramFollowBonus(admin, user.id),
       getLatestInstagramFollowBonusAttempt(admin, user.id),
     ])
 
     const status = buildInstagramFollowBonusStatus(
-      approved,
+      effectiveBonus,
       latestAttempt,
       settings.instagramFollowBonusDays
     )

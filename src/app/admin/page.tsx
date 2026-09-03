@@ -94,6 +94,10 @@ type PlayerRow = {
   days_remaining: number | null
   photo_access_days_remaining: number
   instagram_follow_verified: boolean
+  instagram_follow_pending: boolean
+  instagram_can_manual_approve: boolean
+  instagram_manually_unlocked: boolean
+  instagram_manual_unlock_mismatch: boolean
   instagram_handle: string | null
   instagram_benefit_label: string
   instagram_benefit_period_display: string
@@ -140,6 +144,15 @@ type PlayerDetail = {
     date: string
     enabled: boolean
   }[]
+  instagram_follow: {
+    pending_handle: string | null
+    can_manual_approve: boolean
+    manually_unlocked: boolean
+    manual_unlock_verified_mismatch: boolean
+    approved: boolean
+    benefit_period_display: string | null
+    benefit_active: boolean
+  }
   orders: {
     id: string
     order_number: string
@@ -266,6 +279,7 @@ export default function AdminPage() {
   const [loadingPlayerDetail, setLoadingPlayerDetail] = useState(false)
   const [playerDetailError, setPlayerDetailError] = useState('')
   const [revokingAccess, setRevokingAccess] = useState(false)
+  const [manualApprovingUserId, setManualApprovingUserId] = useState<string | null>(null)
   const [resettingTestData, setResettingTestData] = useState(false)
   const [resetGpsWithTest, setResetGpsWithTest] = useState(false)
   const [expandedGpsEventId, setExpandedGpsEventId] = useState<string | null>(null)
@@ -423,6 +437,41 @@ export default function AdminPage() {
     }
 
     setPlayerDetail(data.player ?? null)
+  }
+
+  async function handleManualInstagramApprove(userId: string, handle: string | null) {
+    if (
+      !confirm(
+        `${handle ? `@${handle}` : '이 선수'}에게 인스타 팔로우 혜택을 즉시 열어줄까요?\n(신청은 대기 상태로 유지되며, 다음 팔로워 HTML 대조에서 다시 확인됩니다)`
+      )
+    ) {
+      return
+    }
+
+    setManualApprovingUserId(userId)
+    const res = await adminFetch('/api/admin/players/instagram-manual-approve', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    })
+    const data = await res.json()
+    setManualApprovingUserId(null)
+
+    if (!res.ok) {
+      alert(data.error ?? '즉시 승인 실패')
+      return
+    }
+
+    const pushNote =
+      data.push_sent > 0
+        ? '푸시 발송 완료'
+        : data.no_subscription
+          ? '푸시 구독 없음'
+          : '푸시 발송 실패'
+    alert(`즉시 승인 완료 (${pushNote})`)
+    await loadPlayers()
+    if (playerDetail?.id === userId) {
+      await openPlayerDetail(userId)
+    }
   }
 
   async function handleRevokeAccess(userId: string) {
@@ -1032,6 +1081,7 @@ export default function AdminPage() {
                         ['gps_record', 'GPS 기록'],
                         ['instagram_follow_verified', '인스타 팔로우'],
                         ['instagram_handle', '인스타 아이디'],
+                        ['instagram_manual_approve', '즉시 승인'],
                         ['instagram_benefit_period_display', '혜택 적용 기간'],
                         ['verified_at_display', '구매 인증일'],
                         ['expires_at_display', '구매 만료일'],
@@ -1079,7 +1129,33 @@ export default function AdminPage() {
                         <td><OxBadge value={player.purchase_verified} /></td>
                         <td><OxBadge value={player.gps_record} /></td>
                         <td><OxBadge value={player.instagram_follow_verified} /></td>
-                        <td className="text-muted">{player.instagram_handle ?? '-'}</td>
+                        <td className="text-muted">
+                          {player.instagram_handle ?? '-'}
+                          {player.instagram_manually_unlocked && (
+                            <span className="ml-1 text-xs text-amber-600">(수동 승인)</span>
+                          )}
+                          {player.instagram_manual_unlock_mismatch && (
+                            <div className="mt-1 text-xs font-semibold text-red-600">
+                              수동 승인 — 대조 결과 팔로워 목록에 없음
+                            </div>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                          {player.instagram_can_manual_approve ? (
+                            <button
+                              type="button"
+                              className="btn-info-inline text-xs"
+                              disabled={manualApprovingUserId === player.id}
+                              onClick={() =>
+                                void handleManualInstagramApprove(player.id, player.instagram_handle)
+                              }
+                            >
+                              {manualApprovingUserId === player.id ? '처리 중...' : '즉시 승인'}
+                            </button>
+                          ) : (
+                            <span className="text-muted">-</span>
+                          )}
+                        </td>
                         <td className="whitespace-nowrap text-muted">
                           {player.instagram_benefit_period_display !== '-'
                             ? player.instagram_benefit_period_display
@@ -1097,7 +1173,7 @@ export default function AdminPage() {
                     ))}
                     {players.length === 0 && (
                       <tr>
-                        <td colSpan={13} className="py-8 text-center text-muted">
+                        <td colSpan={14} className="py-8 text-center text-muted">
                           등록된 선수가 없어요
                         </td>
                       </tr>
@@ -1685,6 +1761,50 @@ export default function AdminPage() {
                         </li>
                       ))}
                     </ul>
+                  )}
+                </section>
+
+                <section className="card-section mb-4">
+                  <h4 className="mb-2 text-sm font-semibold">📸 인스타 팔로우</h4>
+                  <dl className="space-y-1 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted">신청 아이디</dt>
+                      <dd>{playerDetail.instagram_follow.pending_handle ?? '-'}</dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted">승인 확정</dt>
+                      <dd>{playerDetail.instagram_follow.approved ? 'O' : 'X'}</dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted">혜택 기간</dt>
+                      <dd>{playerDetail.instagram_follow.benefit_period_display ?? '-'}</dd>
+                    </div>
+                  </dl>
+                  {playerDetail.instagram_follow.manual_unlock_verified_mismatch && (
+                    <p className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                      수동 승인 — 대조 결과 팔로워 목록에 없음
+                    </p>
+                  )}
+                  {playerDetail.instagram_follow.manually_unlocked &&
+                    !playerDetail.instagram_follow.manual_unlock_verified_mismatch && (
+                      <p className="mt-3 text-sm text-amber-700">
+                        수동 승인됨 (대기 중 — 다음 HTML 대조에서 확인)
+                      </p>
+                    )}
+                  {playerDetail.instagram_follow.can_manual_approve && (
+                    <button
+                      type="button"
+                      className="btn-info-inline mt-3"
+                      disabled={manualApprovingUserId === playerDetail.id}
+                      onClick={() =>
+                        void handleManualInstagramApprove(
+                          playerDetail.id,
+                          playerDetail.instagram_follow.pending_handle
+                        )
+                      }
+                    >
+                      {manualApprovingUserId === playerDetail.id ? '처리 중...' : '즉시 승인'}
+                    </button>
                   )}
                 </section>
 

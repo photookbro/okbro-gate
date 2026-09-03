@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     .from('instagram_follow_bonus')
     .update({ expires_at: revokedAt, updated_at: nowIso })
     .eq('user_id', user_id)
-    .eq('status', 'approved')
+    .or('status.eq.approved,and(status.eq.pending,manually_unlocked.eq.true)')
     .select('id')
 
   if (bonusError) {

@@ -4,7 +4,7 @@ import { requireTermsAgreement } from '@/lib/terms-agreement-server'
 import { normalizeInstagramHandle } from '@/lib/instagram-handle'
 import {
   buildInstagramFollowBonusStatus,
-  getApprovedInstagramFollowBonus,
+  getEffectiveInstagramFollowBonus,
   getLatestInstagramFollowBonusAttempt,
 } from '@/lib/instagram-follow-bonus'
 import { instagramFollowSubmitCompleteMessage } from '@/lib/instagram-follow-copy'
@@ -55,8 +55,8 @@ export async function POST(req: NextRequest) {
     latestAttempt?.status === 'pending' &&
     latestAttempt.instagram_handle === handle
   ) {
-    const approved = await getApprovedInstagramFollowBonus(admin, user.id, now)
-    const status = buildInstagramFollowBonusStatus(approved, latestAttempt, bonusDays, now)
+    const effectiveBonus = await getEffectiveInstagramFollowBonus(admin, user.id, now)
+    const status = buildInstagramFollowBonusStatus(effectiveBonus, latestAttempt, bonusDays, now)
     return NextResponse.json({
       success: true,
       message: instagramFollowSubmitCompleteMessage(),
@@ -80,9 +80,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '신청 저장에 실패했어요' }, { status: 500 })
   }
 
-  const approved = await getApprovedInstagramFollowBonus(admin, user.id, now)
+  const effectiveBonus = await getEffectiveInstagramFollowBonus(admin, user.id, now)
   const updatedAttempt = await getLatestInstagramFollowBonusAttempt(admin, user.id)
-  const status = buildInstagramFollowBonusStatus(approved, updatedAttempt, bonusDays, now)
+  const status = buildInstagramFollowBonusStatus(effectiveBonus, updatedAttempt, bonusDays, now)
 
   return NextResponse.json({
     success: true,

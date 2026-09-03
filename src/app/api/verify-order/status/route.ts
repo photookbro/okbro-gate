@@ -12,7 +12,7 @@ import {
 } from '@/lib/order-verification'
 import {
   isInstagramBonusActive,
-  getApprovedInstagramFollowBonus,
+  getEffectiveInstagramFollowBonus,
   type InstagramFollowBonusRow,
 } from '@/lib/instagram-follow-bonus'
 import { isGpsTrackingEligible } from '@/lib/gps-tracking-eligibility'
@@ -75,7 +75,7 @@ async function getAlbumAccessStatus(req: NextRequest) {
   // 인스타 보너스 테이블/스키마 문제여도 구매·GPS 앨범 접근은 계속 동작
   let instagramBonus: InstagramFollowBonusRow | null = null
   try {
-    instagramBonus = await getApprovedInstagramFollowBonus(admin, user.id)
+    instagramBonus = await getEffectiveInstagramFollowBonus(admin, user.id)
   } catch (error) {
     logAlbumStatusError('instagram_follow_bonus', error, { userId: user.id, eventId })
     instagramBonus = null

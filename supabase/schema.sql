@@ -175,6 +175,8 @@ CREATE TABLE IF NOT EXISTS instagram_follow_bonus (
   approved_at timestamptz,
   bonus_days_granted integer,
   expires_at timestamptz,
+  manually_unlocked boolean NOT NULL DEFAULT false,
+  manual_unlock_verified_mismatch boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );

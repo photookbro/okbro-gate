@@ -15,6 +15,7 @@ import { getEventCourseLabel, getEventGpsLocations, type EventGpsFields } from '
 import { getDaysRemaining, getMonitorStatus, resolveExpiresAt, formatVerificationDate } from '@/lib/order-verification'
 import { buildPhotoAccessSummary } from '@/lib/verification-access'
 import { buildDuplicateInfoByOrderNumber } from '@/lib/order-duplicate'
+import { isInstagramBonusActive } from '@/lib/instagram-follow-bonus'
 
 async function listAllAuthUsers(admin: ReturnType<typeof supabaseAdmin>): Promise<User[]> {
   const users: User[] = []
@@ -61,15 +62,16 @@ export async function GET(req: NextRequest) {
     const cutoff = twelveMonthsAgoDateString()
     const now = new Date()
 
-    const [
-      { data: termsRows },
-      { data: orders },
-      gpsLogsResult,
-      { data: trackingPrefs },
-      pastEventsResult,
-      { data: upcomingEvents },
-    ] = await Promise.all([
-      admin
+    const [{ data: instagramRows }, { data: termsRows }, { data: orders }, gpsLogsResult, { data: trackingPrefs }, pastEventsResult, { data: upcomingEvents }] =
+      await Promise.all([
+        admin
+          .from('instagram_follow_bonus')
+          .select(
+            'instagram_handle, status, approved_at, expires_at, manually_unlocked, manual_unlock_verified_mismatch, created_at'
+          )
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false }),
+        admin
         .from('terms_agreements')
         .select('agreed_at, version')
         .eq('user_id', userId)
@@ -204,6 +206,15 @@ export async function GET(req: NextRequest) {
     }
 
     const terms = termsRows?.[0]
+    const latestPendingInstagram = (instagramRows ?? []).find(row => row.status === 'pending') ?? null
+    const approvedInstagramRows = (instagramRows ?? []).filter(row => row.status === 'approved')
+    const effectiveInstagram =
+      approvedInstagramRows.find(row => isInstagramBonusActive(row, now)) ??
+      (instagramRows ?? []).find(
+        row => row.status === 'pending' && row.manually_unlocked && isInstagramBonusActive(row, now)
+      ) ??
+      approvedInstagramRows[0] ??
+      null
     const duplicateByOrderNumber = await buildDuplicateInfoByOrderNumber(
       admin,
       (orders ?? []).map(order => order.order_number),
@@ -253,6 +264,23 @@ export async function GET(req: NextRequest) {
           date: event.date,
           enabled: prefByEvent.get(event.id) === true,
         })),
+        instagram_follow: {
+          pending_handle: latestPendingInstagram?.instagram_handle ?? null,
+          can_manual_approve:
+            latestPendingInstagram?.status === 'pending' &&
+            latestPendingInstagram.manually_unlocked !== true,
+          manually_unlocked: latestPendingInstagram?.manually_unlocked === true,
+          manual_unlock_verified_mismatch:
+            latestPendingInstagram?.manual_unlock_verified_mismatch === true,
+          approved: !!approvedInstagramRows.length,
+          benefit_period_display:
+            effectiveInstagram?.approved_at && effectiveInstagram?.expires_at
+              ? `${formatVerificationDate(effectiveInstagram.approved_at)} ~ ${formatVerificationDate(effectiveInstagram.expires_at)}`
+              : null,
+          benefit_active: effectiveInstagram
+            ? isInstagramBonusActive(effectiveInstagram, now)
+            : false,
+        },
         orders: (orders ?? []).map(order => {
           const joined = Array.isArray(order.events) ? order.events[0] : order.events
           const expiresAt = resolveExpiresAt(
@@ -300,8 +328,10 @@ export async function GET(req: NextRequest) {
       admin.from('user_gps_tracking_prefs').select('user_id, updated_at'),
       admin
         .from('instagram_follow_bonus')
-        .select('user_id, instagram_handle, status, approved_at, expires_at')
-        .eq('status', 'approved'),
+        .select(
+          'user_id, instagram_handle, status, approved_at, expires_at, manually_unlocked, manual_unlock_verified_mismatch, created_at'
+        )
+        .in('status', ['approved', 'pending']),
     ])
 
   const termsByUser = new Map<string, string>()
@@ -406,15 +436,53 @@ export async function GET(req: NextRequest) {
       instagram_handle: string
       approved_at: string | null
       expires_at: string | null
+      status: string
     }
   >()
+  const instagramPendingByUser = new Map<
+    string,
+    {
+      instagram_handle: string
+      manually_unlocked: boolean
+      manual_unlock_verified_mismatch: boolean
+      approved_at: string | null
+      expires_at: string | null
+      created_at: string
+    }
+  >()
+
   for (const row of instagramBonuses ?? []) {
     if (!row.user_id) continue
-    instagramBonusByUser.set(row.user_id, {
-      instagram_handle: row.instagram_handle,
-      approved_at: row.approved_at,
-      expires_at: row.expires_at,
-    })
+
+    if (row.status === 'approved') {
+      const prev = instagramBonusByUser.get(row.user_id)
+      if (
+        !prev ||
+        new Date(row.expires_at ?? 0).getTime() > new Date(prev.expires_at ?? 0).getTime()
+      ) {
+        instagramBonusByUser.set(row.user_id, {
+          instagram_handle: row.instagram_handle,
+          approved_at: row.approved_at,
+          expires_at: row.expires_at,
+          status: row.status,
+        })
+      }
+      continue
+    }
+
+    if (row.status === 'pending') {
+      const prev = instagramPendingByUser.get(row.user_id)
+      if (!prev || new Date(row.created_at) > new Date(prev.created_at)) {
+        instagramPendingByUser.set(row.user_id, {
+          instagram_handle: row.instagram_handle,
+          manually_unlocked: row.manually_unlocked === true,
+          manual_unlock_verified_mismatch: row.manual_unlock_verified_mismatch === true,
+          approved_at: row.approved_at,
+          expires_at: row.expires_at,
+          created_at: row.created_at,
+        })
+      }
+    }
   }
 
   const now = new Date()
@@ -429,21 +497,30 @@ export async function GET(req: NextRequest) {
     )
     const verification = latestPurchaseByUser.get(user.id)
     const instagramBonus = instagramBonusByUser.get(user.id)
+    const instagramPending = instagramPendingByUser.get(user.id)
+    const effectiveInstagram =
+      instagramBonus && isInstagramBonusActive(instagramBonus, now)
+        ? instagramBonus
+        : instagramPending?.manually_unlocked && isInstagramBonusActive(instagramPending, now)
+          ? instagramPending
+          : instagramBonus ?? (instagramPending?.manually_unlocked ? instagramPending : null)
+    const instagramHandle =
+      instagramBonus?.instagram_handle ?? instagramPending?.instagram_handle ?? null
     const access = buildPhotoAccessSummary(
       ordersByUser.get(user.id) ?? [],
       verifiedPeriodDays,
-      instagramBonus?.expires_at ?? null,
+      effectiveInstagram?.expires_at ?? instagramBonus?.expires_at ?? null,
       now
     )
     const instagramBonusActive =
-      !!instagramBonus?.expires_at && new Date(instagramBonus.expires_at) >= now
+      !!effectiveInstagram?.expires_at && isInstagramBonusActive(effectiveInstagram, now)
     const instagramBonusDaysRemaining =
-      instagramBonus?.expires_at && instagramBonusActive
-        ? getDaysRemaining(new Date(instagramBonus.expires_at), now)
+      effectiveInstagram?.expires_at && instagramBonusActive
+        ? getDaysRemaining(new Date(effectiveInstagram.expires_at), now)
         : null
 
     let instagramBenefitLabel = '-'
-    if (instagramBonus?.expires_at) {
+    if (effectiveInstagram?.expires_at) {
       if (instagramBonusActive && instagramBonusDaysRemaining != null) {
         instagramBenefitLabel = `D-${instagramBonusDaysRemaining}`
       } else {
@@ -460,12 +537,17 @@ export async function GET(req: NextRequest) {
       terms_agreed: termsByUser.has(user.id),
       purchase_verified: purchaseValidByUser.has(user.id),
       gps_record: gpsByUser.has(user.id),
-      instagram_follow_verified: !!instagramBonus,
-      instagram_handle: instagramBonus?.instagram_handle ?? null,
+      instagram_follow_verified: !!instagramBonus || instagramBonusActive,
+      instagram_follow_pending: !!instagramPending,
+      instagram_can_manual_approve:
+        !!instagramPending && !instagramPending.manually_unlocked,
+      instagram_manually_unlocked: instagramPending?.manually_unlocked === true,
+      instagram_manual_unlock_mismatch: instagramPending?.manual_unlock_verified_mismatch === true,
+      instagram_handle: instagramHandle,
       instagram_benefit_label: instagramBenefitLabel,
       instagram_benefit_period_display:
-        instagramBonus?.approved_at && instagramBonus?.expires_at
-          ? `${formatVerificationDate(instagramBonus.approved_at)} ~ ${formatVerificationDate(instagramBonus.expires_at)}`
+        effectiveInstagram?.approved_at && effectiveInstagram?.expires_at
+          ? `${formatVerificationDate(effectiveInstagram.approved_at)} ~ ${formatVerificationDate(effectiveInstagram.expires_at)}`
           : '-',
       instagram_bonus_active: instagramBonusActive,
       verified_at_display: verification ? formatVerificationDate(verification.verified_at) : '-',

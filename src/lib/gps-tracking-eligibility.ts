@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getVerificationInfo } from '@/lib/order-verification'
 import {
-  getApprovedInstagramFollowBonus,
+  getEffectiveInstagramFollowBonus,
   isInstagramBonusActive,
 } from '@/lib/instagram-follow-bonus'
 import { loadVerificationSettings } from '@/lib/verification-settings'
@@ -39,7 +39,7 @@ export async function resolveGpsTrackingEligible(
       .limit(1)
       .maybeSingle(),
     loadVerificationSettings(admin),
-    getApprovedInstagramFollowBonus(admin, userId),
+    getEffectiveInstagramFollowBonus(admin, userId),
   ])
 
   return isGpsTrackingEligible({

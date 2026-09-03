@@ -16,7 +16,7 @@ import { buildDuplicateInfoByOrderNumber } from '@/lib/order-duplicate'
 import { loadVerificationSettings } from '@/lib/verification-settings'
 import {
   buildInstagramFollowBonusStatus,
-  getApprovedInstagramFollowBonus,
+  getEffectiveInstagramFollowBonus,
   getLatestInstagramFollowBonusAttempt,
 } from '@/lib/instagram-follow-bonus'
 import { ensureUserProfile } from '@/lib/user-profile-server'
@@ -80,12 +80,12 @@ async function getMypage(req: NextRequest) {
 
   try {
     await ensureUserProfile(admin, user.id, user.created_at ?? new Date().toISOString())
-    const [approvedInstagramBonus, latestInstagramAttempt] = await Promise.all([
-      getApprovedInstagramFollowBonus(admin, user.id),
+    const [effectiveInstagramBonus, latestInstagramAttempt] = await Promise.all([
+      getEffectiveInstagramFollowBonus(admin, user.id),
       getLatestInstagramFollowBonusAttempt(admin, user.id),
     ])
     instagramFollowBonus = buildInstagramFollowBonusStatus(
-      approvedInstagramBonus,
+      effectiveInstagramBonus,
       latestInstagramAttempt,
       settings.instagramFollowBonusDays,
       now

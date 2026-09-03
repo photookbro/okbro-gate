@@ -85,7 +85,13 @@ export async function POST(req: NextRequest) {
   const newCount = parsedUsernames.filter(username => !existing.has(username)).length
   const updatedCount = uniqueCount - newCount
 
-  let matchResult = { approved: 0, push_sent: 0, push_failed: 0, no_subscription: 0 }
+  let matchResult = {
+    approved: 0,
+    push_sent: 0,
+    push_failed: 0,
+    no_subscription: 0,
+    manual_unlock_mismatches: 0,
+  }
   try {
     matchResult = await matchPendingInstagramFollowClaims(admin, parsedUsernames)
   } catch (error) {
@@ -99,6 +105,11 @@ export async function POST(req: NextRequest) {
   if (matchResult.push_sent > 0) {
     matchParts.push(`푸시 ${matchResult.push_sent.toLocaleString('ko-KR')}건 발송`)
   }
+  if (matchResult.manual_unlock_mismatches > 0) {
+    matchParts.push(
+      `수동 승인 불일치 ${matchResult.manual_unlock_mismatches.toLocaleString('ko-KR')}건`
+    )
+  }
 
   return NextResponse.json({
     success: true,
@@ -111,6 +122,7 @@ export async function POST(req: NextRequest) {
     push_sent: matchResult.push_sent,
     push_failed: matchResult.push_failed,
     no_subscription: matchResult.no_subscription,
+    manual_unlock_mismatches: matchResult.manual_unlock_mismatches,
     summary: [
       `총 ${uniqueCount.toLocaleString('ko-KR')}건 중 ${newCount.toLocaleString('ko-KR')}건 신규 추가됨`,
       ...matchParts,
