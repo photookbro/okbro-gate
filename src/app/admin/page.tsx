@@ -96,6 +96,7 @@ type PlayerRow = {
   instagram_follow_verified: boolean
   instagram_follow_pending: boolean
   instagram_can_manual_approve: boolean
+  instagram_can_mismatch_reapprove: boolean
   instagram_manually_unlocked: boolean
   instagram_manual_unlock_mismatch: boolean
   instagram_handle: string | null
@@ -147,6 +148,7 @@ type PlayerDetail = {
   instagram_follow: {
     pending_handle: string | null
     can_manual_approve: boolean
+    can_mismatch_reapprove: boolean
     manually_unlocked: boolean
     manual_unlock_verified_mismatch: boolean
     approved: boolean
@@ -221,10 +223,10 @@ function OxBadge({ value }: { value: boolean }) {
   )
 }
 
-/** 즉시 승인 컬럼: 버튼(할 일) → 불일치 검토 → 수동 승인 대기 → 해당 없음 */
+/** 즉시 승인 → 추가 승인(불일치) → 수동 승인 유지 → 해당 없음 */
 function instagramManualApproveSortRank(player: PlayerRow): number {
   if (player.instagram_can_manual_approve) return 0
-  if (player.instagram_manual_unlock_mismatch) return 1
+  if (player.instagram_can_mismatch_reapprove) return 1
   if (player.instagram_manually_unlocked) return 2
   return 3
 }
@@ -448,10 +450,17 @@ export default function AdminPage() {
     setPlayerDetail(data.player ?? null)
   }
 
-  async function handleManualInstagramApprove(userId: string, handle: string | null) {
+  async function handleManualInstagramApprove(
+    userId: string,
+    handle: string | null,
+    kind: 'instant' | 'reapprove' = 'instant'
+  ) {
+    const isReapprove = kind === 'reapprove'
     if (
       !confirm(
-        `${handle ? `@${handle}` : '이 선수'}에게 인스타 팔로우 혜택을 즉시 열어줄까요?\n(신청은 대기 상태로 유지되며, 다음 팔로워 HTML 대조에서 다시 확인됩니다)`
+        isReapprove
+          ? `${handle ? `@${handle}` : '이 선수'}는 팔로워 대조에서 불일치였어요. 추가 승인으로 혜택을 다시 열어줄까요?`
+          : `${handle ? `@${handle}` : '이 선수'}에게 인스타 팔로우 혜택을 즉시 열어줄까요?\n(신청은 대기 상태로 유지되며, 다음 팔로워 HTML 대조에서 다시 확인됩니다)`
       )
     ) {
       return
@@ -466,7 +475,7 @@ export default function AdminPage() {
     setManualApprovingUserId(null)
 
     if (!res.ok) {
-      alert(data.error ?? '즉시 승인 실패')
+      alert(data.error ?? (isReapprove ? '추가 승인 실패' : '즉시 승인 실패'))
       return
     }
 
@@ -476,7 +485,7 @@ export default function AdminPage() {
         : data.no_subscription
           ? '푸시 구독 없음'
           : '푸시 발송 실패'
-    alert(`즉시 승인 완료 (${pushNote})`)
+    alert(`${isReapprove ? '추가 승인' : '즉시 승인'} 완료 (${pushNote})`)
     await loadPlayers()
     if (playerDetail?.id === userId) {
       await openPlayerDetail(userId)
@@ -1167,10 +1176,29 @@ export default function AdminPage() {
                               className="btn-info-inline text-xs"
                               disabled={manualApprovingUserId === player.id}
                               onClick={() =>
-                                void handleManualInstagramApprove(player.id, player.instagram_handle)
+                                void handleManualInstagramApprove(
+                                  player.id,
+                                  player.instagram_handle,
+                                  'instant'
+                                )
                               }
                             >
                               {manualApprovingUserId === player.id ? '처리 중...' : '즉시 승인'}
+                            </button>
+                          ) : player.instagram_can_mismatch_reapprove ? (
+                            <button
+                              type="button"
+                              className="btn-muted-inline text-xs"
+                              disabled={manualApprovingUserId === player.id}
+                              onClick={() =>
+                                void handleManualInstagramApprove(
+                                  player.id,
+                                  player.instagram_handle,
+                                  'reapprove'
+                                )
+                              }
+                            >
+                              {manualApprovingUserId === player.id ? '처리 중...' : '추가 승인'}
                             </button>
                           ) : (
                             <span className="text-muted">-</span>
@@ -1826,11 +1854,28 @@ export default function AdminPage() {
                       onClick={() =>
                         void handleManualInstagramApprove(
                           playerDetail.id,
-                          playerDetail.instagram_follow.pending_handle
+                          playerDetail.instagram_follow.pending_handle,
+                          'instant'
                         )
                       }
                     >
                       {manualApprovingUserId === playerDetail.id ? '처리 중...' : '즉시 승인'}
+                    </button>
+                  )}
+                  {playerDetail.instagram_follow.can_mismatch_reapprove && (
+                    <button
+                      type="button"
+                      className="btn-muted-inline mt-3"
+                      disabled={manualApprovingUserId === playerDetail.id}
+                      onClick={() =>
+                        void handleManualInstagramApprove(
+                          playerDetail.id,
+                          playerDetail.instagram_follow.pending_handle,
+                          'reapprove'
+                        )
+                      }
+                    >
+                      {manualApprovingUserId === playerDetail.id ? '처리 중...' : '추가 승인'}
                     </button>
                   )}
                 </section>

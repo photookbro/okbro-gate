@@ -132,6 +132,9 @@ export async function POST(req: NextRequest) {
     push_failed: 0,
     no_subscription: 0,
     manual_unlock_mismatches: 0,
+    mismatch_push_sent: 0,
+    mismatch_push_failed: 0,
+    mismatch_no_subscription: 0,
   }
   try {
     matchResult = await matchPendingInstagramFollowClaims(admin, parsedUsernames)
@@ -149,6 +152,11 @@ export async function POST(req: NextRequest) {
   if (matchResult.manual_unlock_mismatches > 0) {
     matchParts.push(
       `수동 승인 불일치 ${matchResult.manual_unlock_mismatches.toLocaleString('ko-KR')}건`
+    )
+  }
+  if (matchResult.mismatch_push_sent > 0) {
+    matchParts.push(
+      `불일치 안내 푸시 ${matchResult.mismatch_push_sent.toLocaleString('ko-KR')}건`
     )
   }
 
@@ -171,6 +179,9 @@ export async function POST(req: NextRequest) {
     push_failed: matchResult.push_failed,
     no_subscription: matchResult.no_subscription,
     manual_unlock_mismatches: matchResult.manual_unlock_mismatches,
+    mismatch_push_sent: matchResult.mismatch_push_sent,
+    mismatch_push_failed: matchResult.mismatch_push_failed,
+    mismatch_no_subscription: matchResult.mismatch_no_subscription,
     summary: [
       `파일 ${fileNames.length.toLocaleString('ko-KR')}개 · 총 ${uniqueCount.toLocaleString('ko-KR')}건 중 ${newCount.toLocaleString('ko-KR')}건 신규 추가됨`,
       ...matchParts,

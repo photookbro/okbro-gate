@@ -4,7 +4,10 @@ import {
   getActiveInstagramBonusExpiresAt,
   type InstagramFollowBonusRow,
 } from '@/lib/instagram-follow-bonus'
-import { instagramFollowApprovedPushBody } from '@/lib/instagram-follow-copy'
+import {
+  instagramFollowApprovedPushBody,
+  instagramFollowMismatchPushBody,
+} from '@/lib/instagram-follow-copy'
 import { latestActiveExpiresAt, resolveExpiresAt } from '@/lib/order-verification'
 import { sendPushToUser } from '@/lib/web-push-server'
 import { loadVerificationSettings } from '@/lib/verification-settings'
@@ -15,6 +18,20 @@ export type InstagramMatchResult = {
   push_failed: number
   no_subscription: number
   manual_unlock_mismatches: number
+  mismatch_push_sent: number
+  mismatch_push_failed: number
+  mismatch_no_subscription: number
+}
+
+const EMPTY_MATCH_RESULT: InstagramMatchResult = {
+  approved: 0,
+  push_sent: 0,
+  push_failed: 0,
+  no_subscription: 0,
+  manual_unlock_mismatches: 0,
+  mismatch_push_sent: 0,
+  mismatch_push_failed: 0,
+  mismatch_no_subscription: 0,
 }
 
 type InstagramUnlockFields = {
@@ -180,41 +197,122 @@ export async function sendInstagramFollowApprovedPush(
   }
 }
 
+export async function sendInstagramFollowMismatchPush(
+  userId: string
+): Promise<{ sent: number; failed: number; no_subscription: boolean }> {
+  const push = await sendPushToUser(userId, {
+    title: 'OKbroGATE',
+    body: instagramFollowMismatchPushBody(),
+    url: '/instagram-follow',
+  })
+
+  return {
+    sent: push.sent,
+    failed: push.failed,
+    no_subscription: push.sent === 0 && push.failed === 0,
+  }
+}
+
+type MismatchRevokeResult = {
+  revoked: number
+  push_sent: number
+  push_failed: number
+  no_subscription: number
+}
+
+async function revokeManualUnlockAndNotifyMismatch(
+  admin: SupabaseClient,
+  row: { id: string; user_id: string },
+  nowIso: string
+): Promise<{ push_sent: number; push_failed: number; no_subscription: number }> {
+  const { error: updateError } = await admin
+    .from('instagram_follow_bonus')
+    .update({
+      manually_unlocked: false,
+      manual_unlock_verified_mismatch: true,
+      updated_at: nowIso,
+    })
+    .eq('id', row.id)
+    .eq('status', 'pending')
+    .eq('manually_unlocked', true)
+
+  if (updateError) throw updateError
+
+  const push = await sendInstagramFollowMismatchPush(row.user_id)
+  if (push.sent > 0) return { push_sent: push.sent, push_failed: 0, no_subscription: 0 }
+  if (push.failed > 0) return { push_sent: 0, push_failed: push.failed, no_subscription: 0 }
+  return { push_sent: 0, push_failed: 0, no_subscription: push.no_subscription ? 1 : 0 }
+}
+
 async function flagManualUnlockMismatchesAfterFollowerUpload(
   admin: SupabaseClient,
   handleSet: Set<string>,
   now: Date = new Date()
-): Promise<number> {
+): Promise<MismatchRevokeResult> {
   const { data: manualPendingRows, error } = await admin
     .from('instagram_follow_bonus')
-    .select('id, instagram_handle')
+    .select('id, user_id, instagram_handle')
     .eq('status', 'pending')
     .eq('manually_unlocked', true)
 
   if (error) throw error
 
   const nowIso = now.toISOString()
-  let mismatches = 0
+  const result: MismatchRevokeResult = {
+    revoked: 0,
+    push_sent: 0,
+    push_failed: 0,
+    no_subscription: 0,
+  }
 
   for (const row of manualPendingRows ?? []) {
     const handle = row.instagram_handle.trim().toLowerCase()
     if (!handle || handleSet.has(handle)) continue
 
-    const { error: updateError } = await admin
-      .from('instagram_follow_bonus')
-      .update({
-        manual_unlock_verified_mismatch: true,
-        updated_at: nowIso,
-      })
-      .eq('id', row.id)
-      .eq('status', 'pending')
-      .eq('manually_unlocked', true)
-
-    if (updateError) throw updateError
-    mismatches++
+    const push = await revokeManualUnlockAndNotifyMismatch(admin, row, nowIso)
+    result.revoked++
+    result.push_sent += push.push_sent
+    result.push_failed += push.push_failed
+    result.no_subscription += push.no_subscription
   }
 
-  return mismatches
+  return result
+}
+
+/** 이미 불일치로 표시됐지만 수동 해제가 남아 있는 건을 회수하고 푸시 */
+export async function revokeExistingMismatchedManualUnlocks(
+  admin: SupabaseClient,
+  options: { excludeUserIds?: Set<string> } = {},
+  now: Date = new Date()
+): Promise<MismatchRevokeResult> {
+  const { data: rows, error } = await admin
+    .from('instagram_follow_bonus')
+    .select('id, user_id, instagram_handle')
+    .eq('status', 'pending')
+    .eq('manually_unlocked', true)
+    .eq('manual_unlock_verified_mismatch', true)
+
+  if (error) throw error
+
+  const nowIso = now.toISOString()
+  const exclude = options.excludeUserIds ?? new Set<string>()
+  const result: MismatchRevokeResult = {
+    revoked: 0,
+    push_sent: 0,
+    push_failed: 0,
+    no_subscription: 0,
+  }
+
+  for (const row of rows ?? []) {
+    if (exclude.has(row.user_id)) continue
+    const push = await revokeManualUnlockAndNotifyMismatch(admin, row, nowIso)
+    result.revoked++
+    result.push_sent += push.push_sent
+    result.push_failed += push.push_failed
+    result.no_subscription += push.no_subscription
+  }
+
+  return result
 }
 
 export async function matchPendingInstagramFollowClaims(
@@ -223,7 +321,7 @@ export async function matchPendingInstagramFollowClaims(
 ): Promise<InstagramMatchResult> {
   const handleSet = new Set(usernames.map(u => u.trim().toLowerCase()).filter(Boolean))
   if (handleSet.size === 0) {
-    return { approved: 0, push_sent: 0, push_failed: 0, no_subscription: 0, manual_unlock_mismatches: 0 }
+    return { ...EMPTY_MATCH_RESULT }
   }
 
   const settings = await loadVerificationSettings(admin)
@@ -273,16 +371,16 @@ export async function matchPendingInstagramFollowClaims(
     }
   }
 
-  const manualUnlockMismatches = await flagManualUnlockMismatchesAfterFollowerUpload(
-    admin,
-    handleSet
-  )
+  const mismatchRevoke = await flagManualUnlockMismatchesAfterFollowerUpload(admin, handleSet)
 
   return {
     approved,
     push_sent: pushSent,
     push_failed: pushFailed,
     no_subscription: noSubscription,
-    manual_unlock_mismatches: manualUnlockMismatches,
+    manual_unlock_mismatches: mismatchRevoke.revoked,
+    mismatch_push_sent: mismatchRevoke.push_sent,
+    mismatch_push_failed: mismatchRevoke.push_failed,
+    mismatch_no_subscription: mismatchRevoke.no_subscription,
   }
 }

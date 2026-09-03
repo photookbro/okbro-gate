@@ -268,7 +268,12 @@ export async function GET(req: NextRequest) {
           pending_handle: latestPendingInstagram?.instagram_handle ?? null,
           can_manual_approve:
             latestPendingInstagram?.status === 'pending' &&
-            latestPendingInstagram.manually_unlocked !== true,
+            latestPendingInstagram.manually_unlocked !== true &&
+            latestPendingInstagram.manual_unlock_verified_mismatch !== true,
+          can_mismatch_reapprove:
+            latestPendingInstagram?.status === 'pending' &&
+            latestPendingInstagram.manually_unlocked !== true &&
+            latestPendingInstagram.manual_unlock_verified_mismatch === true,
           manually_unlocked: latestPendingInstagram?.manually_unlocked === true,
           manual_unlock_verified_mismatch:
             latestPendingInstagram?.manual_unlock_verified_mismatch === true,
@@ -540,7 +545,13 @@ export async function GET(req: NextRequest) {
       instagram_follow_verified: !!instagramBonus || instagramBonusActive,
       instagram_follow_pending: !!instagramPending,
       instagram_can_manual_approve:
-        !!instagramPending && !instagramPending.manually_unlocked,
+        !!instagramPending &&
+        !instagramPending.manually_unlocked &&
+        !instagramPending.manual_unlock_verified_mismatch,
+      instagram_can_mismatch_reapprove:
+        !!instagramPending &&
+        !instagramPending.manually_unlocked &&
+        instagramPending.manual_unlock_verified_mismatch === true,
       instagram_manually_unlocked: instagramPending?.manually_unlocked === true,
       instagram_manual_unlock_mismatch: instagramPending?.manual_unlock_verified_mismatch === true,
       instagram_handle: instagramHandle,

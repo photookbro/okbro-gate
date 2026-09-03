@@ -21,4 +21,8 @@ export function instagramFollowApprovedPushBody(bonusDays: number): string {
   return `인스타그램 팔로우가 확인됐어요! ${bonusDays}일 무료 이용이 시작됐어요`
 }
 
+export function instagramFollowMismatchPushBody(): string {
+  return `인스타그램 팔로우가 확인되지 않았어요. @${INSTAGRAM_HANDLE}를 팔로우하고 다시 인증해주세요`
+}
+
 export const INSTAGRAM_BENEFIT_BANNER_DISMISS_KEY = 'okbro_instagram_follow_benefit_banner_dismissed'
