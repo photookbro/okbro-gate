@@ -4,8 +4,10 @@ import { useState } from 'react'
 import Link from 'next/link'
 import type { InstagramFollowBonusStatus } from '@/lib/instagram-follow-bonus'
 import {
+  INSTAGRAM_FOLLOW_MYPAGE_WARNING,
   INSTAGRAM_LATE_MATCH_NOTICE,
-  instagramFollowMypageDescription,
+  instagramFollowMypageDescriptionLead,
+  instagramFollowMypageDescriptionTail,
   instagramFollowSubmitCompleteMessage,
 } from '@/lib/instagram-follow-copy'
 import { authFetch } from '@/lib/supabase/auth-client'
@@ -125,7 +127,18 @@ function FollowerAccessRow({
     )
   }
 
-  const description = instagramFollowMypageDescription(bonus_days_setting)
+  const descriptionLead = instagramFollowMypageDescriptionLead(bonus_days_setting)
+  const descriptionTail = instagramFollowMypageDescriptionTail()
+
+  function renderFollowDescription() {
+    return (
+      <div className="mb-3 space-y-2 text-sm leading-relaxed">
+        <p className="mb-0 whitespace-pre-line text-muted">{descriptionLead}</p>
+        <p className="mypage-instagram-follow-warning mb-0">{INSTAGRAM_FOLLOW_MYPAGE_WARNING}</p>
+        <p className="mb-0 text-muted">{descriptionTail}</p>
+      </div>
+    )
+  }
 
   async function handleResubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -170,7 +183,7 @@ function FollowerAccessRow({
     return (
       <div className="mypage-access-row">
         <p className="mypage-access-row-label">팔로워 인증 열람일</p>
-        <p className="mb-3 text-sm leading-relaxed text-muted">{description}</p>
+        {renderFollowDescription()}
         <p className="mb-1 text-sm text-muted">
           제출한 아이디: @{instagram_handle ?? '—'} (대기중)
         </p>
@@ -228,7 +241,7 @@ function FollowerAccessRow({
   return (
     <div className="mypage-access-row">
       <p className="mypage-access-row-label">팔로워 인증 열람일</p>
-      <p className="mb-3 text-sm leading-relaxed text-muted">{description}</p>
+      {renderFollowDescription()}
       {state === 'not_matched' ? (
         <p className="alert-warning mb-4">
           아직 확인되지 않았어요. {INSTAGRAM_LATE_MATCH_NOTICE} 그 이후 다시 시도해주세요.

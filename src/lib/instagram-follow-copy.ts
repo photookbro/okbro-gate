@@ -8,9 +8,20 @@ export function instagramFollowBenefitLine(bonusDays: number): string {
   return `인스타그램(@${INSTAGRAM_HANDLE})을 팔로우하면 첫 ${bonusDays}일은 인증 없이 앱을 이용할 수 있어요 (${INSTAGRAM_LATE_MATCH_NOTICE})`
 }
 
-/** 마이페이지 팔로워 인증 안내 */
+/** 마이페이지 팔로워 인증 안내 (본문) */
+export function instagramFollowMypageDescriptionLead(bonusDays: number): string {
+  return `인스타그램(@${INSTAGRAM_HANDLE})을 팔로우하고 계신가요? 팔로워로 확인된 아이디만 알려주시면, 처음 ${bonusDays}일은 열람할 수 있어요. 다른 아이디도 추가로 등록할 수 있어요. (같은 아이디는 중복 사용 불가)`
+}
+
+export const INSTAGRAM_FOLLOW_MYPAGE_WARNING =
+  '⚠ 팔로우 없이 아이디만 입력하시면 확인되지 않아요. 반드시 먼저 팔로우부터 해주세요.'
+
+export function instagramFollowMypageDescriptionTail(): string {
+  return '대회 당일 늦은 시간에 확인 후 반영되니 기다려주세요.'
+}
+
 export function instagramFollowMypageDescription(bonusDays: number): string {
-  return `인스타그램(@${INSTAGRAM_HANDLE})을 팔로우하고 계신가요? 팔로워로 확인된 아이디를 알려주시면, 처음 ${bonusDays}일은 열람할 수 있어요. 다른 아이디도 추가로 등록할 수 있어요. (같은 아이디는 중복 사용 불가) 대회 당일 늦은 시간에 확인 후 반영되니 기다려주세요.`
+  return `${instagramFollowMypageDescriptionLead(bonusDays)}\n\n${INSTAGRAM_FOLLOW_MYPAGE_WARNING}\n\n${instagramFollowMypageDescriptionTail()}`
 }
 
 export function instagramFollowSubmitCompleteMessage(): string {

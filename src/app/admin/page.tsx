@@ -223,7 +223,7 @@ function OxBadge({ value }: { value: boolean }) {
   )
 }
 
-/** 즉시 승인 → 추가 승인(불일치) → 수동 승인 유지 → 해당 없음 */
+/** 즉시 승인 → 추가 승인(불일치) → 자동 승인 유지 → 해당 없음 */
 function instagramManualApproveSortRank(player: PlayerRow): number {
   if (player.instagram_can_manual_approve) return 0
   if (player.instagram_can_mismatch_reapprove) return 1
@@ -1166,7 +1166,7 @@ export default function AdminPage() {
                         <td className="text-muted">
                           {player.instagram_handle ?? '-'}
                           {player.instagram_manually_unlocked && (
-                            <span className="ml-1 text-xs text-amber-600">(수동 승인)</span>
+                            <span className="ml-1 text-xs text-amber-600">(자동 승인)</span>
                           )}
                         </td>
                         <td className="whitespace-nowrap" onClick={e => e.stopPropagation()}>
@@ -1843,7 +1843,7 @@ export default function AdminPage() {
                   {playerDetail.instagram_follow.manually_unlocked &&
                     !playerDetail.instagram_follow.manual_unlock_verified_mismatch && (
                       <p className="mt-3 text-sm text-amber-700">
-                        수동 승인됨 (대기 중 — 다음 HTML 대조에서 확인)
+                        자동 승인됨 (대기 중 — 다음 HTML 대조에서 확인)
                       </p>
                     )}
                   {playerDetail.instagram_follow.can_manual_approve && (

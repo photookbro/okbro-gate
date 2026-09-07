@@ -967,6 +967,11 @@ body {
   color: #b8b8b8;
 }
 
+.mypage-instagram-follow-warning {
+  color: var(--color-okbro-orange);
+  font-weight: 600;
+}
+
 .mypage-status-label {
   @apply mb-3 font-semibold uppercase tracking-wide text-[var(--text-muted)];
   font-size: var(--font-caption-size);
