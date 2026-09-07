@@ -42,7 +42,7 @@ assert.equal(
 
 assert.equal(
   instagramFollowMismatchPushBody(),
-  '인스타그램 팔로우가 확인되지 않았어요. @photo_ok_bro를 팔로우하고 다시 인증해주세요'
+  '인스타그램 팔로우가 확인되지 않았어요. @photo_ok_bro 팔로우와 아이디 입력을 다시 확인해주세요'
 )
 
 const expires = calculateInstagramBonusExpiresAt('2026-07-24T10:00:00.000Z', 5)

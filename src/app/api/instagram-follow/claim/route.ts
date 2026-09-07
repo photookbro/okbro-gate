@@ -6,11 +6,29 @@ import {
   buildInstagramFollowBonusStatus,
   getEffectiveInstagramFollowBonus,
   getLatestInstagramFollowBonusAttempt,
+  type InstagramFollowBonusRow,
 } from '@/lib/instagram-follow-bonus'
+import { manuallyUnlockInstagramFollowPendingRow } from '@/lib/instagram-follow-approve-server'
 import { instagramFollowSubmitCompleteMessage } from '@/lib/instagram-follow-copy'
 import { ensureUserProfile } from '@/lib/user-profile-server'
 import { loadVerificationSettings } from '@/lib/verification-settings'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+
+async function unlockPendingClaim(
+  admin: ReturnType<typeof supabaseAdmin>,
+  row: Pick<InstagramFollowBonusRow, 'id' | 'user_id' | 'instagram_handle'>,
+  bonusDays: number,
+  verifiedPeriodDays: number,
+  now: Date
+): Promise<InstagramFollowBonusRow | null> {
+  return manuallyUnlockInstagramFollowPendingRow(
+    admin,
+    row,
+    bonusDays,
+    verifiedPeriodDays,
+    now
+  )
+}
 
 export async function POST(req: NextRequest) {
   const authUser = await getAuthenticatedUser(req)
@@ -29,6 +47,7 @@ export async function POST(req: NextRequest) {
   const admin = supabaseAdmin()
   const settings = await loadVerificationSettings(admin)
   const bonusDays = settings.instagramFollowBonusDays
+  const verifiedPeriodDays = settings.verifiedPeriodDays
   const now = new Date()
   const nowIso = now.toISOString()
 
@@ -53,11 +72,29 @@ export async function POST(req: NextRequest) {
 
   const latestAttempt = await getLatestInstagramFollowBonusAttempt(admin, user.id)
 
-  // pending 중 재제출: 같은 레코드만 갱신(중복 insert 금지), 검증 플래그 초기화
+  // pending 중 재제출: 같은 레코드만 갱신(중복 insert 금지), 검증 플래그 초기화 후 즉시 이용 가능
   if (latestAttempt?.status === 'pending') {
     if (latestAttempt.instagram_handle === handle) {
+      let attemptRow = latestAttempt
+      if (!latestAttempt.manually_unlocked) {
+        const unlocked = await unlockPendingClaim(
+          admin,
+          latestAttempt,
+          bonusDays,
+          verifiedPeriodDays,
+          now
+        )
+        if (!unlocked) {
+          return NextResponse.json(
+            { error: '이미 사용된 계정입니다' },
+            { status: 400 }
+          )
+        }
+        attemptRow = unlocked
+      }
+
       const effectiveBonus = await getEffectiveInstagramFollowBonus(admin, user.id, now)
-      const status = buildInstagramFollowBonusStatus(effectiveBonus, latestAttempt, bonusDays, now)
+      const status = buildInstagramFollowBonusStatus(effectiveBonus, attemptRow, bonusDays, now)
       return NextResponse.json({
         success: true,
         message: instagramFollowSubmitCompleteMessage(),
@@ -94,8 +131,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '신청을 수정할 수 없어요' }, { status: 409 })
     }
 
+    const unlocked = await unlockPendingClaim(
+      admin,
+      updated as InstagramFollowBonusRow,
+      bonusDays,
+      verifiedPeriodDays,
+      now
+    )
+    if (!unlocked) {
+      return NextResponse.json({ error: '이미 사용된 계정입니다' }, { status: 400 })
+    }
+
     const effectiveBonus = await getEffectiveInstagramFollowBonus(admin, user.id, now)
-    const status = buildInstagramFollowBonusStatus(effectiveBonus, updated, bonusDays, now)
+    const status = buildInstagramFollowBonusStatus(effectiveBonus, unlocked, bonusDays, now)
 
     return NextResponse.json({
       success: true,
@@ -105,12 +153,16 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  const { error: insertError } = await admin.from('instagram_follow_bonus').insert({
-    user_id: user.id,
-    instagram_handle: handle,
-    status: 'pending',
-    updated_at: nowIso,
-  })
+  const { data: inserted, error: insertError } = await admin
+    .from('instagram_follow_bonus')
+    .insert({
+      user_id: user.id,
+      instagram_handle: handle,
+      status: 'pending',
+      updated_at: nowIso,
+    })
+    .select('*')
+    .maybeSingle()
 
   if (insertError) {
     if (insertError.code === '23505') {
@@ -120,9 +172,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '신청 저장에 실패했어요' }, { status: 500 })
   }
 
+  if (!inserted) {
+    return NextResponse.json({ error: '신청 저장에 실패했어요' }, { status: 500 })
+  }
+
+  const unlocked = await unlockPendingClaim(
+    admin,
+    inserted as InstagramFollowBonusRow,
+    bonusDays,
+    verifiedPeriodDays,
+    now
+  )
+  if (!unlocked) {
+    return NextResponse.json({ error: '이미 사용된 계정입니다' }, { status: 400 })
+  }
+
   const effectiveBonus = await getEffectiveInstagramFollowBonus(admin, user.id, now)
-  const updatedAttempt = await getLatestInstagramFollowBonusAttempt(admin, user.id)
-  const status = buildInstagramFollowBonusStatus(effectiveBonus, updatedAttempt, bonusDays, now)
+  const status = buildInstagramFollowBonusStatus(effectiveBonus, unlocked, bonusDays, now)
 
   return NextResponse.json({
     success: true,

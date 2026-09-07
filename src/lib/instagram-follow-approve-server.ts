@@ -180,6 +180,70 @@ export async function manuallyUnlockInstagramFollowPendingRow(
   return (unlocked as InstagramFollowBonusRow | null) ?? null
 }
 
+const PENDING_AUTO_UNLOCK_PAGE_SIZE = 100
+
+/**
+ * pending + 아직 수동해제 안 된 건을 일괄 해제(제출 즉시 승인 정책 소급).
+ * 불일치(manual_unlock_verified_mismatch) 표시 건은 건드리지 않음.
+ */
+export async function backfillPendingInstagramManualUnlocks(
+  admin: SupabaseClient,
+  now: Date = new Date()
+): Promise<{ unlocked: number; skipped: number; failed: number }> {
+  const settings = await loadVerificationSettings(admin)
+  const bonusDays = settings.instagramFollowBonusDays
+  const verifiedPeriodDays = settings.verifiedPeriodDays
+
+  let unlocked = 0
+  let skipped = 0
+  let failed = 0
+  let from = 0
+
+  for (;;) {
+    const { data, error } = await admin
+      .from('instagram_follow_bonus')
+      .select('id, user_id, instagram_handle, manually_unlocked, manual_unlock_verified_mismatch')
+      .eq('status', 'pending')
+      .eq('manually_unlocked', false)
+      .eq('manual_unlock_verified_mismatch', false)
+      .order('created_at', { ascending: true })
+      .range(from, from + PENDING_AUTO_UNLOCK_PAGE_SIZE - 1)
+
+    if (error) throw error
+
+    const rows = data ?? []
+    if (rows.length === 0) break
+
+    for (const row of rows) {
+      try {
+        const result = await manuallyUnlockInstagramFollowPendingRow(
+          admin,
+          row,
+          bonusDays,
+          verifiedPeriodDays,
+          now
+        )
+        if (result) unlocked++
+        else skipped++
+      } catch (err) {
+        failed++
+        console.error('[instagram] backfill pending unlock failed', {
+          id: row.id,
+          userId: row.user_id,
+          error: err,
+        })
+      }
+    }
+
+    if (rows.length < PENDING_AUTO_UNLOCK_PAGE_SIZE) break
+    // 앞 페이지를 unlock하면 manually_unlocked=false 집합이 줄어 range(from+=page)는 건너뜀
+    // → 항상 from=0으로 남은 locked pending만 재조회
+    from = 0
+  }
+
+  return { unlocked, skipped, failed }
+}
+
 export async function sendInstagramFollowApprovedPush(
   userId: string,
   bonusDays: number
