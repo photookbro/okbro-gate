@@ -1,17 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import {
-  chunkArray,
   mergeInstagramFollowerUsernames,
   parseInstagramFollowersFromHtml,
 } from '@/lib/instagram-followers-parse'
-import { matchPendingInstagramFollowClaims } from '@/lib/instagram-follow-approve-server'
+import {
+  buildFollowerUploadJobPublicView,
+  createInstagramFollowerUploadJob,
+  getInstagramFollowerUploadJob,
+  getLatestInstagramFollowerUploadJobs,
+  processInstagramFollowerUploadJob,
+} from '@/lib/instagram-followers-upload-job-server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+
+/** Pro/Fluid 기준 — 백그라운드(after) 처리가 이 한도 안에서 끝나야 함 */
+export const maxDuration = 300
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024
 const MAX_FILE_COUNT = 20
-const UPSERT_BATCH_SIZE = 500
-const EXISTING_LOOKUP_BATCH_SIZE = 500
 
 function collectHtmlFiles(formData: FormData): File[] {
   const files: File[] = []
@@ -19,6 +25,55 @@ function collectHtmlFiles(formData: FormData): File[] {
     if (value instanceof File && value.size > 0) files.push(value)
   }
   return files
+}
+
+function isMissingJobsTable(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false
+  return (
+    error.code === 'PGRST205' ||
+    error.code === '42P01' ||
+    /instagram_follower_upload_jobs/i.test(error.message ?? '')
+  )
+}
+
+export async function GET(req: NextRequest) {
+  const denied = requireAdmin(req)
+  if (denied) return denied
+
+  const admin = supabaseAdmin()
+  const jobId = new URL(req.url).searchParams.get('job_id')?.trim()
+
+  try {
+    if (jobId) {
+      const job = await getInstagramFollowerUploadJob(admin, jobId)
+      if (!job) {
+        return NextResponse.json({ error: '작업을 찾지 못했어요' }, { status: 404 })
+      }
+      return NextResponse.json({
+        success: true,
+        job: buildFollowerUploadJobPublicView(job),
+      })
+    }
+
+    const jobs = await getLatestInstagramFollowerUploadJobs(admin, 5)
+    return NextResponse.json({
+      success: true,
+      jobs: jobs.map(buildFollowerUploadJobPublicView),
+    })
+  } catch (error) {
+    const err = error as { code?: string; message?: string }
+    if (isMissingJobsTable(err)) {
+      return NextResponse.json(
+        {
+          error:
+            '업로드 작업 테이블이 없어요. Supabase SQL Editor에서 마이그레이션 20260907_instagram_follower_upload_jobs.sql 을 실행해주세요.',
+        },
+        { status: 503 }
+      )
+    }
+    console.error('[admin/instagram-followers] GET', error)
+    return NextResponse.json({ error: '작업 상태 조회 실패' }, { status: 500 })
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -82,109 +137,36 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = supabaseAdmin()
-  const existing = new Set<string>()
 
-  for (const batch of chunkArray(parsedUsernames, EXISTING_LOOKUP_BATCH_SIZE)) {
-    const { data, error } = await admin
-      .from('instagram_followers')
-      .select('username')
-      .in('username', batch)
-
-    if (error) {
-      console.error('[admin/instagram-followers] lookup', error)
-      return NextResponse.json({ error: '기존 팔로워 조회 실패' }, { status: 500 })
-    }
-
-    for (const row of data ?? []) {
-      if (typeof row.username === 'string') existing.add(row.username)
-    }
-  }
-
-  // 기존 DB에 다른 대소문자로 저장된 경우도 신규로 치지 않도록 소문자 기준 비교
-  const existingLower = new Set([...existing].map(u => u.toLowerCase()))
-
-  const now = new Date().toISOString()
-  const rows = parsedUsernames.map(username => ({
-    username,
-    updated_at: now,
-  }))
-
-  for (const batch of chunkArray(rows, UPSERT_BATCH_SIZE)) {
-    const { error } = await admin
-      .from('instagram_followers')
-      .upsert(batch, { onConflict: 'username', ignoreDuplicates: false })
-
-    if (error) {
-      console.error('[admin/instagram-followers] upsert', error)
-      return NextResponse.json({ error: '팔로워 저장 실패' }, { status: 500 })
-    }
-  }
-
-  const uniqueCount = parsedUsernames.length
-  const newCount = parsedUsernames.filter(
-    username => !existing.has(username) && !existingLower.has(username.toLowerCase())
-  ).length
-  const updatedCount = uniqueCount - newCount
-
-  let matchResult = {
-    approved: 0,
-    push_sent: 0,
-    push_failed: 0,
-    no_subscription: 0,
-    manual_unlock_mismatches: 0,
-    mismatch_push_sent: 0,
-    mismatch_push_failed: 0,
-    mismatch_no_subscription: 0,
-  }
+  let job
   try {
-    matchResult = await matchPendingInstagramFollowClaims(admin, parsedUsernames)
+    job = await createInstagramFollowerUploadJob(admin, {
+      fileNames,
+      usernames: parsedUsernames,
+    })
   } catch (error) {
-    console.error('[admin/instagram-followers] match', error)
+    const err = error as { code?: string; message?: string }
+    if (isMissingJobsTable(err)) {
+      return NextResponse.json(
+        {
+          error:
+            '업로드 작업 테이블이 없어요. Supabase SQL Editor에서 마이그레이션 20260907_instagram_follower_upload_jobs.sql 을 실행해주세요.',
+        },
+        { status: 503 }
+      )
+    }
+    console.error('[admin/instagram-followers] create job', error)
+    return NextResponse.json({ error: '업로드 접수에 실패했어요' }, { status: 500 })
   }
 
-  const matchParts: string[] = []
-  if (matchResult.approved > 0) {
-    matchParts.push(`대기 중 ${matchResult.approved.toLocaleString('ko-KR')}건 승인`)
-  }
-  if (matchResult.push_sent > 0) {
-    matchParts.push(`푸시 ${matchResult.push_sent.toLocaleString('ko-KR')}건 발송`)
-  }
-  if (matchResult.manual_unlock_mismatches > 0) {
-    matchParts.push(
-      `수동 승인 불일치 ${matchResult.manual_unlock_mismatches.toLocaleString('ko-KR')}건`
-    )
-  }
-  if (matchResult.mismatch_push_sent > 0) {
-    matchParts.push(
-      `불일치 안내 푸시 ${matchResult.mismatch_push_sent.toLocaleString('ko-KR')}건`
-    )
-  }
-
-  const fileLabel =
-    fileNames.length === 1
-      ? fileNames[0]
-      : `${fileNames.join(', ')} (${fileNames.length}개)`
+  after(() => {
+    void processInstagramFollowerUploadJob(admin, job.id)
+  })
 
   return NextResponse.json({
     success: true,
-    file_name: fileLabel,
-    file_names: fileNames,
-    file_count: fileNames.length,
-    total_parsed: uniqueCount,
-    unique_count: uniqueCount,
-    new_count: newCount,
-    updated_count: updatedCount,
-    matched_approved: matchResult.approved,
-    push_sent: matchResult.push_sent,
-    push_failed: matchResult.push_failed,
-    no_subscription: matchResult.no_subscription,
-    manual_unlock_mismatches: matchResult.manual_unlock_mismatches,
-    mismatch_push_sent: matchResult.mismatch_push_sent,
-    mismatch_push_failed: matchResult.mismatch_push_failed,
-    mismatch_no_subscription: matchResult.mismatch_no_subscription,
-    summary: [
-      `파일 ${fileNames.length.toLocaleString('ko-KR')}개 · 총 ${uniqueCount.toLocaleString('ko-KR')}건 중 ${newCount.toLocaleString('ko-KR')}건 신규 추가됨`,
-      ...matchParts,
-    ].join(' · '),
+    accepted: true,
+    message: '접수됐습니다. 백그라운드에서 분석·저장 중이에요.',
+    job: buildFollowerUploadJobPublicView(job),
   })
 }

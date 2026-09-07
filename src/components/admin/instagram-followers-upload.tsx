@@ -1,14 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
-type UploadResult = {
-  summary: string
-  total_parsed: number
-  new_count: number
-  updated_count: number
+type JobView = {
+  job_id: string
+  status: 'queued' | 'processing' | 'completed' | 'failed'
   file_name: string
   file_count: number
+  progress_index: number
+  total_parsed: number | null
+  new_count: number | null
+  updated_count: number | null
+  summary: string | null
+  error: string | null
+  message: string
 }
 
 type InstagramFollowersUploadProps = {
@@ -20,11 +25,52 @@ function formatSelectedFilesLabel(files: File[]): string {
   return `선택된 파일: ${names} (${files.length}개)`
 }
 
+function statusLabel(status: JobView['status']): string {
+  if (status === 'queued') return '대기 중'
+  if (status === 'processing') return '처리 중'
+  if (status === 'completed') return '처리 완료'
+  return '처리 실패'
+}
+
 export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
-  const [result, setResult] = useState<UploadResult | null>(null)
+  const [job, setJob] = useState<JobView | null>(null)
+
+  useEffect(() => {
+    if (!job) return
+    if (job.status === 'completed' || job.status === 'failed') return
+
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const res = await fetch(
+          `/api/admin/instagram-followers?job_id=${encodeURIComponent(job.job_id)}`,
+          { headers: { 'x-admin-token': token } }
+        )
+        const data = await res.json()
+        if (cancelled) return
+        if (!res.ok) {
+          setError(typeof data.error === 'string' ? data.error : '상태 조회 실패')
+          return
+        }
+        if (data.job) setJob(data.job as JobView)
+      } catch {
+        if (!cancelled) setError('상태 조회 중 오류가 발생했어요')
+      }
+    }
+
+    const timer = window.setInterval(() => {
+      void poll()
+    }, 2000)
+    void poll()
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [job, token])
 
   async function handleUpload() {
     if (selectedFiles.length === 0) {
@@ -34,7 +80,7 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
 
     setUploading(true)
     setError('')
-    setResult(null)
+    setJob(null)
 
     const formData = new FormData()
     for (const file of selectedFiles) {
@@ -54,14 +100,7 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
         return
       }
 
-      setResult({
-        summary: data.summary ?? '',
-        total_parsed: data.total_parsed ?? 0,
-        new_count: data.new_count ?? 0,
-        updated_count: data.updated_count ?? 0,
-        file_name: data.file_name ?? selectedFiles.map(f => f.name).join(', '),
-        file_count: data.file_count ?? selectedFiles.length,
-      })
+      setJob((data.job as JobView) ?? null)
       setSelectedFiles([])
     } catch {
       setError('업로드 중 오류가 발생했어요')
@@ -70,14 +109,18 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
     }
   }
 
+  const inFlight = job?.status === 'queued' || job?.status === 'processing'
+  const progressTotal = job?.total_parsed ?? 0
+  const progressDone = job?.progress_index ?? 0
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">
         인스타그램 &quot;내 정보 다운로드&quot;의 팔로워 HTML 파일(followers_1.html,
         followers_2.html 등)을 업로드하세요. 여러 개를 한 번에 선택할 수 있어요.
         <br />
-        업로드 후 대기 중인 팔로워 인증 신청과 자동 대조·승인되며, 승인된 유저에게 푸시 알림이
-        발송돼요. 대용량 파일(2MB 이상)은 1~2분 걸릴 수 있어요.
+        업로드하면 바로 접수되고, 분석·저장·대조는 백그라운드에서 이어집니다. 아래에서 진행 상태를
+        확인할 수 있어요.
       </p>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -87,23 +130,22 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
             type="file"
             accept=".html,text/html"
             multiple
-            disabled={uploading}
+            disabled={uploading || inFlight}
             className="input-field"
             onChange={e => {
               const next = Array.from(e.target.files ?? [])
               setSelectedFiles(next)
               setError('')
-              setResult(null)
             }}
           />
         </label>
         <button
           type="button"
           className="btn-primary-inline shrink-0"
-          disabled={uploading || selectedFiles.length === 0}
+          disabled={uploading || inFlight || selectedFiles.length === 0}
           onClick={() => void handleUpload()}
         >
-          {uploading ? '분석·저장 중...' : 'UPLOAD'}
+          {uploading ? '접수 중...' : inFlight ? '처리 중...' : 'UPLOAD'}
         </button>
       </div>
 
@@ -111,23 +153,40 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
         <p className="text-sm text-muted">{formatSelectedFilesLabel(selectedFiles)}</p>
       ) : null}
 
-      {uploading ? (
-        <p className="text-sm text-primary" role="status">
-          파일을 분석하고 DB에 저장하는 중이에요. 창을 닫지 마세요.
-        </p>
-      ) : null}
-
       {error ? <p className="alert-danger mb-0">{error}</p> : null}
 
-      {result ? (
-        <div className="alert-success mb-0">
-          <p className="mb-1 font-semibold">{result.summary}</p>
+      {job ? (
+        <div
+          className={
+            job.status === 'failed'
+              ? 'alert-danger mb-0'
+              : job.status === 'completed'
+                ? 'alert-success mb-0'
+                : 'rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3'
+          }
+        >
+          <p className="mb-1 font-semibold">
+            {statusLabel(job.status)}
+            {inFlight && progressTotal > 0
+              ? ` · ${progressDone.toLocaleString('ko-KR')} / ${progressTotal.toLocaleString('ko-KR')}`
+              : ''}
+          </p>
           <p className="mb-0 text-sm">
-            파일: {result.file_name}
+            {job.status === 'completed'
+              ? (job.summary ?? job.message)
+              : job.status === 'failed'
+                ? (job.error ?? job.message)
+                : job.message}
             <br />
-            추출 {result.total_parsed.toLocaleString('ko-KR')}건 · 신규{' '}
-            {result.new_count.toLocaleString('ko-KR')}건 · 기존 갱신{' '}
-            {result.updated_count.toLocaleString('ko-KR')}건
+            파일: {job.file_name || '-'}
+            {job.status === 'completed' && job.total_parsed != null ? (
+              <>
+                <br />
+                추출 {job.total_parsed.toLocaleString('ko-KR')}건 · 신규{' '}
+                {(job.new_count ?? 0).toLocaleString('ko-KR')}건 · 기존 갱신{' '}
+                {(job.updated_count ?? 0).toLocaleString('ko-KR')}건
+              </>
+            ) : null}
           </p>
         </div>
       ) : null}
