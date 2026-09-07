@@ -223,11 +223,11 @@ function OxBadge({ value }: { value: boolean }) {
   )
 }
 
-/** 즉시 승인 → 추가 승인(불일치) → 자동 승인 유지 → 해당 없음 */
+/** 추가 승인(불일치) → 자동 승인 → 즉시 승인(잔여 pending) → 해당 없음 */
 function instagramManualApproveSortRank(player: PlayerRow): number {
-  if (player.instagram_can_manual_approve) return 0
-  if (player.instagram_can_mismatch_reapprove) return 1
-  if (player.instagram_manually_unlocked) return 2
+  if (player.instagram_can_mismatch_reapprove) return 0
+  if (player.instagram_manually_unlocked) return 1
+  if (player.instagram_can_manual_approve) return 2
   return 3
 }
 
@@ -1091,8 +1091,8 @@ export default function AdminPage() {
               <p className="text-muted">로딩 중...</p>
             ) : (
               <>
-                <div className="admin-table-wrap">
-                <table className="admin-table admin-table-compact">
+                <div className="admin-table-wrap admin-players-table-wrap">
+                <table className="admin-table admin-table-compact admin-table-players">
                   <thead>
                     <tr>
                       {([
@@ -1156,36 +1156,16 @@ export default function AdminPage() {
                         className="cursor-pointer hover:bg-[var(--bg)]/80"
                         onClick={() => void openPlayerDetail(player.id)}
                       >
-                        <td className="font-medium">{player.name}</td>
-                        <td>{player.email}</td>
+                        <td className="font-medium admin-players-sticky-name">{player.name}</td>
+                        <td className="admin-players-email">{player.email}</td>
                         <td className="whitespace-nowrap text-muted">{formatDateOnly(player.joined_at)}</td>
                         <td><OxBadge value={player.terms_agreed} /></td>
                         <td><OxBadge value={player.purchase_verified} /></td>
                         <td><OxBadge value={player.gps_record} /></td>
                         <td><OxBadge value={player.instagram_follow_verified} /></td>
-                        <td className="text-muted">
-                          {player.instagram_handle ?? '-'}
-                          {player.instagram_manually_unlocked && (
-                            <span className="ml-1 text-xs text-amber-600">(자동 승인)</span>
-                          )}
-                        </td>
+                        <td className="text-muted">{player.instagram_handle ?? '-'}</td>
                         <td className="whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                          {player.instagram_can_manual_approve ? (
-                            <button
-                              type="button"
-                              className="btn-info-inline text-xs"
-                              disabled={manualApprovingUserId === player.id}
-                              onClick={() =>
-                                void handleManualInstagramApprove(
-                                  player.id,
-                                  player.instagram_handle,
-                                  'instant'
-                                )
-                              }
-                            >
-                              {manualApprovingUserId === player.id ? '처리 중...' : '즉시 승인'}
-                            </button>
-                          ) : player.instagram_can_mismatch_reapprove ? (
+                          {player.instagram_can_mismatch_reapprove ? (
                             <button
                               type="button"
                               className="btn-muted-inline text-xs"
@@ -1199,6 +1179,23 @@ export default function AdminPage() {
                               }
                             >
                               {manualApprovingUserId === player.id ? '처리 중...' : '추가 승인'}
+                            </button>
+                          ) : player.instagram_manually_unlocked ? (
+                            <span className="admin-players-auto-approve-badge">자동승인</span>
+                          ) : player.instagram_can_manual_approve ? (
+                            <button
+                              type="button"
+                              className="btn-info-inline text-xs"
+                              disabled={manualApprovingUserId === player.id}
+                              onClick={() =>
+                                void handleManualInstagramApprove(
+                                  player.id,
+                                  player.instagram_handle,
+                                  'instant'
+                                )
+                              }
+                            >
+                              {manualApprovingUserId === player.id ? '처리 중...' : '즉시 승인'}
                             </button>
                           ) : (
                             <span className="text-muted">-</span>
