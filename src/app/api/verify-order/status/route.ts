@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 }
 
 async function getAlbumAccessStatus(req: NextRequest) {
-  const authUser = await getAuthenticatedUser()
+  const authUser = await getAuthenticatedUser(req)
   const user = await requireTermsAgreement(authUser)
   if (user instanceof NextResponse) return user
 

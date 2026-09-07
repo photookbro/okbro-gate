@@ -47,15 +47,13 @@ export function classifyEventsForList(
   for (const event of events) {
     if (event.date < cutoff) continue
 
-    const hasAlbum = hasEventAlbum(event)
-    if (event.date >= today && !hasAlbum) {
+    // 날짜만으로 구분. album_b_url 선등록이 당일 GPS 토글/감지를 끄면 안 됨.
+    if (event.date >= today) {
       upcoming.push(event)
       continue
     }
 
-    if (event.date < today || hasAlbum) {
-      past.push(event)
-    }
+    past.push(event)
   }
 
   past.sort((a, b) => b.date.localeCompare(a.date))

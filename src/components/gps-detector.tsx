@@ -696,7 +696,11 @@ export function GpsDetector({
                         <p className="gps-pass-complete-time">
                           {latestPassTime} 촬영 완료
                         </p>
-                      ) : null}
+                      ) : (
+                        <p className="gps-pass-complete-time">
+                          촬영 위치 진입 · 통과 기록 저장 중
+                        </p>
+                      )}
                     </div>
                   )
                 }
@@ -759,13 +763,17 @@ export function GpsDetector({
           </ul>
         </div>
 
+        {verificationChecked && !!userId && !liveTrackingAllowed && (
+          <p className="text-xs text-muted">이 대회의 실시간 촬영 감지가 꺼져 있어요</p>
+        )}
+
         {verificationChecked && !gpsTrackingEligible && (
           <p className="text-xs text-muted">
             <Link
               href={`/verify-order?eventId=${encodeURIComponent(eventId)}`}
               className="text-xs text-muted underline"
             >
-              구매 인증 후 이용 가능해요
+              구매 인증 또는 인스타 팔로우 혜택 후 이용할 수 있어요
             </Link>
           </p>
         )}

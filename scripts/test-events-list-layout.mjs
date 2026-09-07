@@ -18,9 +18,9 @@ import {
   parseShootRecord,
 } from '../src/lib/events-list-client.ts'
 
-assert.equal(EVENTS_UPCOMING_SECTION_TITLE, '📅 오켱 출사 예정')
+assert.equal(EVENTS_UPCOMING_SECTION_TITLE, '📅 렌즈가 기다리는 그날')
 assert.equal(EVENTS_UPCOMING_ON_PROMPT, '참가 예정이면 ON으로 해주세요')
-assert.ok(EVENTS_UPCOMING_ON_DETAIL.includes('오켱 카메라 앞에'))
+assert.equal(EVENTS_UPCOMING_ON_DETAIL, 'ON으로 해두시면 스쳐 간 순간까지 놓치지 않습니다')
 assert.equal(EVENTS_PAST_SECTION_SUB_MAIN, '지난 대회 및 사진 업로드 현황')
 assert.equal(EVENTS_PAST_SECTION_SUB_TAIL, '최근 12개월')
 
@@ -77,7 +77,7 @@ const parsed = parseEventsListResponse({
       name: '강릉마라톤',
       date: '2026-09-15',
       gps_enabled: false,
-      locations: [{ location_number: 1 }],
+      locations: [{ location_number: 1, lat: 37.5, lng: 127.0, radius_meters: 50 }],
     },
     {
       id: 'u2',
@@ -106,11 +106,11 @@ const classified = classifyEventsForList(
   { today: '2026-06-16', cutoff: '2025-06-16' }
 )
 
-assert.equal(classified.upcoming.length, 1)
-assert.equal(classified.upcoming[0]?.name, '미래')
-assert.equal(classified.past.length, 3)
+assert.equal(classified.upcoming.length, 2)
+assert.ok(classified.upcoming.some(event => event.name === '미래'))
+assert.ok(classified.upcoming.some(event => event.name === '조기업로드'))
+assert.equal(classified.past.length, 2)
 assert.ok(classified.past.some(event => event.name === '어제'))
-assert.ok(classified.past.some(event => event.name === '조기업로드'))
 assert.ok(classified.past.some(event => event.name === '완료'))
 assert.equal(hasEventAlbum({ album_b_url: '  ' }), false)
 assert.equal(hasEventAlbum({ album_b_url: 'https://x' }), true)

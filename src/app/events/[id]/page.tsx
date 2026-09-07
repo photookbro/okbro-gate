@@ -11,8 +11,8 @@ import { GpsDetector } from '@/components/gps-detector'
 import { GpsTrackingBanner } from '@/components/gps-tracking-banner'
 import { EventPermissionGate } from '@/components/missing-permissions-modal'
 import { resolveEventAlbumBranch } from '@/lib/event-album-branch'
-import { hasEventAlbum } from '@/lib/events-list-classify'
 import { getEventGpsLocations, type EventGpsFields } from '@/lib/gps-locations'
+import { authFetch } from '@/lib/supabase/auth-client'
 
 function formatEventDate(date: string): string {
   const d = new Date(`${date}T00:00:00`)
@@ -92,7 +92,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     }
 
     setVerificationChecked(false)
-    fetch(`/api/verify-order/status?event_id=${encodeURIComponent(id)}`)
+    authFetch(`/api/verify-order/status?event_id=${encodeURIComponent(id)}`)
       .then(async res => {
         const data = await res.json()
         if (!res.ok || !data?.status) {
@@ -114,7 +114,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     : null
   const gpsTrackingEligible =
     verification.gps_tracking_eligible === true || event?.is_pay_event === true
-  const albumPublished = event ? hasEventAlbum(event) : false
 
   if (eventLoading) {
     return (
@@ -162,7 +161,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   return (
     <>
-      {!albumPublished ? <GpsTrackingBanner eventId={id} /> : null}
+      {locations.length > 0 ? <GpsTrackingBanner eventId={id} /> : null}
       <div className="page-shell event-detail-page">
         <div className="page-container-wide">
           <Link href="/events" className="text-sm text-muted no-underline">
@@ -172,7 +171,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           <h1 className="page-title mt-3">{event.name}</h1>
           <p className="page-subtitle mb-6">📅 {formatEventDate(event.date)}</p>
 
-          {!albumPublished && locations.length > 0 ? (
+          {locations.length > 0 ? (
             <div className="mb-6">
               <EventPermissionGate enabled={!!userId}>
                 <GpsDetector
