@@ -227,6 +227,22 @@ ALTER TABLE instagram_follow_bonus ENABLE ROW LEVEL SECURITY;
 GRANT ALL ON profiles TO service_role;
 GRANT ALL ON instagram_follow_bonus TO service_role;
 
+-- 탈퇴 후에도 남는 확정 핸들 이력 (auth.users FK 없음)
+CREATE TABLE IF NOT EXISTS instagram_handle_bonus_history (
+  instagram_handle text PRIMARY KEY,
+  first_confirmed_at timestamptz NOT NULL DEFAULT now(),
+  last_confirmed_at timestamptz NOT NULL DEFAULT now(),
+  last_confirmed_user_id uuid,
+  confirm_count integer NOT NULL DEFAULT 1
+);
+
+CREATE INDEX IF NOT EXISTS instagram_handle_bonus_history_last_confirmed_idx
+  ON instagram_handle_bonus_history (last_confirmed_at DESC);
+
+ALTER TABLE instagram_handle_bonus_history ENABLE ROW LEVEL SECURITY;
+
+GRANT ALL ON instagram_handle_bonus_history TO service_role;
+
 CREATE TABLE IF NOT EXISTS chat_messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,

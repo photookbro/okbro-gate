@@ -83,7 +83,7 @@ export function SiteNav() {
         href="/events"
         className={navLinkClass(pathname === '/events' || pathname.startsWith('/events/'))}
       >
-        EVENTS
+        PHOTO
       </Link>
       <Link
         href="/styleup"

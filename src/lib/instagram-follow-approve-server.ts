@@ -8,6 +8,7 @@ import {
   instagramFollowApprovedPushBody,
   instagramFollowMismatchPushBody,
 } from '@/lib/instagram-follow-copy'
+import { recordInstagramHandleBonusHistory } from '@/lib/instagram-handle-bonus-history'
 import { latestActiveExpiresAt, resolveExpiresAt } from '@/lib/order-verification'
 import { sendPushToUser } from '@/lib/web-push-server'
 import { loadVerificationSettings } from '@/lib/verification-settings'
@@ -127,7 +128,21 @@ export async function approveInstagramFollowPendingRow(
     .maybeSingle()
 
   if (error) throw error
-  return (approved as InstagramFollowBonusRow | null) ?? null
+  if (!approved) return null
+
+  try {
+    await recordInstagramHandleBonusHistory(
+      admin,
+      approved.instagram_handle,
+      approved.user_id,
+      now
+    )
+  } catch (historyError) {
+    // 승인은 이미 반영됨 — 이력 실패만 로그 (다음 업로드 재기록 가능)
+    console.error('[instagram] record handle bonus history failed', historyError)
+  }
+
+  return approved as InstagramFollowBonusRow
 }
 
 export async function manuallyUnlockInstagramFollowPendingRow(

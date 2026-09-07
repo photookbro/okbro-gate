@@ -35,6 +35,7 @@ export async function deleteUserAccount(admin: SupabaseClient, userId: string): 
   await Promise.all([
     deleteUserRows(admin, 'user_gps_tracking_prefs', userId),
     deleteUserRows(admin, 'gps_tracking_prefs', userId),
+    // instagram_follow_bonus만 삭제. instagram_handle_bonus_history는 탈퇴 후에도 유지.
     deleteUserRows(admin, 'instagram_follow_bonus', userId),
     deleteUserRows(admin, 'push_subscriptions', userId),
     deleteUserRows(admin, 'chat_messages', userId),
