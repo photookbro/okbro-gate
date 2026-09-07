@@ -22,6 +22,7 @@ function InstagramFollowContent() {
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const [status, setStatus] = useState<InstagramFollowBonusStatus | null>(null)
+  const [editingPending, setEditingPending] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -86,6 +87,7 @@ function InstagramFollowContent() {
       )
       if (data.status) setStatus(data.status as InstagramFollowBonusStatus)
       setHandleInput('')
+      setEditingPending(false)
     } catch {
       setErrorMsg('요청 중 오류가 발생했어요')
     } finally {
@@ -102,7 +104,9 @@ function InstagramFollowContent() {
   }
 
   const bonusDays = status?.bonus_days_setting ?? 5
-  const showClaimForm = !!status
+  const isPending = status?.state === 'pending'
+  const showClaimCard = !!status && status.state !== 'active'
+  const showClaimForm = showClaimCard && (!isPending || editingPending)
 
   return (
     <div className="page-shell">
@@ -150,7 +154,7 @@ function InstagramFollowContent() {
           </div>
         ) : null}
 
-        {showClaimForm ? (
+        {showClaimCard ? (
           <div className="card mb-4">
             <p className="mb-3 text-base leading-relaxed text-[var(--text)]">
               인스타그램(
@@ -163,8 +167,25 @@ function InstagramFollowContent() {
               참고해주세요.
             </p>
 
-            {status?.state === 'pending' ? (
-              <p className="alert-success mb-4">{instagramFollowSubmitCompleteMessage()}</p>
+            {status?.state === 'pending' && !editingPending ? (
+              <>
+                <p className="alert-success mb-4">{instagramFollowSubmitCompleteMessage()}</p>
+                <p className="mb-1 text-sm text-muted">
+                  제출한 아이디: @{status.instagram_handle ?? '—'} (대기중)
+                </p>
+                <button
+                  type="button"
+                  className="mb-0 text-sm text-muted underline"
+                  onClick={() => {
+                    setEditingPending(true)
+                    setHandleInput(status.instagram_handle ?? '')
+                    setErrorMsg('')
+                    setSuccessMsg('')
+                  }}
+                >
+                  수정하기
+                </button>
+              </>
             ) : null}
 
             {status?.state === 'not_matched' ? (
@@ -174,27 +195,52 @@ function InstagramFollowContent() {
               </p>
             ) : null}
 
-            <form onSubmit={e => void handleSubmit(e)}>
-              <label htmlFor="instagram-handle-input" className="label-field">
-                인스타 아이디
-              </label>
-              <input
-                id="instagram-handle-input"
-                type="text"
-                value={handleInput}
-                onChange={e => setHandleInput(e.target.value)}
-                placeholder="예: your_id"
-                autoComplete="off"
-                className={`input-field mb-3 ${errorMsg ? 'input-field-error' : ''}`}
-              />
+            {showClaimForm ? (
+              <form onSubmit={e => void handleSubmit(e)} className={isPending ? 'mt-4' : undefined}>
+                <label htmlFor="instagram-handle-input" className="label-field">
+                  인스타 아이디
+                </label>
+                <input
+                  id="instagram-handle-input"
+                  type="text"
+                  value={handleInput}
+                  onChange={e => setHandleInput(e.target.value)}
+                  placeholder="예: your_id"
+                  autoComplete="off"
+                  className={`input-field mb-3 ${errorMsg ? 'input-field-error' : ''}`}
+                />
 
-              {errorMsg ? <p className="alert-danger">{errorMsg}</p> : null}
-              {successMsg ? <p className="alert-success">{successMsg}</p> : null}
+                {errorMsg ? <p className="alert-danger">{errorMsg}</p> : null}
+                {successMsg ? <p className="alert-success">{successMsg}</p> : null}
 
-              <button type="submit" disabled={submitting} className="btn-primary mt-3">
-                {submitting ? '확인 중...' : '제출하기'}
-              </button>
-            </form>
+                <div className={isPending ? 'btn-row' : undefined}>
+                  {isPending ? (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={submitting}
+                      onClick={() => {
+                        setEditingPending(false)
+                        setErrorMsg('')
+                      }}
+                    >
+                      취소
+                    </button>
+                  ) : null}
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className={`btn-primary ${isPending ? '' : 'mt-3'}`}
+                  >
+                    {submitting ? '확인 중...' : isPending ? '다시 제출하기' : '제출하기'}
+                  </button>
+                </div>
+              </form>
+            ) : null}
+
+            {!showClaimForm && successMsg ? (
+              <p className="alert-success mt-4 mb-0">{successMsg}</p>
+            ) : null}
           </div>
         ) : null}
       </div>

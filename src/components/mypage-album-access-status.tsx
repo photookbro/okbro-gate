@@ -1,8 +1,14 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import type { InstagramFollowBonusStatus } from '@/lib/instagram-follow-bonus'
-import { INSTAGRAM_LATE_MATCH_NOTICE, instagramFollowMypageDescription } from '@/lib/instagram-follow-copy'
+import {
+  INSTAGRAM_LATE_MATCH_NOTICE,
+  instagramFollowMypageDescription,
+  instagramFollowSubmitCompleteMessage,
+} from '@/lib/instagram-follow-copy'
+import { authFetch } from '@/lib/supabase/auth-client'
 
 type PhotoAccess = {
   purchase_days_remaining: number
@@ -15,6 +21,7 @@ type PhotoAccess = {
 type MypageAlbumAccessStatusProps = {
   photoAccess: PhotoAccess | null
   instagramFollowBonus: InstagramFollowBonusStatus | null
+  onInstagramFollowBonusChange?: (status: InstagramFollowBonusStatus) => void
 }
 
 function formatPhotoAccessDday(daysRemaining: number, status: string): string {
@@ -75,9 +82,17 @@ function FruitAccessRow({ photoAccess }: { photoAccess: PhotoAccess | null }) {
 
 function FollowerAccessRow({
   instagramFollowBonus,
+  onInstagramFollowBonusChange,
 }: {
   instagramFollowBonus: InstagramFollowBonusStatus | null
+  onInstagramFollowBonusChange?: (status: InstagramFollowBonusStatus) => void
 }) {
+  const [editing, setEditing] = useState(false)
+  const [handleInput, setHandleInput] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
+
   if (!instagramFollowBonus) return null
 
   const { state, bonus_days_setting, days_remaining, period_label, instagram_handle } =
@@ -112,14 +127,100 @@ function FollowerAccessRow({
 
   const description = instagramFollowMypageDescription(bonus_days_setting)
 
+  async function handleResubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!handleInput.trim()) {
+      setErrorMsg('인스타 아이디를 입력해주세요')
+      return
+    }
+
+    setSubmitting(true)
+    setErrorMsg('')
+    setSuccessMsg('')
+
+    try {
+      const res = await authFetch('/api/instagram-follow/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instagram_handle: handleInput.trim() }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setErrorMsg(typeof data.error === 'string' ? data.error : '신청에 실패했어요')
+        return
+      }
+
+      if (data.status) {
+        onInstagramFollowBonusChange?.(data.status as InstagramFollowBonusStatus)
+      }
+      setSuccessMsg(
+        typeof data.message === 'string' ? data.message : instagramFollowSubmitCompleteMessage()
+      )
+      setEditing(false)
+      setHandleInput('')
+    } catch {
+      setErrorMsg('요청 중 오류가 발생했어요')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   if (state === 'pending') {
     return (
       <div className="mypage-access-row">
         <p className="mypage-access-row-label">팔로워 인증 열람일</p>
         <p className="mb-3 text-sm leading-relaxed text-muted">{description}</p>
-        <p className="mb-0 text-sm text-muted">
+        <p className="mb-1 text-sm text-muted">
           제출한 아이디: @{instagram_handle ?? '—'} (대기중)
         </p>
+        {!editing ? (
+          <button
+            type="button"
+            className="mb-0 text-sm text-muted underline"
+            onClick={() => {
+              setEditing(true)
+              setHandleInput(instagram_handle ?? '')
+              setErrorMsg('')
+              setSuccessMsg('')
+            }}
+          >
+            수정하기
+          </button>
+        ) : (
+          <form onSubmit={e => void handleResubmit(e)} className="mt-3">
+            <label htmlFor="mypage-instagram-handle-edit" className="label-field">
+              인스타 아이디
+            </label>
+            <input
+              id="mypage-instagram-handle-edit"
+              type="text"
+              value={handleInput}
+              onChange={e => setHandleInput(e.target.value)}
+              placeholder="예: your_id"
+              autoComplete="off"
+              className={`input-field mb-3 ${errorMsg ? 'input-field-error' : ''}`}
+            />
+            {errorMsg ? <p className="alert-danger">{errorMsg}</p> : null}
+            <div className="btn-row">
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={submitting}
+                onClick={() => {
+                  setEditing(false)
+                  setErrorMsg('')
+                }}
+              >
+                취소
+              </button>
+              <button type="submit" disabled={submitting} className="btn-primary">
+                {submitting ? '확인 중...' : '다시 제출하기'}
+              </button>
+            </div>
+          </form>
+        )}
+        {successMsg ? <p className="alert-success mt-3 mb-0">{successMsg}</p> : null}
       </div>
     )
   }
@@ -143,13 +244,17 @@ function FollowerAccessRow({
 export function MypageAlbumAccessStatus({
   photoAccess,
   instagramFollowBonus,
+  onInstagramFollowBonusChange,
 }: MypageAlbumAccessStatusProps) {
   return (
     <div className="card mb-4 mypage-status-card">
       <h2 className="section-title">앨범 열람 현황</h2>
       <div className="mypage-access-rows">
         <FruitAccessRow photoAccess={photoAccess} />
-        <FollowerAccessRow instagramFollowBonus={instagramFollowBonus} />
+        <FollowerAccessRow
+          instagramFollowBonus={instagramFollowBonus}
+          onInstagramFollowBonusChange={onInstagramFollowBonusChange}
+        />
       </div>
     </div>
   )

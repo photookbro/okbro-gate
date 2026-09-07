@@ -305,6 +305,7 @@ export default function MyPage() {
         <MypageAlbumAccessStatus
           photoAccess={photoAccess}
           instagramFollowBonus={instagramFollowBonus}
+          onInstagramFollowBonusChange={setInstagramFollowBonus}
         />
 
         <div className="card mb-4">
