@@ -139,3 +139,26 @@ export function formatValidityPeriod(
   if (endLabel === '-') return startLabel
   return `${startLabel} ~ ${endLabel}`
 }
+
+/** PostgREST 기본 max-rows(1000)를 넘어 전체 행을 모음 */
+export async function fetchAllSupabaseRows<T>(
+  queryPage: (
+    from: number,
+    to: number
+  ) => PromiseLike<{ data: T[] | null; error: { message?: string } | null }>
+): Promise<T[]> {
+  const pageSize = 1000
+  const all: T[] = []
+  let from = 0
+
+  for (;;) {
+    const { data, error } = await queryPage(from, from + pageSize - 1)
+    if (error) throw error
+    const rows = data ?? []
+    all.push(...rows)
+    if (rows.length < pageSize) break
+    from += pageSize
+  }
+
+  return all
+}

@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/admin-auth'
 import { loadVerificationSettings } from '@/lib/verification-settings'
 import {
   buildGpsLogsByLocation,
+  fetchAllSupabaseRows,
   formatAdminDateTime,
   formatValidityPeriod,
   getUserDisplayName,
@@ -325,19 +326,47 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  const [{ data: termsRows }, { data: orders }, { data: gpsLogs }, { data: prefRows }, { data: instagramBonuses }] =
-    await Promise.all([
-      admin.from('terms_agreements').select('user_id, agreed_at'),
-      admin.from('orders').select('user_id, order_number, used_at, created_at, expires_at'),
-      admin.from('gps_logs').select('user_id, passed_at'),
-      admin.from('user_gps_tracking_prefs').select('user_id, updated_at'),
+  const [termsRows, orders, gpsLogs, prefRows, instagramBonuses] = await Promise.all([
+    fetchAllSupabaseRows<{ user_id: string; agreed_at: string | null }>((from, to) =>
+      admin.from('terms_agreements').select('user_id, agreed_at').range(from, to)
+    ),
+    fetchAllSupabaseRows<{
+      user_id: string
+      order_number: string
+      used_at: string | null
+      created_at: string | null
+      expires_at: string | null
+    }>((from, to) =>
+      admin
+        .from('orders')
+        .select('user_id, order_number, used_at, created_at, expires_at')
+        .range(from, to)
+    ),
+    fetchAllSupabaseRows<{ user_id: string; passed_at: string | null }>((from, to) =>
+      admin.from('gps_logs').select('user_id, passed_at').range(from, to)
+    ),
+    fetchAllSupabaseRows<{ user_id: string; updated_at: string | null }>((from, to) =>
+      admin.from('user_gps_tracking_prefs').select('user_id, updated_at').range(from, to)
+    ),
+    fetchAllSupabaseRows<{
+      user_id: string
+      instagram_handle: string
+      status: string
+      approved_at: string | null
+      expires_at: string | null
+      manually_unlocked: boolean
+      manual_unlock_verified_mismatch: boolean
+      created_at: string
+    }>((from, to) =>
       admin
         .from('instagram_follow_bonus')
         .select(
           'user_id, instagram_handle, status, approved_at, expires_at, manually_unlocked, manual_unlock_verified_mismatch, created_at'
         )
-        .in('status', ['approved', 'pending']),
-    ])
+        .in('status', ['approved', 'pending'])
+        .range(from, to)
+    ),
+  ])
 
   const termsByUser = new Map<string, string>()
   for (const row of termsRows ?? []) {
