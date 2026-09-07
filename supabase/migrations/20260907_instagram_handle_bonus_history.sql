@@ -25,20 +25,28 @@ INSERT INTO instagram_handle_bonus_history (
   confirm_count
 )
 SELECT
-  lower(trim(b.instagram_handle)) AS instagram_handle,
-  COALESCE(MIN(b.approved_at), MIN(b.created_at), now()) AS first_confirmed_at,
-  COALESCE(MAX(b.approved_at), MAX(b.updated_at), now()) AS last_confirmed_at,
-  (
-    SELECT b2.user_id
-    FROM instagram_follow_bonus b2
-    WHERE b2.status = 'approved'
-      AND lower(trim(b2.instagram_handle)) = lower(trim(b.instagram_handle))
-    ORDER BY b2.approved_at DESC NULLS LAST, b2.created_at DESC
-    LIMIT 1
-  ) AS last_confirmed_user_id,
-  COUNT(*)::integer AS confirm_count
-FROM instagram_follow_bonus b
-WHERE b.status = 'approved'
-  AND NULLIF(trim(b.instagram_handle), '') IS NOT NULL
-GROUP BY lower(trim(b.instagram_handle))
+  handles.instagram_handle,
+  handles.first_confirmed_at,
+  handles.last_confirmed_at,
+  latest.user_id AS last_confirmed_user_id,
+  handles.confirm_count
+FROM (
+  SELECT
+    lower(trim(b.instagram_handle)) AS instagram_handle,
+    COALESCE(MIN(b.approved_at), MIN(b.created_at), now()) AS first_confirmed_at,
+    COALESCE(MAX(b.approved_at), MAX(b.updated_at), now()) AS last_confirmed_at,
+    COUNT(*)::integer AS confirm_count
+  FROM instagram_follow_bonus b
+  WHERE b.status = 'approved'
+    AND NULLIF(trim(b.instagram_handle), '') IS NOT NULL
+  GROUP BY lower(trim(b.instagram_handle))
+) handles
+LEFT JOIN LATERAL (
+  SELECT b2.user_id
+  FROM instagram_follow_bonus b2
+  WHERE b2.status = 'approved'
+    AND lower(trim(b2.instagram_handle)) = handles.instagram_handle
+  ORDER BY b2.approved_at DESC NULLS LAST, b2.created_at DESC
+  LIMIT 1
+) latest ON true
 ON CONFLICT (instagram_handle) DO NOTHING;

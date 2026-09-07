@@ -228,6 +228,7 @@ GRANT ALL ON profiles TO service_role;
 GRANT ALL ON instagram_follow_bonus TO service_role;
 
 -- 탈퇴 후에도 남는 확정 핸들 이력 (auth.users FK 없음)
+-- 소급 INSERT는 migrations/20260907_instagram_handle_bonus_history.sql 참고
 CREATE TABLE IF NOT EXISTS instagram_handle_bonus_history (
   instagram_handle text PRIMARY KEY,
   first_confirmed_at timestamptz NOT NULL DEFAULT now(),
