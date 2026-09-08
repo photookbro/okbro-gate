@@ -223,14 +223,6 @@ function OxBadge({ value }: { value: boolean }) {
   )
 }
 
-/** 추가 승인(불일치) → 자동 승인 → 즉시 승인(잔여 pending) → 해당 없음 */
-function instagramManualApproveSortRank(player: PlayerRow): number {
-  if (player.instagram_can_mismatch_reapprove) return 0
-  if (player.instagram_manually_unlocked) return 1
-  if (player.instagram_can_manual_approve) return 2
-  return 3
-}
-
 export default function AdminPage() {
   const token = useAdminToken()
   const [tab, setTab] = useState<
@@ -279,7 +271,17 @@ export default function AdminPage() {
 
   const [players, setPlayers] = useState<PlayerRow[]>([])
   const [playerSummary, setPlayerSummary] = useState<{ total_signups: number } | null>(null)
-  const [playerSort, setPlayerSort] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'joined_at', dir: 'desc' })
+  const [playerSort, setPlayerSort] = useState<{ key: string; dir: 'asc' | 'desc' }>({
+    key: 'joined_at',
+    dir: 'desc',
+  })
+  const [playerPage, setPlayerPage] = useState(1)
+  const [playersPagination, setPlayersPagination] = useState<{
+    page: number
+    page_size: number
+    total: number
+    total_pages: number
+  } | null>(null)
   const [loadingPlayers, setLoadingPlayers] = useState(false)
   const [playersError, setPlayersError] = useState('')
   const [playerInstagramFilter, setPlayerInstagramFilter] = useState<
@@ -411,25 +413,41 @@ export default function AdminPage() {
     }
   }
 
-  const loadPlayers = useCallback(async () => {
-    setLoadingPlayers(true)
-    setPlayersError('')
-    const params = new URLSearchParams()
-    if (playerInstagramFilter === 'follow') params.set('instagram_follow_only', '1')
-    if (playerInstagramFilter === 'active') params.set('instagram_bonus_active_only', '1')
-    if (playerInstagramFilter === 'mismatch') params.set('instagram_manual_mismatch_only', '1')
-    const query = params.toString()
-    const res = await adminFetch(`/api/admin/players${query ? `?${query}` : ''}`)
-    const data = await res.json()
-    if (!res.ok) {
-      setPlayersError(data.error ?? '선수 목록을 불러오지 못했어요')
+  const loadPlayers = useCallback(
+    async (opts?: { fresh?: boolean }) => {
+      setLoadingPlayers(true)
+      setPlayersError('')
+      const params = new URLSearchParams()
+      params.set('page', String(playerPage))
+      params.set('page_size', '50')
+      params.set('sort', playerSort.key)
+      params.set('dir', playerSort.dir)
+      if (playerInstagramFilter === 'follow') params.set('instagram_follow_only', '1')
+      if (playerInstagramFilter === 'active') params.set('instagram_bonus_active_only', '1')
+      if (playerInstagramFilter === 'mismatch') params.set('instagram_manual_mismatch_only', '1')
+      if (opts?.fresh) params.set('fresh', '1')
+      const res = await adminFetch(`/api/admin/players?${params.toString()}`)
+      const data = await res.json()
+      if (!res.ok) {
+        setPlayersError(data.error ?? '선수 목록을 불러오지 못했어요')
+        setLoadingPlayers(false)
+        return
+      }
+      setPlayers(data.players ?? [])
+      if (data.summary) setPlayerSummary(data.summary)
+      if (data.pagination) {
+        setPlayersPagination(data.pagination)
+        if (
+          typeof data.pagination.page === 'number' &&
+          data.pagination.page !== playerPage
+        ) {
+          setPlayerPage(data.pagination.page)
+        }
+      }
       setLoadingPlayers(false)
-      return
-    }
-    setPlayers(data.players ?? [])
-    if (data.summary) setPlayerSummary(data.summary)
-    setLoadingPlayers(false)
-  }, [adminFetch, playerInstagramFilter])
+    },
+    [adminFetch, playerInstagramFilter, playerPage, playerSort.dir, playerSort.key]
+  )
 
   async function openPlayerDetail(userId: string) {
     setPlayerDetail(null)
@@ -486,7 +504,7 @@ export default function AdminPage() {
           ? '푸시 구독 없음'
           : '푸시 발송 실패'
     alert(`${isReapprove ? '추가 승인' : '즉시 승인'} 완료 (${pushNote})`)
-    await loadPlayers()
+    await loadPlayers({ fresh: true })
     if (playerDetail?.id === userId) {
       await openPlayerDetail(userId)
     }
@@ -511,7 +529,7 @@ export default function AdminPage() {
     }
 
     await openPlayerDetail(userId)
-    await loadPlayers()
+    await loadPlayers({ fresh: true })
   }
 
   async function handleTestReset(userId: string) {
@@ -542,7 +560,7 @@ export default function AdminPage() {
     alert(data.message ?? '테스트 데이터가 초기화되었습니다 (가입일 포함)')
     setResetGpsWithTest(false)
     await openPlayerDetail(userId)
-    await loadPlayers()
+    await loadPlayers({ fresh: true })
   }
 
   function closePlayerDetail() {
@@ -1076,11 +1094,12 @@ export default function AdminPage() {
                   className={
                     playerInstagramFilter === option.id ? 'btn-primary-inline' : 'btn-secondary-inline'
                   }
-                  onClick={() =>
+                  onClick={() => {
                     setPlayerInstagramFilter(
                       option.id as 'all' | 'follow' | 'active' | 'mismatch'
                     )
-                  }
+                    setPlayerPage(1)
+                  }}
                 >
                   {option.label}
                 </button>
@@ -1115,13 +1134,14 @@ export default function AdminPage() {
                         <th
                           key={key}
                           className="cursor-pointer select-none"
-                          onClick={() =>
+                          onClick={() => {
                             setPlayerSort(prev =>
                               prev.key === key
                                 ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
                                 : { key, dir: 'asc' }
                             )
-                          }
+                            setPlayerPage(1)
+                          }}
                         >
                           {label}{playerSort.key === key ? (playerSort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
                         </th>
@@ -1129,28 +1149,7 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[...players].sort((a, b) => {
-                      let cmp = 0
-                      if (playerSort.key === 'instagram_manual_approve') {
-                        cmp =
-                          instagramManualApproveSortRank(a) - instagramManualApproveSortRank(b)
-                      } else if (playerSort.key === 'instagram_manual_unlock_mismatch') {
-                        // 첫 클릭(asc): 불일치가 위로
-                        cmp =
-                          (a.instagram_manual_unlock_mismatch ? 0 : 1) -
-                          (b.instagram_manual_unlock_mismatch ? 0 : 1)
-                      } else {
-                        const k = playerSort.key as keyof PlayerRow
-                        const av = a[k], bv = b[k]
-                        if (av == null && bv == null) cmp = 0
-                        else if (av == null) cmp = 1
-                        else if (bv == null) cmp = -1
-                        else if (typeof av === 'boolean') cmp = (av ? 1 : 0) - (bv ? 1 : 0)
-                        else if (typeof av === 'number') cmp = (av as number) - (bv as number)
-                        else cmp = String(av).localeCompare(String(bv), 'ko')
-                      }
-                      return playerSort.dir === 'asc' ? cmp : -cmp
-                    }).map(player => (
+                    {players.map(player => (
                       <tr
                         key={player.id}
                         className="cursor-pointer hover:bg-[var(--bg)]/80"
@@ -1233,6 +1232,42 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
+              {playersPagination && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-muted">
+                    총 {playersPagination.total.toLocaleString()}명
+                    {playersPagination.total_pages > 1
+                      ? ` · ${playersPagination.page}/${playersPagination.total_pages}페이지`
+                      : ''}
+                  </p>
+                  {playersPagination.total_pages > 1 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="btn-secondary-inline"
+                        disabled={playersPagination.page <= 1 || loadingPlayers}
+                        onClick={() => setPlayerPage(p => Math.max(1, p - 1))}
+                      >
+                        이전
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary-inline"
+                        disabled={
+                          playersPagination.page >= playersPagination.total_pages || loadingPlayers
+                        }
+                        onClick={() =>
+                          setPlayerPage(p =>
+                            Math.min(playersPagination.total_pages, p + 1)
+                          )
+                        }
+                      >
+                        다음
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               </>
             )}
           </>

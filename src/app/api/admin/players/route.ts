@@ -1,38 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
-import type { User } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/admin-auth'
 import { loadVerificationSettings } from '@/lib/verification-settings'
 import {
   buildGpsLogsByLocation,
-  fetchAllSupabaseRows,
   formatAdminDateTime,
   formatValidityPeriod,
   getUserDisplayName,
-  maxIsoDate,
   orderStatusLabel,
 } from '@/lib/admin-players'
 import { getEventCourseLabel, getEventGpsLocations, type EventGpsFields } from '@/lib/gps-locations'
-import { getDaysRemaining, getMonitorStatus, resolveExpiresAt, formatVerificationDate } from '@/lib/order-verification'
-import { buildPhotoAccessSummary } from '@/lib/verification-access'
+import { getMonitorStatus, resolveExpiresAt, formatVerificationDate } from '@/lib/order-verification'
 import { buildDuplicateInfoByOrderNumber } from '@/lib/order-duplicate'
 import { isInstagramBonusActive } from '@/lib/instagram-follow-bonus'
-
-async function listAllAuthUsers(admin: ReturnType<typeof supabaseAdmin>): Promise<User[]> {
-  const users: User[] = []
-  let page = 1
-  const perPage = 1000
-
-  while (true) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage })
-    if (error || !data.users.length) break
-    users.push(...data.users)
-    if (data.users.length < perPage) break
-    page++
-  }
-
-  return users
-}
+import {
+  getAdminPlayersListCache,
+  setAdminPlayersListCache,
+} from '@/lib/admin-players-list-cache'
+import {
+  buildAdminPlayersListRows,
+  buildAdminPlayersListSummary,
+  filterAdminPlayersListRows,
+  paginateAdminPlayersListRows,
+  parseAdminPlayersListDir,
+  parseAdminPlayersListPage,
+  parseAdminPlayersListPageSize,
+  parseAdminPlayersListSortKey,
+  sortAdminPlayersListRows,
+} from '@/lib/admin-players-list-server'
 
 function twelveMonthsAgoDateString(): string {
   const d = new Date()
@@ -44,19 +39,19 @@ export async function GET(req: NextRequest) {
   const denied = requireAdmin(req)
   if (denied) return denied
 
-  const userId = new URL(req.url).searchParams.get('user_id')
+  const url = new URL(req.url)
+  const userId = url.searchParams.get('user_id')
   const admin = supabaseAdmin()
 
-  const [{ settings }, authUsers] = await Promise.all([
-    loadVerificationSettings(admin).then(settings => ({ settings })),
-    listAllAuthUsers(admin),
-  ])
-
-  const verifiedPeriodDays = settings.verifiedPeriodDays
-
   if (userId) {
-    const user = authUsers.find(u => u.id === userId)
-    if (!user) {
+    const [settings, userResult] = await Promise.all([
+      loadVerificationSettings(admin),
+      admin.auth.admin.getUserById(userId),
+    ])
+    const verifiedPeriodDays = settings.verifiedPeriodDays
+    const user = userResult.data.user
+
+    if (userResult.error || !user) {
       return NextResponse.json({ error: '선수를 찾을 수 없어요' }, { status: 404 })
     }
 
@@ -73,38 +68,38 @@ export async function GET(req: NextRequest) {
           .eq('user_id', userId)
           .order('created_at', { ascending: false }),
         admin
-        .from('terms_agreements')
-        .select('agreed_at, version')
-        .eq('user_id', userId)
-        .order('agreed_at', { ascending: false })
-        .limit(1),
-      admin
-        .from('orders')
-        .select('id, order_number, platform, used_at, created_at, expires_at, event_id, events(name)')
-        .eq('user_id', userId)
-        .order('used_at', { ascending: false }),
-      admin
-        .from('gps_logs')
-        .select('event_id, passed_at, pass_count, location_number, notified')
-        .eq('user_id', userId)
-        .order('passed_at', { ascending: true }),
-      admin
-        .from('user_gps_tracking_prefs')
-        .select('event_id, enabled, events(name, date)')
-        .eq('user_id', userId),
-      admin
-        .from('events')
-        .select('id, name, date')
-        .not('album_b_url', 'is', null)
-        .neq('album_b_url', '')
-        .gte('date', cutoff)
-        .order('date', { ascending: false }),
-      admin
-        .from('events')
-        .select('id, name, date')
-        .or('album_b_url.is.null,album_b_url.eq.')
-        .order('date', { ascending: true }),
-    ])
+          .from('terms_agreements')
+          .select('agreed_at, version')
+          .eq('user_id', userId)
+          .order('agreed_at', { ascending: false })
+          .limit(1),
+        admin
+          .from('orders')
+          .select('id, order_number, platform, used_at, created_at, expires_at, event_id, events(name)')
+          .eq('user_id', userId)
+          .order('used_at', { ascending: false }),
+        admin
+          .from('gps_logs')
+          .select('event_id, passed_at, pass_count, location_number, notified')
+          .eq('user_id', userId)
+          .order('passed_at', { ascending: true }),
+        admin
+          .from('user_gps_tracking_prefs')
+          .select('event_id, enabled, events(name, date)')
+          .eq('user_id', userId),
+        admin
+          .from('events')
+          .select('id, name, date')
+          .not('album_b_url', 'is', null)
+          .neq('album_b_url', '')
+          .gte('date', cutoff)
+          .order('date', { ascending: false }),
+        admin
+          .from('events')
+          .select('id, name, date')
+          .or('album_b_url.is.null,album_b_url.eq.')
+          .order('date', { ascending: true }),
+      ])
 
     let gpsLogs = gpsLogsResult.data
     if (gpsLogsResult.error) {
@@ -326,313 +321,31 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  const [termsRows, orders, gpsLogs, prefRows, instagramBonuses] = await Promise.all([
-    fetchAllSupabaseRows<{ user_id: string; agreed_at: string | null }>((from, to) =>
-      admin.from('terms_agreements').select('user_id, agreed_at').range(from, to)
-    ),
-    fetchAllSupabaseRows<{
-      user_id: string
-      order_number: string
-      used_at: string | null
-      created_at: string | null
-      expires_at: string | null
-    }>((from, to) =>
-      admin
-        .from('orders')
-        .select('user_id, order_number, used_at, created_at, expires_at')
-        .range(from, to)
-    ),
-    fetchAllSupabaseRows<{ user_id: string; passed_at: string | null }>((from, to) =>
-      admin.from('gps_logs').select('user_id, passed_at').range(from, to)
-    ),
-    fetchAllSupabaseRows<{ user_id: string; updated_at: string | null }>((from, to) =>
-      admin.from('user_gps_tracking_prefs').select('user_id, updated_at').range(from, to)
-    ),
-    fetchAllSupabaseRows<{
-      user_id: string
-      instagram_handle: string
-      status: string
-      approved_at: string | null
-      expires_at: string | null
-      manually_unlocked: boolean
-      manual_unlock_verified_mismatch: boolean
-      created_at: string
-    }>((from, to) =>
-      admin
-        .from('instagram_follow_bonus')
-        .select(
-          'user_id, instagram_handle, status, approved_at, expires_at, manually_unlocked, manual_unlock_verified_mismatch, created_at'
-        )
-        .in('status', ['approved', 'pending'])
-        .range(from, to)
-    ),
-  ])
-
-  const termsByUser = new Map<string, string>()
-  for (const row of termsRows ?? []) {
-    if (row.user_id && row.agreed_at) termsByUser.set(row.user_id, row.agreed_at)
-  }
-
-  const purchaseValidByUser = new Set<string>()
-  const latestPurchaseByUser = new Map<
-    string,
-    { verified_at: string; expires_at: Date }
-  >()
-  const ordersByUser = new Map<
-    string,
-    { order_number: string; used_at?: string | null; created_at?: string | null; expires_at?: string | null }[]
-  >()
-
-  for (const order of orders ?? []) {
-    if (!order.user_id || !order.order_number) continue
-    const list = ordersByUser.get(order.user_id) ?? []
-    list.push(order)
-    ordersByUser.set(order.user_id, list)
-  }
-
-  if (Number.isFinite(verifiedPeriodDays) && verifiedPeriodDays > 0) {
-    const now = new Date()
-    for (const [userId, userOrders] of ordersByUser) {
-      const access = buildPhotoAccessSummary(userOrders, verifiedPeriodDays, null, now)
-      if (access.purchase.days_remaining <= 0) continue
-
-      purchaseValidByUser.add(userId)
-      if (!access.purchase.expires_at) continue
-
-      const expiresAt = new Date(access.purchase.expires_at)
-      const latestOrder = userOrders
-        .sort((a, b) => {
-          const aExp = resolveExpiresAt(
-            {
-              order_number: a.order_number,
-              used_at: a.used_at ?? '',
-              created_at: a.created_at,
-              expires_at: a.expires_at,
-            },
-            verifiedPeriodDays
-          )
-          const bExp = resolveExpiresAt(
-            {
-              order_number: b.order_number,
-              used_at: b.used_at ?? '',
-              created_at: b.created_at,
-              expires_at: b.expires_at,
-            },
-            verifiedPeriodDays
-          )
-          return (bExp?.getTime() ?? 0) - (aExp?.getTime() ?? 0)
-        })[0]
-      const verifiedAt = latestOrder?.used_at ?? latestOrder?.created_at
-      if (!verifiedAt) continue
-
-      latestPurchaseByUser.set(userId, {
-        verified_at: verifiedAt,
-        expires_at: expiresAt,
-      })
-    }
-  }
-
-  const gpsByUser = new Set<string>()
-  const gpsActivityByUser = new Map<string, string>()
-  for (const log of gpsLogs ?? []) {
-    if (!log.user_id) continue
-    gpsByUser.add(log.user_id)
-    if (!log.passed_at) continue
-    const prev = gpsActivityByUser.get(log.user_id)
-    if (!prev || new Date(log.passed_at) > new Date(prev)) {
-      gpsActivityByUser.set(log.user_id, log.passed_at)
-    }
-  }
-
-  const orderActivityByUser = new Map<string, string>()
-  for (const order of orders ?? []) {
-    if (!order.user_id) continue
-    const activity = order.used_at ?? order.created_at
-    if (!activity) continue
-    const prev = orderActivityByUser.get(order.user_id)
-    if (!prev || new Date(activity) > new Date(prev)) {
-      orderActivityByUser.set(order.user_id, activity)
-    }
-  }
-
-  const prefUpdatedByUser = new Map<string, string>()
-  for (const pref of prefRows ?? []) {
-    if (!pref.user_id || !pref.updated_at) continue
-    const prev = prefUpdatedByUser.get(pref.user_id)
-    if (!prev || new Date(pref.updated_at) > new Date(prev)) {
-      prefUpdatedByUser.set(pref.user_id, pref.updated_at)
-    }
-  }
-
-  const instagramBonusByUser = new Map<
-    string,
-    {
-      instagram_handle: string
-      approved_at: string | null
-      expires_at: string | null
-      status: string
-    }
-  >()
-  const instagramPendingByUser = new Map<
-    string,
-    {
-      instagram_handle: string
-      manually_unlocked: boolean
-      manual_unlock_verified_mismatch: boolean
-      approved_at: string | null
-      expires_at: string | null
-      created_at: string
-    }
-  >()
-
-  for (const row of instagramBonuses ?? []) {
-    if (!row.user_id) continue
-
-    if (row.status === 'approved') {
-      const prev = instagramBonusByUser.get(row.user_id)
-      if (
-        !prev ||
-        new Date(row.expires_at ?? 0).getTime() > new Date(prev.expires_at ?? 0).getTime()
-      ) {
-        instagramBonusByUser.set(row.user_id, {
-          instagram_handle: row.instagram_handle,
-          approved_at: row.approved_at,
-          expires_at: row.expires_at,
-          status: row.status,
-        })
-      }
-      continue
-    }
-
-    if (row.status === 'pending') {
-      const prev = instagramPendingByUser.get(row.user_id)
-      if (!prev || new Date(row.created_at) > new Date(prev.created_at)) {
-        instagramPendingByUser.set(row.user_id, {
-          instagram_handle: row.instagram_handle,
-          manually_unlocked: row.manually_unlocked === true,
-          manual_unlock_verified_mismatch: row.manual_unlock_verified_mismatch === true,
-          approved_at: row.approved_at,
-          expires_at: row.expires_at,
-          created_at: row.created_at,
-        })
-      }
-    }
-  }
-
-  const now = new Date()
-
-  const players = authUsers.map(user => {
-    const lastActivity = maxIsoDate(
-      termsByUser.get(user.id),
-      orderActivityByUser.get(user.id),
-      gpsActivityByUser.get(user.id),
-      prefUpdatedByUser.get(user.id),
-      user.last_sign_in_at
-    )
-    const verification = latestPurchaseByUser.get(user.id)
-    const instagramBonus = instagramBonusByUser.get(user.id)
-    const instagramPending = instagramPendingByUser.get(user.id)
-    const effectiveInstagram =
-      instagramBonus && isInstagramBonusActive(instagramBonus, now)
-        ? instagramBonus
-        : instagramPending?.manually_unlocked && isInstagramBonusActive(instagramPending, now)
-          ? instagramPending
-          : instagramBonus ?? (instagramPending?.manually_unlocked ? instagramPending : null)
-    const instagramHandle =
-      instagramBonus?.instagram_handle ?? instagramPending?.instagram_handle ?? null
-    const access = buildPhotoAccessSummary(
-      ordersByUser.get(user.id) ?? [],
-      verifiedPeriodDays,
-      effectiveInstagram?.expires_at ?? instagramBonus?.expires_at ?? null,
-      now
-    )
-    const instagramBonusActive =
-      !!effectiveInstagram?.expires_at && isInstagramBonusActive(effectiveInstagram, now)
-    const instagramBonusDaysRemaining =
-      effectiveInstagram?.expires_at && instagramBonusActive
-        ? getDaysRemaining(new Date(effectiveInstagram.expires_at), now)
-        : null
-
-    let instagramBenefitLabel = '-'
-    if (effectiveInstagram?.expires_at) {
-      if (instagramBonusActive && instagramBonusDaysRemaining != null) {
-        instagramBenefitLabel = `D-${instagramBonusDaysRemaining}`
-      } else {
-        instagramBenefitLabel = '만료됨'
-      }
-    }
-
-    return {
-      id: user.id,
-      name: getUserDisplayName(user),
-      email: user.email ?? '-',
-      joined_at: user.created_at,
-      joined_at_display: formatAdminDateTime(user.created_at),
-      terms_agreed: termsByUser.has(user.id),
-      purchase_verified: purchaseValidByUser.has(user.id),
-      gps_record: gpsByUser.has(user.id),
-      instagram_follow_verified: !!instagramBonus || instagramBonusActive,
-      instagram_follow_pending: !!instagramPending,
-      instagram_can_manual_approve:
-        !!instagramPending &&
-        !instagramPending.manually_unlocked &&
-        !instagramPending.manual_unlock_verified_mismatch,
-      instagram_can_mismatch_reapprove:
-        !!instagramPending &&
-        !instagramPending.manually_unlocked &&
-        instagramPending.manual_unlock_verified_mismatch === true,
-      instagram_manually_unlocked: instagramPending?.manually_unlocked === true,
-      instagram_manual_unlock_mismatch: instagramPending?.manual_unlock_verified_mismatch === true,
-      instagram_handle: instagramHandle,
-      instagram_benefit_label: instagramBenefitLabel,
-      instagram_benefit_period_display:
-        effectiveInstagram?.approved_at && effectiveInstagram?.expires_at
-          ? `${formatVerificationDate(effectiveInstagram.approved_at)} ~ ${formatVerificationDate(effectiveInstagram.expires_at)}`
-          : '-',
-      instagram_bonus_active: instagramBonusActive,
-      verified_at_display: verification ? formatVerificationDate(verification.verified_at) : '-',
-      expires_at_display: verification ? formatVerificationDate(verification.expires_at) : '-',
-      days_remaining: verification ? getDaysRemaining(verification.expires_at, now) : null,
-      photo_access_days_remaining: access.photo_access_days_remaining,
-      last_activity: lastActivity,
-      last_activity_display: lastActivity ? formatAdminDateTime(lastActivity) : '-',
-    }
-  })
-
-  const instagramFollowOnly = new URL(req.url).searchParams.get('instagram_follow_only') === '1'
-  const instagramBonusActiveOnly =
-    new URL(req.url).searchParams.get('instagram_bonus_active_only') === '1'
+  const fresh = url.searchParams.get('fresh') === '1'
+  const sort = parseAdminPlayersListSortKey(url.searchParams.get('sort'))
+  const dir = parseAdminPlayersListDir(url.searchParams.get('dir'))
+  const page = parseAdminPlayersListPage(url.searchParams.get('page'))
+  const pageSize = parseAdminPlayersListPageSize(url.searchParams.get('page_size'))
+  const instagramFollowOnly = url.searchParams.get('instagram_follow_only') === '1'
+  const instagramBonusActiveOnly = url.searchParams.get('instagram_bonus_active_only') === '1'
   const instagramManualMismatchOnly =
-    new URL(req.url).searchParams.get('instagram_manual_mismatch_only') === '1'
+    url.searchParams.get('instagram_manual_mismatch_only') === '1'
 
-  let filteredPlayers = players
-  if (instagramFollowOnly) {
-    filteredPlayers = filteredPlayers.filter(player => player.instagram_follow_verified)
-  }
-  if (instagramBonusActiveOnly) {
-    filteredPlayers = filteredPlayers.filter(player => player.instagram_bonus_active)
-  }
-  if (instagramManualMismatchOnly) {
-    filteredPlayers = filteredPlayers.filter(player => player.instagram_manual_unlock_mismatch)
+  let fullPlayers = !fresh ? getAdminPlayersListCache() : null
+  if (!fullPlayers) {
+    const settings = await loadVerificationSettings(admin)
+    fullPlayers = await buildAdminPlayersListRows(admin, settings.verifiedPeriodDays)
+    setAdminPlayersListCache(fullPlayers)
   }
 
-  const summary = {
-    total_signups: filteredPlayers.length,
-    terms_agreed: filteredPlayers.filter(player => player.terms_agreed).length,
-    purchase_verified: filteredPlayers.filter(player => player.purchase_verified).length,
-    gps_users: filteredPlayers.filter(player => player.gps_record).length,
-    instagram_follow_verified: filteredPlayers.filter(player => player.instagram_follow_verified).length,
-    instagram_bonus_active: filteredPlayers.filter(player => player.instagram_bonus_active).length,
-    instagram_manual_mismatch: filteredPlayers.filter(
-      player => player.instagram_manual_unlock_mismatch
-    ).length,
-  }
-
-  filteredPlayers.sort((a, b) => {
-    const aMs = a.last_activity ? new Date(a.last_activity).getTime() : 0
-    const bMs = b.last_activity ? new Date(b.last_activity).getTime() : 0
-    return bMs - aMs
+  const filteredPlayers = filterAdminPlayersListRows(fullPlayers, {
+    instagramFollowOnly,
+    instagramBonusActiveOnly,
+    instagramManualMismatchOnly,
   })
+  const sortedPlayers = sortAdminPlayersListRows(filteredPlayers, sort, dir)
+  const { players, pagination } = paginateAdminPlayersListRows(sortedPlayers, page, pageSize)
+  const summary = buildAdminPlayersListSummary(filteredPlayers, fullPlayers.length)
 
-  return NextResponse.json({ players: filteredPlayers, summary })
+  return NextResponse.json({ players, summary, pagination })
 }

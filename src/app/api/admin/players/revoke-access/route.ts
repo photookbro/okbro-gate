@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/admin-auth'
+import { invalidateAdminPlayersListCache } from '@/lib/admin-players-list-cache'
 import { getKstDateParts } from '@/lib/order-verification'
 
 /** KST 기준 어제의 끝 — 오늘로 잡혀 ‘D-1’로 남는 문제 방지 */
@@ -47,6 +48,8 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     )
   }
+
+  invalidateAdminPlayersListCache()
 
   return NextResponse.json({
     success: true,

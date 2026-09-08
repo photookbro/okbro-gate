@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/admin-auth'
+import { invalidateAdminPlayersListCache } from '@/lib/admin-players-list-cache'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 function isMissingTableError(error: { code?: string; message?: string } | null): boolean {
@@ -97,6 +98,8 @@ export async function POST(req: NextRequest) {
       gpsLogsDeleted = gpsLogs.deleted
       gpsPrefsDeleted = gpsPrefs.deleted
     }
+
+    invalidateAdminPlayersListCache()
 
     return NextResponse.json({
       success: true,

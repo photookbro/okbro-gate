@@ -4,6 +4,7 @@ import {
   manuallyUnlockInstagramFollowPendingRow,
   sendInstagramFollowApprovedPush,
 } from '@/lib/instagram-follow-approve-server'
+import { invalidateAdminPlayersListCache } from '@/lib/admin-players-list-cache'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { loadVerificationSettings } from '@/lib/verification-settings'
 
@@ -71,6 +72,8 @@ export async function POST(req: NextRequest) {
   }
 
   const push = await sendInstagramFollowApprovedPush(userId, bonusDays)
+
+  invalidateAdminPlayersListCache()
 
   return NextResponse.json({
     success: true,
