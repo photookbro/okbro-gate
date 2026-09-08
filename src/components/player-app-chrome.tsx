@@ -11,6 +11,7 @@ import { SiteNav } from '@/components/site-nav'
 import { TermsGate } from '@/components/terms-gate'
 import { ActivityTracker } from '@/components/activity-tracker'
 import { InstagramFollowBenefitBanner } from '@/components/instagram-follow-benefit-banner'
+import { PushSubscribeBanner } from '@/components/push-subscribe-banner'
 
 function PlayerChromeBody({ children }: { children: React.ReactNode }) {
   const { isLoggedIn, authReady } = useGuestAuth()
@@ -28,6 +29,7 @@ function PlayerChromeBody({ children }: { children: React.ReactNode }) {
       <InappBrowserWarning />
       <SiteNav />
       <div className="page-with-bottom-cta">
+        {authReady && isLoggedIn ? <PushSubscribeBanner /> : null}
         <InstagramFollowBenefitBanner />
         {children}
       </div>

@@ -1850,6 +1850,100 @@ body {
   gap: 0.5rem;
 }
 
+/* 푸시 구독 유도 — 미응답 유저, 세션 dismiss만 */
+.push-subscribe-banner {
+  border-bottom: 0.5px solid var(--border);
+  background: #121820;
+  padding: 0.75rem 1rem;
+}
+
+.push-subscribe-banner-inner {
+  display: flex;
+  width: 100%;
+  max-width: 48rem;
+  margin: 0 auto;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .push-subscribe-banner-inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+}
+
+.push-subscribe-banner-text {
+  margin: 0;
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line-height);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.push-subscribe-banner-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.push-subscribe-banner-error {
+  margin: 0;
+  width: 100%;
+  font-size: var(--font-caption-size);
+  color: var(--color-danger);
+}
+
+/* denied — 작은 톤다운 안내 */
+.push-denied-tip {
+  border-bottom: 0.5px solid var(--border);
+  background: #141414;
+  padding: 0.45rem 1rem;
+}
+
+.push-denied-tip-inner {
+  display: flex;
+  width: 100%;
+  max-width: 48rem;
+  margin: 0 auto;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+}
+
+.push-denied-tip-title {
+  margin: 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line-height);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.push-denied-tip-steps {
+  margin: 0;
+  padding-left: 1.1rem;
+  flex: 1 1 12rem;
+  font-size: var(--font-caption-size);
+  line-height: 1.45;
+  color: #8a8a8a;
+}
+
+.push-denied-tip-dismiss {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-caption-size);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
 /* 인증 만료 배너 — 대회목록 탭 최상단 고정 노출 */
 .verification-expiry-banner {
   position: sticky;
