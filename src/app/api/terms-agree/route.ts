@@ -44,10 +44,19 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  return NextResponse.json({
-    agreed: !!data,
-    agreed_at: data?.agreed_at ?? null,
-  })
+  const agreed = !!data
+  return NextResponse.json(
+    {
+      agreed,
+      agreed_at: data?.agreed_at ?? null,
+    },
+    {
+      // 동의 완료 건만 짧게 캐시 — 미동의는 게이트가 즉시 반영되도록 캐시하지 않음
+      headers: agreed
+        ? { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=30' }
+        : { 'Cache-Control': 'private, no-store' },
+    }
+  )
 }
 
 export async function POST(req: NextRequest) {

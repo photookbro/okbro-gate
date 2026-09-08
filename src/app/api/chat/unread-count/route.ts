@@ -21,5 +21,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: '미읽음 수를 불러오지 못했어요' }, { status: 500 })
   }
 
-  return NextResponse.json({ unread_count: count ?? 0 })
+  return NextResponse.json(
+    { unread_count: count ?? 0 },
+    { headers: { 'Cache-Control': 'private, max-age=15' } }
+  )
 }

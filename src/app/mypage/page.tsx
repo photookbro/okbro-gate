@@ -21,7 +21,7 @@ import { emitAuthLogout } from '@/lib/gps-tracking-storage'
 import { OrderNumberGuide } from '@/components/order-number-guide'
 import { MypageAlbumAccessStatus } from '@/components/mypage-album-access-status'
 import { MypageChat } from '@/components/mypage-chat'
-import { emitChatUnreadCount } from '@/lib/chat-unread-client'
+import { emitChatUnreadCount, fetchChatUnreadCount } from '@/lib/chat-unread-client'
 import type { InstagramFollowBonusStatus } from '@/lib/instagram-follow-bonus'
 
 type PhotoAccess = {
@@ -151,16 +151,9 @@ export default function MyPage() {
 
   useEffect(() => {
     let cancelled = false
-    authFetch('/api/chat/unread-count')
-      .then(async res => {
-        const data = await res.json()
-        if (!cancelled && res.ok) {
-          setChatUnreadCount(typeof data.unread_count === 'number' ? data.unread_count : 0)
-        }
-      })
-      .catch(() => {
-        // ignore
-      })
+    void fetchChatUnreadCount().then(count => {
+      if (!cancelled && count != null) setChatUnreadCount(count)
+    })
     return () => {
       cancelled = true
     }

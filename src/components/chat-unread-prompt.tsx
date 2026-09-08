@@ -3,9 +3,9 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
-import { authFetch } from '@/lib/supabase/auth-client'
 import {
   CHAT_UNREAD_EVENT,
+  fetchChatUnreadCount,
   readChatUnreadFromEvent,
 } from '@/lib/chat-unread-client'
 
@@ -47,15 +47,9 @@ export function ChatUnreadPrompt() {
   )
 
   const checkUnread = useCallback(async () => {
-    try {
-      const res = await authFetch('/api/chat/unread-count')
-      const data = await res.json()
-      if (!res.ok) return
-      const count = typeof data.unread_count === 'number' ? data.unread_count : 0
-      maybeOpen(count)
-    } catch {
-      // ignore
-    }
+    const count = await fetchChatUnreadCount()
+    if (count == null) return
+    maybeOpen(count)
   }, [maybeOpen])
 
   useEffect(() => {
