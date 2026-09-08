@@ -757,6 +757,21 @@ body {
   border-top: 1px solid var(--border);
 }
 
+.mypage-push-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.mypage-push-toggle-copy {
+  margin: 0;
+  flex: 1;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
 .mypage-withdraw-btn {
   display: inline-block;
   padding: 0.65rem 1rem;

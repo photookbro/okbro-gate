@@ -1,30 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ensurePushSubscription, registerServiceWorker } from '@/lib/push-client'
+import { ensurePushSubscription, hasActivePushSubscription } from '@/lib/push-client'
 import {
   detectMobilePlatform,
   dismissPushDeniedTipForSession,
-  dismissPushSubscribeBannerForSession,
+  dismissPushSubscribeBanner,
   getNotificationSettingsGuide,
   isPushDeniedTipSessionDismissed,
-  isPushSubscribeBannerSessionDismissed,
+  recordPushSubscribeBannerImpression,
+  shouldShowPushSubscribeBanner,
 } from '@/lib/push-permission'
 
 type BannerMode = 'hidden' | 'prompt' | 'denied'
-
-async function hasActivePushSubscription(): Promise<boolean> {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false
-  try {
-    const registration =
-      (await navigator.serviceWorker.getRegistration()) ?? (await registerServiceWorker())
-    if (!registration) return false
-    const sub = await registration.pushManager.getSubscription()
-    return !!sub
-  } catch {
-    return false
-  }
-}
 
 export function PushSubscribeBanner() {
   const [mode, setMode] = useState<BannerMode>('hidden')
@@ -44,7 +32,13 @@ export function PushSubscribeBanner() {
 
       if (permission === 'granted') {
         const subscribed = await hasActivePushSubscription()
-        if (!cancelled) setMode(subscribed ? 'hidden' : 'prompt')
+        if (cancelled) return
+        if (subscribed || !shouldShowPushSubscribeBanner()) {
+          setMode('hidden')
+          return
+        }
+        recordPushSubscribeBannerImpression()
+        setMode('prompt')
         return
       }
 
@@ -58,11 +52,14 @@ export function PushSubscribeBanner() {
       }
 
       // default — 아직 허용/거부 안 함
-      if (isPushSubscribeBannerSessionDismissed()) {
+      if (!shouldShowPushSubscribeBanner()) {
         if (!cancelled) setMode('hidden')
         return
       }
-      if (!cancelled) setMode('prompt')
+      if (!cancelled) {
+        recordPushSubscribeBannerImpression()
+        setMode('prompt')
+      }
     }
 
     void resolve()
@@ -77,6 +74,7 @@ export function PushSubscribeBanner() {
     try {
       const ok = await ensurePushSubscription()
       if (ok) {
+        dismissPushSubscribeBanner()
         setMode('hidden')
         return
       }
@@ -91,7 +89,7 @@ export function PushSubscribeBanner() {
   }
 
   function handleLater() {
-    dismissPushSubscribeBannerForSession()
+    dismissPushSubscribeBanner()
     setMode('hidden')
   }
 

@@ -11,7 +11,12 @@ import {
   formatOkcamPassSentence,
   GPS_SHOOT_RECORD_DISCLAIMER,
 } from '@/lib/events-list-client'
-import { ensurePushSubscription } from '@/lib/push-client'
+import { ensurePushSubscription, hasActivePushSubscription } from '@/lib/push-client'
+import {
+  detectMobilePlatform,
+  dismissPushSubscribeBanner,
+  getNotificationSettingsGuide,
+} from '@/lib/push-permission'
 import { emitAuthLogout } from '@/lib/gps-tracking-storage'
 import { OrderNumberGuide } from '@/components/order-number-guide'
 import { MypageAlbumAccessStatus } from '@/components/mypage-album-access-status'
@@ -61,7 +66,9 @@ export default function MyPage() {
   const [extendError, setExtendError] = useState('')
   const [extendSuccess, setExtendSuccess] = useState('')
 
-  const [notificationPermission, setNotificationPermission] = useState<
+  const [pushSupported, setPushSupported] = useState(true)
+  const [pushSubscribed, setPushSubscribed] = useState(false)
+  const [pushPermission, setPushPermission] = useState<
     NotificationPermission | 'unsupported'
   >('default')
   const [enablingNotification, setEnablingNotification] = useState(false)
@@ -116,11 +123,30 @@ export default function MyPage() {
   }, [])
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
-      setNotificationPermission('unsupported')
-      return
+    let cancelled = false
+
+    async function refreshPushState() {
+      if (typeof window === 'undefined' || !('Notification' in window)) {
+        if (!cancelled) {
+          setPushSupported(false)
+          setPushPermission('unsupported')
+          setPushSubscribed(false)
+        }
+        return
+      }
+      const permission = Notification.permission
+      const subscribed =
+        permission === 'granted' ? await hasActivePushSubscription() : false
+      if (cancelled) return
+      setPushSupported(true)
+      setPushPermission(permission)
+      setPushSubscribed(subscribed)
     }
-    setNotificationPermission(Notification.permission)
+
+    void refreshPushState()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
@@ -152,17 +178,39 @@ export default function MyPage() {
     }
   }, [loading])
 
-  async function handleEnableNotification() {
+  async function handlePushToggle() {
+    if (enablingNotification) return
+
+    if (pushSubscribed) {
+      setNotificationMsg(
+        '알림을 끄려면 브라우저(또는 기기) 설정에서 이 사이트의 알림을 차단해주세요'
+      )
+      return
+    }
+
+    if (pushPermission === 'denied') {
+      const guide = getNotificationSettingsGuide(
+        detectMobilePlatform(navigator.userAgent)
+      )
+      setNotificationMsg(`${guide.title}. ${guide.steps[0]}`)
+      return
+    }
+
     setEnablingNotification(true)
     setNotificationMsg('')
     try {
       const ok = await ensurePushSubscription()
       if (typeof Notification !== 'undefined') {
-        setNotificationPermission(Notification.permission)
+        setPushPermission(Notification.permission)
       }
-      setNotificationMsg(
-        ok ? '✅ 촬영 알림이 켜졌어요' : '알림을 켜지 못했어요. 브라우저 설정을 확인해주세요'
-      )
+      if (ok) {
+        setPushSubscribed(true)
+        setNotificationMsg('알림을 받기 시작했어요')
+        dismissPushSubscribeBanner()
+      } else {
+        setPushSubscribed(false)
+        setNotificationMsg('알림을 켜지 못했어요. 브라우저 설정을 확인해주세요')
+      }
     } finally {
       setEnablingNotification(false)
     }
@@ -343,31 +391,39 @@ export default function MyPage() {
         </div>
 
         <div className="card mb-4">
-          <h2 className="section-title">🔔 촬영 알림</h2>
-          <p className="mb-4 text-sm leading-relaxed text-muted">
-            촬영 알림을 ON으로 해두셔야 대회 종료 후 알람을 받을 수 있어요
-          </p>
-
-          {notificationPermission === 'unsupported' ? (
+          <h2 className="section-title">알림 받기</h2>
+          {!pushSupported || pushPermission === 'unsupported' ? (
             <p className="text-sm text-muted">이 브라우저는 알림을 지원하지 않아요</p>
-          ) : notificationPermission === 'granted' ? (
-            <p className="text-sm text-success">✅ 촬영 알림이 켜져 있어요</p>
-          ) : notificationPermission === 'denied' ? (
-            <p className="text-sm text-muted">
-              알림이 차단돼 있어요. 브라우저 설정에서 알림을 허용으로 바꿔주세요
-            </p>
           ) : (
-            <button
-              type="button"
-              onClick={() => void handleEnableNotification()}
-              disabled={enablingNotification}
-              className="btn-primary-inline"
-            >
-              {enablingNotification ? '요청 중...' : '🔔 촬영 알림 켜기'}
-            </button>
+            <>
+              <div className="mypage-push-toggle-row">
+                <p className="mypage-push-toggle-copy">
+                  {pushSubscribed
+                    ? '대회 소식과 알림을 받고 있어요'
+                    : '대회 소식과 알림을 받아보세요'}
+                </p>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={pushSubscribed}
+                  aria-label="알림 받기"
+                  disabled={enablingNotification}
+                  onClick={() => void handlePushToggle()}
+                  className={`toggle-switch ${pushSubscribed ? 'toggle-switch-on' : ''}`}
+                >
+                  <span className="toggle-switch-thumb" />
+                </button>
+              </div>
+              {pushPermission === 'denied' && !pushSubscribed ? (
+                <p className="mt-3 mb-0 text-sm text-muted">
+                  알림이 차단돼 있어요. 브라우저 설정에서 허용으로 바꾼 뒤 다시 켜주세요
+                </p>
+              ) : null}
+              {notificationMsg ? (
+                <p className="mt-3 mb-0 text-sm text-muted">{notificationMsg}</p>
+              ) : null}
+            </>
           )}
-
-          {notificationMsg && <p className="mt-3 text-sm text-muted">{notificationMsg}</p>}
         </div>
 
         <div className="card mb-4">

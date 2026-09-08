@@ -30,6 +30,20 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   }
 }
 
+/** 현재 브라우저에 활성 푸시 구독이 있는지 (DB가 아닌 PushManager 기준) */
+export async function hasActivePushSubscription(): Promise<boolean> {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false
+  try {
+    const registration =
+      (await navigator.serviceWorker.getRegistration()) ?? (await registerServiceWorker())
+    if (!registration) return false
+    const sub = await registration.pushManager.getSubscription()
+    return !!sub
+  } catch {
+    return false
+  }
+}
+
 /**
  * 알림 권한 요청 + 구독 등록. 브라우저 보안 정책상 사용자가 직접 허용해야 하며
  * 관리자가 강제로 켤 수 있는 방법은 없음 — 반드시 사용자 제스처(클릭 등) 안에서 호출할 것.
