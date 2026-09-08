@@ -323,6 +323,15 @@ async function revokeManualUnlockAndNotifyMismatch(
   return { push_sent: 0, push_failed: 0, no_subscription: push.no_subscription ? 1 : 0 }
 }
 
+/** 불일치/오입력 회수 — pending + manually_unlocked 건에만 적용 */
+export async function revokeInstagramManualUnlockAsMismatch(
+  admin: SupabaseClient,
+  row: { id: string; user_id: string },
+  now: Date = new Date()
+): Promise<{ push_sent: number; push_failed: number; no_subscription: number }> {
+  return revokeManualUnlockAndNotifyMismatch(admin, row, now.toISOString())
+}
+
 async function flagManualUnlockMismatchesAfterFollowerUpload(
   admin: SupabaseClient,
   handleSet: Set<string>,

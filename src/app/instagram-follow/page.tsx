@@ -9,7 +9,9 @@ import {
   INSTAGRAM_HANDLE,
   INSTAGRAM_LATE_MATCH_NOTICE,
   instagramFollowSubmitCompleteMessage,
+  instagramOwnAccountClaimBlockedMessage,
 } from '@/lib/instagram-follow-copy'
+import { isBrandOwnInstagramHandle } from '@/lib/instagram-handle'
 import type { InstagramFollowBonusStatus } from '@/lib/instagram-follow-bonus'
 
 function InstagramFollowContent() {
@@ -61,6 +63,10 @@ function InstagramFollowContent() {
     e.preventDefault()
     if (!handleInput.trim()) {
       setErrorMsg('인스타 아이디를 입력해주세요')
+      return
+    }
+    if (isBrandOwnInstagramHandle(handleInput)) {
+      setErrorMsg(instagramOwnAccountClaimBlockedMessage())
       return
     }
 

@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { authFetch } from '@/lib/supabase/auth-client'
-import { INSTAGRAM_LATE_MATCH_NOTICE, instagramFollowSubmitCompleteMessage } from '@/lib/instagram-follow-copy'
+import {
+  INSTAGRAM_LATE_MATCH_NOTICE,
+  instagramFollowSubmitCompleteMessage,
+  instagramOwnAccountClaimBlockedMessage,
+} from '@/lib/instagram-follow-copy'
+import { isBrandOwnInstagramHandle } from '@/lib/instagram-handle'
 import type { InstagramFollowBonusStatus } from '@/lib/instagram-follow-bonus'
 
 type InstagramFollowOnboardingModalProps = {
@@ -65,6 +70,10 @@ export function InstagramFollowOnboardingModal({
     e.preventDefault()
     if (!handleInput.trim()) {
       setErrorMsg('인스타 아이디를 입력해주세요')
+      return
+    }
+    if (isBrandOwnInstagramHandle(handleInput)) {
+      setErrorMsg(instagramOwnAccountClaimBlockedMessage())
       return
     }
 

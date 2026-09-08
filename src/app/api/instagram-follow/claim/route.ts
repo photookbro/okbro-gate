@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-server'
 import { requireTermsAgreement } from '@/lib/terms-agreement-server'
-import { normalizeInstagramHandle } from '@/lib/instagram-handle'
+import { normalizeInstagramHandle, isBrandOwnInstagramHandle } from '@/lib/instagram-handle'
 import {
   buildInstagramFollowBonusStatus,
   getEffectiveInstagramFollowBonus,
@@ -10,7 +10,10 @@ import {
 } from '@/lib/instagram-follow-bonus'
 import { manuallyUnlockInstagramFollowPendingRow } from '@/lib/instagram-follow-approve-server'
 import { isInstagramHandleInBonusHistory } from '@/lib/instagram-handle-bonus-history'
-import { instagramFollowSubmitCompleteMessage } from '@/lib/instagram-follow-copy'
+import {
+  instagramFollowSubmitCompleteMessage,
+  instagramOwnAccountClaimBlockedMessage,
+} from '@/lib/instagram-follow-copy'
 import { ensureUserProfile } from '@/lib/user-profile-server'
 import { loadVerificationSettings } from '@/lib/verification-settings'
 import { supabaseAdmin } from '@/lib/supabase-admin'
@@ -55,6 +58,13 @@ export async function POST(req: NextRequest) {
 
   if (!handle) {
     return NextResponse.json({ error: '인스타 아이디를 올바르게 입력해주세요' }, { status: 400 })
+  }
+
+  if (isBrandOwnInstagramHandle(handle)) {
+    return NextResponse.json(
+      { error: instagramOwnAccountClaimBlockedMessage() },
+      { status: 400 }
+    )
   }
 
   const admin = supabaseAdmin()

@@ -36,4 +36,9 @@ export function instagramFollowMismatchPushBody(): string {
   return `인스타그램 팔로우가 확인되지 않았어요. @${INSTAGRAM_HANDLE} 팔로우와 아이디 입력을 다시 확인해주세요`
 }
 
+/** 오켱 본인 계정(@photo_ok_bro)을 본인 아이디로 제출한 경우 */
+export function instagramOwnAccountClaimBlockedMessage(): string {
+  return `${INSTAGRAM_HANDLE}는 오켱 본인 계정이에요. 팔로우하신 본인의 인스타그램 아이디를 입력해주세요.`
+}
+
 export const INSTAGRAM_BENEFIT_BANNER_DISMISS_KEY = 'okbro_instagram_follow_benefit_banner_dismissed'

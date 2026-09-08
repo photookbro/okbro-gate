@@ -9,7 +9,9 @@ import {
   instagramFollowMypageDescriptionLead,
   instagramFollowMypageDescriptionTail,
   instagramFollowSubmitCompleteMessage,
+  instagramOwnAccountClaimBlockedMessage,
 } from '@/lib/instagram-follow-copy'
+import { isBrandOwnInstagramHandle } from '@/lib/instagram-handle'
 import { authFetch } from '@/lib/supabase/auth-client'
 
 type PhotoAccess = {
@@ -144,6 +146,10 @@ function FollowerAccessRow({
     e.preventDefault()
     if (!handleInput.trim()) {
       setErrorMsg('인스타 아이디를 입력해주세요')
+      return
+    }
+    if (isBrandOwnInstagramHandle(handleInput)) {
+      setErrorMsg(instagramOwnAccountClaimBlockedMessage())
       return
     }
 
