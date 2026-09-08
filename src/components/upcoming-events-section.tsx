@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { GpsTrackingToggle } from '@/components/gps-tracking-toggle'
-import { useGpsTrackingEnabled } from '@/lib/gps-tracking-storage'
+import {
+  hasAnyGpsTrackingEnabled,
+  subscribeGpsTrackingChange,
+  useGpsTrackingEnabled,
+} from '@/lib/gps-tracking-storage'
 import { authFetch } from '@/lib/supabase/auth-client'
 import {
   EVENTS_UPCOMING_ON_DETAIL,
@@ -19,6 +23,9 @@ const PlayerLocationPreviewMap = dynamic(
   () => import('@/components/player-location-preview-map').then(mod => mod.PlayerLocationPreviewMap),
   { ssr: false }
 )
+
+/** GPS ON인 대회가 있을 때만 통과 시각 갱신 — 60초 간격 */
+const UPCOMING_POLL_INTERVAL_MS = 60_000
 
 function UpcomingEventItem({
   event,
@@ -112,8 +119,6 @@ function UpcomingEventItem({
   )
 }
 
-const UPCOMING_POLL_INTERVAL_MS = 15000
-
 export function UpcomingEventsSection() {
   const [upcoming, setUpcoming] = useState<EventsListUpcomingEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -122,6 +127,7 @@ export function UpcomingEventsSection() {
   const [globalGpsTrackingEligible, setGlobalGpsTrackingEligible] = useState<boolean | null>(
     null
   )
+  const [anyGpsTrackingOn, setAnyGpsTrackingOn] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -140,6 +146,16 @@ export function UpcomingEventsSection() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    function syncGpsGate() {
+      const ids = upcoming.filter(e => e.show_gps_toggle).map(e => e.id)
+      setAnyGpsTrackingOn(hasAnyGpsTrackingEnabled(ids))
+    }
+
+    syncGpsGate()
+    return subscribeGpsTrackingChange(syncGpsGate)
+  }, [upcoming])
 
   useEffect(() => {
     let cancelled = false
@@ -172,14 +188,35 @@ export function UpcomingEventsSection() {
     }
 
     load(true)
-    // 통과 시각 텍스트가 새로고침 없이도 반영되도록 주기적으로 조용히 재조회
-    const interval = window.setInterval(() => load(false), UPCOMING_POLL_INTERVAL_MS)
 
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!anyGpsTrackingOn) return
+
+    let cancelled = false
+
+    function quietReload() {
+      authFetch('/api/events/list')
+        .then(async res => {
+          const data = await res.json()
+          if (cancelled || !res.ok) return
+          setUpcoming(parseEventsListResponse(data).upcoming)
+        })
+        .catch(() => {
+          // ignore quiet poll errors
+        })
+    }
+
+    const interval = window.setInterval(quietReload, UPCOMING_POLL_INTERVAL_MS)
     return () => {
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [])
+  }, [anyGpsTrackingOn])
 
   return (
     <section className="events-section landing-events-section">

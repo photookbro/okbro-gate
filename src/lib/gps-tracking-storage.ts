@@ -36,6 +36,23 @@ export function isGpsTrackingEnabled(eventId: string): boolean {
   return readMap()[eventId] === true
 }
 
+/** 목록에 있는 대회 중 하나라도 GPS 추적이 ON인지 (폴링 게이트용) */
+export function hasAnyGpsTrackingEnabled(eventIds: string[]): boolean {
+  if (eventIds.length === 0) return false
+  const map = readMap()
+  return eventIds.some(id => map[id] === true)
+}
+
+export function subscribeGpsTrackingChange(listener: () => void): () => void {
+  if (typeof window === 'undefined') return () => {}
+  window.addEventListener(CHANGE_EVENT, listener)
+  window.addEventListener('storage', listener)
+  return () => {
+    window.removeEventListener(CHANGE_EVENT, listener)
+    window.removeEventListener('storage', listener)
+  }
+}
+
 export function setGpsTrackingEnabled(eventId: string, enabled: boolean) {
   const map = readMap()
   if (enabled) {
