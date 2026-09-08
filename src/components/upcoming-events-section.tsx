@@ -25,10 +25,13 @@ function UpcomingEventItem({
   globalGpsTrackingEligible,
 }: {
   event: EventsListUpcomingEvent
-  globalGpsTrackingEligible: boolean
+  /** null = 자격 조회 중 — 미인증 문구를 그리지 않음 */
+  globalGpsTrackingEligible: boolean | null
 }) {
   const [trackingEnabled] = useGpsTrackingEnabled(event.id)
-  const canToggleGps = event.is_pay_event || globalGpsTrackingEligible
+  const eligibilityReady = globalGpsTrackingEligible !== null
+  const canToggleGps =
+    event.is_pay_event || globalGpsTrackingEligible === true
 
   const isMultiMode = event.locations.length > 1
   const hasPassData = isMultiMode ? event.gps_pass_groups.length > 0 : !!event.shoot_record
@@ -65,7 +68,7 @@ function UpcomingEventItem({
             />
             {event.is_pay_event ? (
               <span className="events-gps-purchase-hint">대회 서비스 일부로 제공</span>
-            ) : !canToggleGps ? (
+            ) : eligibilityReady && !canToggleGps ? (
               <Link
                 href="/verify-order"
                 className="events-gps-purchase-hint"
@@ -115,7 +118,10 @@ export function UpcomingEventsSection() {
   const [upcoming, setUpcoming] = useState<EventsListUpcomingEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [globalGpsTrackingEligible, setGlobalGpsTrackingEligible] = useState(false)
+  /** null = /api/verify-order/status 응답 전 — 미인증 문구/토글 활성 판단 보류 */
+  const [globalGpsTrackingEligible, setGlobalGpsTrackingEligible] = useState<boolean | null>(
+    null
+  )
 
   useEffect(() => {
     let cancelled = false
