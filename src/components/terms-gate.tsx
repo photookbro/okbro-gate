@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { TermsAgreement } from '@/components/terms-agreement'
 import { useGuestAuth } from '@/components/guest-auth-gate'
@@ -17,24 +17,27 @@ export function TermsGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { isLoggedIn, authReady } = useGuestAuth()
   const [status, setStatus] = useState<GateStatus>('idle')
+  /** 이 브라우저 탭 세션(새로고침 전)에서 서버 동의 확인을 통과했는지 */
+  const sessionVerifiedPassedRef = useRef(false)
 
   const exempt = isGuestClickExemptPath(pathname)
 
-  const verifyTermsFromServer = useCallback(async () => {
-    const result = await fetchTermsAgreementStatus()
-    if (result.agreed) {
-      setTermsAgreed()
-      setStatus('passed')
-      return true
+  useEffect(() => {
+    if (!isLoggedIn) {
+      sessionVerifiedPassedRef.current = false
     }
-    clearLocalTermsAgreed()
-    setStatus('required')
-    return false
-  }, [])
+  }, [isLoggedIn])
 
   useEffect(() => {
     if (!authReady) return
+
     if (exempt || !isLoggedIn) {
+      setStatus('passed')
+      return
+    }
+
+    // 세션 중 이미 서버에서 동의 확인됨 → 탭 전환·라우트 이동 시 재검증/로딩 없음
+    if (sessionVerifiedPassedRef.current) {
       setStatus('passed')
       return
     }
@@ -47,6 +50,7 @@ export function TermsGate({ children }: { children: React.ReactNode }) {
       if (cancelled) return
       if (result.agreed) {
         setTermsAgreed()
+        sessionVerifiedPassedRef.current = true
         setStatus('passed')
       } else {
         clearLocalTermsAgreed()
@@ -57,25 +61,7 @@ export function TermsGate({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [authReady, isLoggedIn, exempt, pathname])
-
-  // PWA/오래된 탭: 포커스·가시성 복귀 시 서버 재검증 (localStorage만 믿지 않음)
-  useEffect(() => {
-    if (!authReady || !isLoggedIn || exempt) return
-
-    function recheck() {
-      void verifyTermsFromServer()
-    }
-
-    window.addEventListener('focus', recheck)
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') recheck()
-    })
-
-    return () => {
-      window.removeEventListener('focus', recheck)
-    }
-  }, [authReady, isLoggedIn, exempt, verifyTermsFromServer])
+  }, [authReady, isLoggedIn, exempt])
 
   if (!authReady || (isLoggedIn && !exempt && (status === 'idle' || status === 'checking'))) {
     return (
@@ -92,6 +78,7 @@ export function TermsGate({ children }: { children: React.ReactNode }) {
         mode="page"
         onComplete={() => {
           setTermsAgreed()
+          sessionVerifiedPassedRef.current = true
           setStatus('passed')
         }}
       />
