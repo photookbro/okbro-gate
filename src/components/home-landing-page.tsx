@@ -192,9 +192,6 @@ export function HomeLandingPage() {
                 <span className="hl-badge">
                   SHOP <b>가성비 장비</b>
                 </span>
-                <span className="hl-badge">
-                  진단 <b>영양 자가진단</b>
-                </span>
               </div>
             </div>
             <div className="hl-diff-visual">
@@ -285,9 +282,6 @@ export function HomeLandingPage() {
                 </a>
                 <Link href="/shop" data-guest-allowed>
                   SHOP
-                </Link>
-                <Link href="/diagnosis" data-guest-allowed>
-                  진단
                 </Link>
               </div>
               <div className="hl-foot-col">

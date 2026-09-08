@@ -11,7 +11,6 @@ export function isGuestPublicPath(pathname: string | null | undefined): boolean 
   if (pathname === '/' || pathname === '/home') return true
   if (pathname === '/events') return true
   if (pathname === '/shop' || pathname.startsWith('/shop/')) return true
-  if (pathname === '/diagnosis' || pathname.startsWith('/diagnosis/')) return true
 
   if (pathname === '/login' || pathname === '/signup') return true
   if (pathname.startsWith('/auth/')) return true

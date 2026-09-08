@@ -99,13 +99,6 @@ export function SiteNav() {
       >
         SHOP
       </Link>
-      <Link
-        href="/diagnosis"
-        className={navLinkClass(pathname === '/diagnosis' || pathname.startsWith('/diagnosis/'))}
-        data-guest-allowed
-      >
-        CHECK
-      </Link>
       {userId ? (
         <>
           <Link href="/mypage" className={navLinkClass(pathname === '/mypage')}>
