@@ -213,7 +213,7 @@ export function formatOkcamPassSentence(displayTime: string, passCount?: number)
   return `오켱 카메라 앞을 ${hm} 즈음 지나갔습니다.`
 }
 
-export const EVENTS_UPCOMING_SECTION_TITLE = '📅 렌즈가 기다리는 그날'
+export const EVENTS_UPCOMING_SECTION_TITLE = '📅 촬영예정대회'
 export const EVENTS_UPCOMING_ON_PROMPT = '참가 예정이면 ON으로 해주세요'
 export const EVENTS_UPCOMING_ON_DETAIL = 'ON으로 해두시면 스쳐 간 순간까지 놓치지 않습니다'
 export const EVENTS_PAST_SECTION_SUB_MAIN = '지난 대회 및 사진 업로드 현황'

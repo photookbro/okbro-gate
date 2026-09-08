@@ -60,7 +60,7 @@ export function PastEventsSection() {
 
   return (
     <section className="events-section landing-events-section">
-      <h2 className="events-section-title">🎬 렌즈가 담아온 기록</h2>
+      <h2 className="events-section-title">🎬 사진 찾아가세요!</h2>
       <p className="events-section-sub events-past-section-sub">
         <span>{EVENTS_PAST_SECTION_SUB_MAIN}</span>
         <span className="events-past-section-sub-tail">{EVENTS_PAST_SECTION_SUB_TAIL}</span>

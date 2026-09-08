@@ -1,5 +1,5 @@
 /**
- * 인스타 수동 승인 a~g 프로덕션 실검증
+ * 인스타 수동 승인 a~g 프로덕션 실검증 (시뮬레이션 아님)
  * node scripts/verify-instagram-manual-approve-prod.mjs
  */
 import fs from 'node:fs'
@@ -152,24 +152,37 @@ async function adminFetch(adminToken, pathname, init = {}) {
   return { res, data }
 }
 
-async function findGpsEvent(admin) {
-  const { data: events } = await admin
-    .from('events')
-    .select(
-      'id, name, is_pay_event, gps_enabled, album_b_url, gps_1_lat, gps_1_lng, gps_lat, gps_lng'
-    )
-    .eq('gps_enabled', true)
-    .not('album_b_url', 'is', null)
-
-  const nonPay = (events ?? []).find(e => e.is_pay_event !== true && (e.gps_1_lat ?? e.gps_lat))
-  if (nonPay) return nonPay
-  return (events ?? []).find(e => e.gps_1_lat ?? e.gps_lat) ?? null
+async function listPlayers(adminToken) {
+  const { res, data } = await adminFetch(adminToken, '/api/admin/players')
+  if (!res.ok) throw new Error(`players list failed: ${data.error ?? res.status}`)
+  return data.players ?? []
 }
 
-async function getPlayer(adminToken, userId) {
+async function getPlayerDetail(adminToken, userId) {
   const { res, data } = await adminFetch(adminToken, `/api/admin/players?user_id=${userId}`)
   if (!res.ok) throw new Error(`players detail failed: ${data.error ?? res.status}`)
-  return data.player ?? data
+  return data.player
+}
+
+async function snapshotOtherManualPending(admin, testUserIds) {
+  const { data } = await admin
+    .from('instagram_follow_bonus')
+    .select('id, user_id, instagram_handle, status, manually_unlocked, manual_unlock_verified_mismatch')
+    .eq('status', 'pending')
+    .eq('manually_unlocked', true)
+  return (data ?? []).filter(row => !testUserIds.has(row.user_id))
+}
+
+async function restoreOtherManualPending(admin, snapshot) {
+  for (const row of snapshot) {
+    await admin
+      .from('instagram_follow_bonus')
+      .update({
+        manual_unlock_verified_mismatch: row.manual_unlock_verified_mismatch === true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', row.id)
+  }
 }
 
 async function uploadFollowersHtml(adminToken, handles) {
@@ -187,6 +200,10 @@ async function uploadFollowersHtml(adminToken, handles) {
 }
 
 async function loginAdmin(page, adminToken) {
+  page.removeAllListeners('dialog')
+  page.on('dialog', dialog => {
+    void dialog.accept()
+  })
   await page.addInitScript(token => {
     sessionStorage.setItem('admin_token', token)
   }, adminToken)
@@ -199,8 +216,13 @@ async function loginAdmin(page, adminToken) {
   }
 }
 
+async function openPlayersTab(page) {
+  await page.getByRole('button', { name: 'PLAYERS' }).click()
+  await page.waitForSelector('table tbody tr', { timeout: 60_000 })
+}
+
 async function dismissBlockingModals(page) {
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 8; i++) {
     const overlays = page.locator('.modal-overlay')
     if ((await overlays.count()) === 0) return
     const top = overlays.last()
@@ -217,7 +239,7 @@ async function dismissBlockingModals(page) {
   }
 }
 
-function onboardingInitScript(userId) {
+function onboardingInitScript() {
   return ({ uid }) => {
     localStorage.setItem('terms_agreed_v1', 'true')
     localStorage.setItem('okbro_app_first_launch_done', '1')
@@ -232,15 +254,14 @@ function onboardingInitScript(userId) {
 async function shot(page, name) {
   const file = path.join(outDir, `${name}.png`)
   await page.screenshot({ path: file, fullPage: true })
-  return name + '.png'
+  return `${name}.png`
 }
 
 async function screenshotPlayersRow(page, adminToken, email, filename) {
   await loginAdmin(page, adminToken)
-  await page.getByRole('button', { name: 'PLAYERS' }).click()
-  await page.waitForSelector('table tbody tr', { timeout: 30_000 })
+  await openPlayersTab(page)
   const row = page.locator('table tbody tr', { hasText: email })
-  await row.waitFor({ timeout: 30_000 })
+  await row.waitFor({ timeout: 60_000 })
   await row.scrollIntoViewIfNeeded()
   const rowText = (await row.innerText()).replace(/\s+/g, ' ').trim()
   await row.screenshot({ path: path.join(outDir, filename) })
@@ -257,6 +278,48 @@ async function screenshotPlayersRow(page, adminToken, email, filename) {
   }
 }
 
+async function completeTermsIfNeeded(page) {
+  const agreeBtn = page.getByRole('button', { name: '동의하고 계속하기' })
+  if ((await agreeBtn.count()) === 0) return false
+  const boxes = page.locator('input[type="checkbox"]')
+  const n = await boxes.count()
+  for (let i = 0; i < n; i++) {
+    await boxes.nth(i).check({ force: true })
+  }
+  await agreeBtn.click()
+  await page.waitForTimeout(1500)
+  await page.waitForFunction(
+    () => !document.body.innerText.includes('동의하고 계속하기'),
+    null,
+    { timeout: 20_000 }
+  ).catch(() => null)
+  return true
+}
+
+async function inspectGpsOnEvents(page, eventName) {
+  await page.goto(`${BASE}/events`, { waitUntil: 'networkidle', timeout: 90_000 })
+  await completeTermsIfNeeded(page)
+  await dismissBlockingModals(page)
+  await page.waitForSelector('.event-upcoming-item, text=촬영예정대회', { timeout: 30_000 }).catch(() => null)
+  const item = page.locator('.event-upcoming-item').filter({ hasText: eventName }).first()
+  const found = (await item.count()) > 0
+  if (!found) {
+    const body = await page.locator('body').innerText()
+    return {
+      found: false,
+      gpsDisabled: null,
+      hasAuthHint: body.includes('구매 인증 후 이용 가능해요'),
+      bodyPreview: body.slice(0, 400),
+    }
+  }
+  await item.scrollIntoViewIfNeeded()
+  const gpsSwitch = item.getByRole('switch')
+  const gpsDisabled =
+    (await gpsSwitch.getAttribute('aria-disabled')) === 'true' || (await gpsSwitch.isDisabled())
+  const hasAuthHint = (await item.getByText('구매 인증 후 이용 가능해요').count()) > 0
+  return { found: true, gpsDisabled, hasAuthHint }
+}
+
 async function main() {
   fs.mkdirSync(outDir, { recursive: true })
   const env = loadEnv()
@@ -268,7 +331,7 @@ async function main() {
     baseUrl: BASE,
     timestamp: new Date().toISOString(),
     migrationApplied: false,
-    event: null,
+    events: {},
     checks: {},
     screenshots: [],
     details: {},
@@ -285,287 +348,372 @@ async function main() {
     throw new Error(`Migration not applied: ${schemaError?.message}`)
   }
 
-  const gpsEvent = await findGpsEvent(admin)
-  if (!gpsEvent) throw new Error('No GPS-enabled event with album_b_url found')
-  report.event = { id: gpsEvent.id, name: gpsEvent.name, is_pay_event: gpsEvent.is_pay_event }
+  const eventsRes = await fetch(`${BASE}/api/events/list`)
+  const eventsData = await eventsRes.json()
+  const gpsEvent = (eventsData.upcoming ?? []).find(
+    e => e.is_pay_event !== true && (e.show_gps_toggle || (e.locations ?? []).length > 0)
+  )
+  const albumEvent = (eventsData.past ?? []).find(e => e.has_album === true && e.is_pay_event !== true)
+  if (!gpsEvent) throw new Error('No non-pay upcoming GPS event found')
+  if (!albumEvent) throw new Error('No non-pay past album event found')
+  report.events = {
+    gps: { id: gpsEvent.id, name: gpsEvent.name },
+    album: { id: albumEvent.id, name: albumEvent.name },
+  }
 
   const manualUser = await ensureUser(admin, USERS.manual)
   const approvedUser = await ensureUser(admin, USERS.approved)
   const autoUser = await ensureUser(admin, USERS.auto)
+  const testUserIds = new Set([manualUser.id, approvedUser.id, autoUser.id])
+  const otherManualSnapshot = await snapshotOtherManualPending(admin, testUserIds)
+  report.details.otherManualPendingCount = otherManualSnapshot.length
 
-  for (const uid of [manualUser.id, approvedUser.id, autoUser.id]) {
+  for (const uid of testUserIds) {
     await admin.from('instagram_follow_bonus').delete().eq('user_id', uid)
     await admin.from('orders').delete().eq('user_id', uid)
-    await admin.from('terms_agreements').upsert(
+    const { error: termsError } = await admin.from('terms_agreements').upsert(
       { user_id: uid, version: 'v1', agreed_at: new Date().toISOString() },
       { onConflict: 'user_id,version' }
     )
+    if (termsError) {
+      const inserted = await admin.from('terms_agreements').insert({
+        user_id: uid,
+        version: 'v1',
+        agreed_at: new Date().toISOString(),
+      })
+      if (inserted.error && !String(inserted.error.message).includes('duplicate')) {
+        throw new Error(`terms insert failed: ${inserted.error.message}`)
+      }
+    }
+    const { data: termsRow, error: termsCheckError } = await admin
+      .from('terms_agreements')
+      .select('id')
+      .eq('user_id', uid)
+      .eq('version', 'v1')
+      .maybeSingle()
+    if (termsCheckError || !termsRow) {
+      throw new Error(`terms not saved for ${uid}: ${termsCheckError?.message ?? 'missing row'}`)
+    }
   }
 
-  const handleManual = `ig_manual_${Date.now().toString(36).slice(-6)}`
-  const handleAuto = `ig_auto_${Date.now().toString(36).slice(-6)}`
-  const handleApproved = `ig_appr_${Date.now().toString(36).slice(-6)}`
+  const stamp = Date.now().toString(36).slice(-6)
+  const handleManual = `igmanual${stamp}`
+  const handleAuto = `igauto${stamp}`
+  const handleApproved = `igappr${stamp}`
   const nowIso = new Date().toISOString()
+  const fakeHandles = []
 
   await admin.from('instagram_follow_bonus').insert({
     user_id: manualUser.id,
-    instagram_handle: `@${handleManual}`,
+    instagram_handle: handleManual,
     status: 'pending',
     updated_at: nowIso,
   })
-
   await admin.from('instagram_follow_bonus').insert({
     user_id: approvedUser.id,
-    instagram_handle: `@${handleApproved}`,
+    instagram_handle: handleApproved,
     status: 'approved',
     approved_at: nowIso,
     bonus_days_granted: 14,
     expires_at: new Date(Date.now() + 14 * 86400000).toISOString(),
     updated_at: nowIso,
   })
-
   await admin.from('instagram_follow_bonus').insert({
     user_id: autoUser.id,
-    instagram_handle: `@${handleAuto}`,
+    instagram_handle: handleAuto,
     status: 'pending',
     updated_at: nowIso,
   })
 
   const playwright = await ensurePlaywright()
   const browser = await playwright.chromium.launch({ headless: true })
-
-  // a: pending → 즉시 승인 버튼 노출
-  const playerPending = await getPlayer(adminToken, manualUser.id)
-  report.details.a_pending_player = playerPending
-  const checkA = {
-    pass:
-      playerPending.instagram_follow_pending === true &&
-      playerPending.instagram_can_manual_approve === true,
-  }
-  report.checks.a_pending_button_visible = checkA
-
   const adminPage = await browser.newPage({ viewport: { width: 1440, height: 900 } })
-  const uiA = await screenshotPlayersRow(
-    adminPage,
-    adminToken,
-    USERS.manual.email,
-    'a-pending-button.png'
-  )
-  report.details.a_ui = uiA
-  report.screenshots.push(...uiA.screenshots)
-  checkA.pass = checkA.pass && uiA.hasInstantApproveButton
 
-  // b: 즉시 승인 → 기간 + GPS + 앨범
-  const manualRes = await adminFetch(adminToken, '/api/admin/players/instagram-manual-approve', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_id: manualUser.id }),
-  })
-  const { data: afterManualRow } = await admin
-    .from('instagram_follow_bonus')
-    .select('*')
-    .eq('user_id', manualUser.id)
-    .single()
+  try {
+    const sessionBefore = await signIn(env, USERS.manual.email, USERS.manual.password)
+    const beforeContext = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      permissions: ['geolocation'],
+    })
+    await beforeContext.addCookies(toPlaywrightCookies(sessionBefore.jar))
+    await beforeContext.addInitScript(onboardingInitScript(), { uid: manualUser.id })
+    const beforePage = await beforeContext.newPage()
+    const gpsBefore = await inspectGpsOnEvents(beforePage, gpsEvent.name)
+    report.screenshots.push(await shot(beforePage, 'b0-events-gps-before-unlock'))
+    await beforePage.goto(`${BASE}/events/${albumEvent.id}`, {
+      waitUntil: 'networkidle',
+      timeout: 90_000,
+    })
+    await completeTermsIfNeeded(beforePage)
+    await dismissBlockingModals(beforePage)
+    report.screenshots.push(await shot(beforePage, 'b0-album-locked-before-unlock'))
+    const albumBeforeText = await beforePage.locator('body').innerText()
+    report.details.albumBeforeLocked = albumBeforeText.includes('인증 없이는')
+    await beforeContext.close()
 
-  const sessionManual = await signIn(env, USERS.manual.email, USERS.manual.password)
-  const statusRes = await fetch(
-    `${BASE}/api/verify-order/status?event_id=${gpsEvent.id}`,
-    {
-      headers: { Authorization: `Bearer ${sessionManual.accessToken}` },
+    const players = await listPlayers(adminToken)
+    const pendingRow = players.find(p => p.id === manualUser.id)
+    const uiA = await screenshotPlayersRow(
+      adminPage,
+      adminToken,
+      USERS.manual.email,
+      'a-pending-button.png'
+    )
+    report.details.a_ui = uiA
+    report.details.a_player = pendingRow
+    report.screenshots.push(...uiA.screenshots)
+    report.checks.a_pending_button_visible = {
+      pass: pendingRow?.instagram_can_manual_approve === true && uiA.hasInstantApproveButton === true,
+      can_manual_approve: pendingRow?.instagram_can_manual_approve,
+      hasButton: uiA.hasInstantApproveButton,
     }
-  )
-  const statusData = await statusRes.json()
 
-  const mypageRes = await fetch(`${BASE}/api/mypage`, {
-    headers: { Authorization: `Bearer ${sessionManual.accessToken}` },
-  })
-  const mypageData = await mypageRes.json()
+    await loginAdmin(adminPage, adminToken)
+    await openPlayersTab(adminPage)
+    const approveRow = adminPage.locator('table tbody tr', { hasText: USERS.manual.email })
+    await approveRow.waitFor({ timeout: 60_000 })
+    await approveRow.scrollIntoViewIfNeeded()
+    await approveRow.getByRole('button', { name: '즉시 승인' }).click()
+    await adminPage.waitForTimeout(2500)
 
-  const userContext = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    geolocation: {
-      latitude: gpsEvent.gps_1_lat ?? gpsEvent.gps_lat ?? 37.5665,
-      longitude: gpsEvent.gps_1_lng ?? gpsEvent.gps_lng ?? 126.978,
-    },
-    permissions: ['geolocation'],
-  })
-  await userContext.addCookies(toPlaywrightCookies(sessionManual.jar))
-  await userContext.addInitScript(onboardingInitScript(manualUser.id), { uid: manualUser.id })
-  const eventPage = await userContext.newPage()
-  await eventPage.goto(`${BASE}/events/${gpsEvent.id}`, { waitUntil: 'networkidle', timeout: 90_000 })
-  await dismissBlockingModals(eventPage)
-  await eventPage.waitForSelector('text=촬영 감지', { timeout: 30_000 }).catch(() => null)
+    const { data: afterManualRow } = await admin
+      .from('instagram_follow_bonus')
+      .select('*')
+      .eq('user_id', manualUser.id)
+      .single()
 
-  const gpsSwitch = eventPage.getByRole('switch').first()
-  const gpsDisabled = await gpsSwitch.getAttribute('aria-disabled')
-  const bodyText = await eventPage.locator('body').innerText()
-  const hasLockedAlbum = bodyText.includes('구매 인증 후 이용') || bodyText.includes('인증이 필요')
-  const hasAlbumAccess =
-    bodyText.includes('사진 보러가기') ||
-    bodyText.includes('고화질') ||
-    bodyText.includes('앨범')
+    const sessionAfter = await signIn(env, USERS.manual.email, USERS.manual.password)
+    const statusRes = await fetch(`${BASE}/api/verify-order/status?event_id=${albumEvent.id}`, {
+      headers: { Authorization: `Bearer ${sessionAfter.accessToken}` },
+    })
+    const statusData = await statusRes.json()
+    report.details.statusAfterManual = { http: statusRes.status, statusData }
+    const gpsStatusRes = await fetch(`${BASE}/api/verify-order/status`, {
+      headers: { Authorization: `Bearer ${sessionAfter.accessToken}` },
+    })
+    const gpsStatusData = await gpsStatusRes.json()
+    const mypageRes = await fetch(`${BASE}/api/mypage`, {
+      headers: { Authorization: `Bearer ${sessionAfter.accessToken}` },
+    })
+    const mypageData = await mypageRes.json()
 
-  report.screenshots.push(await shot(eventPage, 'b-event-after-manual-unlock'))
-  report.screenshots.push(await shot(eventPage, 'b-mypage-placeholder'))
+    const afterContext = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      geolocation: { latitude: 37.5665, longitude: 126.978 },
+      permissions: ['geolocation'],
+    })
+    await afterContext.addCookies(toPlaywrightCookies(sessionAfter.jar))
+    await afterContext.addInitScript(onboardingInitScript(), { uid: manualUser.id })
+    const eventPage = await afterContext.newPage()
+    const gpsAfter = await inspectGpsOnEvents(eventPage, gpsEvent.name)
+    report.screenshots.push(await shot(eventPage, 'b-events-gps-after-unlock'))
 
-  const mypagePage = await userContext.newPage()
-  await mypagePage.goto(`${BASE}/mypage`, { waitUntil: 'networkidle', timeout: 90_000 })
-  await dismissBlockingModals(mypagePage)
-  report.screenshots.push(await shot(mypagePage, 'b-mypage-benefit'))
+    if (gpsAfter.found && !gpsAfter.gpsDisabled) {
+      const item = eventPage.locator('.event-upcoming-item').filter({ hasText: gpsEvent.name }).first()
+      await item.getByRole('switch').click()
+      await dismissBlockingModals(eventPage)
+      await eventPage.waitForTimeout(800)
+      report.screenshots.push(await shot(eventPage, 'b-events-gps-toggled-on'))
+    }
 
-  report.checks.b_manual_unlock_effects = {
-    pass:
-      manualRes.res.ok &&
-      afterManualRow?.status === 'pending' &&
-      afterManualRow?.manually_unlocked === true &&
-      !!afterManualRow?.expires_at &&
-      statusData.instagram_follow_verified === true &&
-      statusData.gps_tracking_eligible === true &&
-      gpsDisabled !== 'true' &&
-      !hasLockedAlbum &&
-      hasAlbumAccess,
-    manualApi: manualRes.data,
-    afterManualRow,
-    statusData,
-    mypageInstagram: mypageData?.instagram_follow ?? mypageData?.instagram,
-    gpsDisabled,
-    hasLockedAlbum,
-    hasAlbumAccess,
+    await eventPage.goto(`${BASE}/events/${albumEvent.id}`, {
+      waitUntil: 'networkidle',
+      timeout: 90_000,
+    })
+    await completeTermsIfNeeded(eventPage)
+    await dismissBlockingModals(eventPage)
+    const albumAfterText = await eventPage.locator('body').innerText()
+    const albumUnlocked =
+      (await eventPage.getByRole('button', { name: '앨범 열기' }).count()) > 0
+    const albumStillLocked = albumAfterText.includes('인증 없이는')
+    report.screenshots.push(await shot(eventPage, 'b-album-unlocked-after-approve'))
+
+    const mypagePage = await afterContext.newPage()
+    await mypagePage.goto(`${BASE}/mypage`, { waitUntil: 'networkidle', timeout: 90_000 })
+    await completeTermsIfNeeded(mypagePage)
+    await dismissBlockingModals(mypagePage)
+    const mypageText = await mypagePage.locator('body').innerText()
+    report.screenshots.push(await shot(mypagePage, 'b-mypage-benefit'))
+    await afterContext.close()
+
+    const uiB = await screenshotPlayersRow(
+      adminPage,
+      adminToken,
+      USERS.manual.email,
+      'b-after-manual-unlock-players.png'
+    )
+    report.details.b_ui = uiB
+    report.screenshots.push(...uiB.screenshots)
+
+    const igBonus = mypageData?.instagram_follow_bonus
+    report.checks.b_manual_unlock_effects = {
+      pass:
+        afterManualRow?.status === 'pending' &&
+        afterManualRow?.manually_unlocked === true &&
+        !!afterManualRow?.expires_at &&
+        statusData.instagram_follow_verified === true &&
+        gpsStatusData.gps_tracking_eligible === true &&
+        gpsBefore.gpsDisabled === true &&
+        gpsAfter.gpsDisabled === false &&
+        !albumStillLocked &&
+        albumUnlocked &&
+        igBonus?.state === 'active' &&
+        mypageText.includes('무료 열람 기간'),
+      afterManualRow: {
+        status: afterManualRow?.status,
+        manually_unlocked: afterManualRow?.manually_unlocked,
+        expires_at: afterManualRow?.expires_at,
+      },
+      statusData: {
+        instagram_follow_verified: statusData.instagram_follow_verified,
+        gps_tracking_eligible: statusData.gps_tracking_eligible,
+        access_source: statusData.access_source,
+      },
+      gpsStatusEligible: gpsStatusData.gps_tracking_eligible,
+      gpsBefore,
+      gpsAfter,
+      albumUnlocked,
+      albumStillLocked,
+      mypageState: igBonus?.state,
+      mypagePeriod: igBonus?.period_label,
+    }
+
+    const approvedPlayers = await listPlayers(adminToken)
+    const approvedRow = approvedPlayers.find(p => p.id === approvedUser.id)
+    const uiC = await screenshotPlayersRow(
+      adminPage,
+      adminToken,
+      USERS.approved.email,
+      'c-approved-no-button.png'
+    )
+    report.checks.c_approved_no_button = {
+      pass: approvedRow?.instagram_can_manual_approve === false && uiC.hasInstantApproveButton === false,
+      can_manual_approve: approvedRow?.instagram_can_manual_approve,
+      ui: uiC,
+    }
+    report.screenshots.push(...uiC.screenshots)
+
+    fakeHandles.push(handleManual)
+    const matchD = await uploadFollowersHtml(adminToken, [handleManual])
+    await restoreOtherManualPending(admin, otherManualSnapshot)
+    const { data: afterMatchRow } = await admin
+      .from('instagram_follow_bonus')
+      .select('*')
+      .eq('user_id', manualUser.id)
+      .single()
+    const uiG = await screenshotPlayersRow(
+      adminPage,
+      adminToken,
+      USERS.manual.email,
+      'g-after-match-clean-o.png'
+    )
+    report.checks.d_manual_in_html_match = {
+      pass:
+        matchD.res.ok &&
+        afterMatchRow?.status === 'approved' &&
+        afterMatchRow?.manually_unlocked === false &&
+        afterMatchRow?.manual_unlock_verified_mismatch === false,
+      upload: matchD.data,
+      afterMatchRow: {
+        status: afterMatchRow?.status,
+        manually_unlocked: afterMatchRow?.manually_unlocked,
+        mismatch: afterMatchRow?.manual_unlock_verified_mismatch,
+      },
+    }
+    report.checks.g_players_clean_o = {
+      pass:
+        !uiG.hasManualBadge &&
+        !uiG.hasMismatch &&
+        !uiG.hasInstantApproveButton &&
+        uiG.oxText === 'O',
+      ui: uiG,
+    }
+    report.screenshots.push(...uiG.screenshots)
+
+    const handleMismatch = `igmis${stamp}`
+    await admin.from('instagram_follow_bonus').delete().eq('user_id', manualUser.id)
+    await admin.from('instagram_follow_bonus').insert({
+      user_id: manualUser.id,
+      instagram_handle: handleMismatch,
+      status: 'pending',
+      updated_at: nowIso,
+    })
+    await adminFetch(adminToken, '/api/admin/players/instagram-manual-approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: manualUser.id }),
+    })
+    fakeHandles.push('someoneelseonly')
+    const mismatchUpload = await uploadFollowersHtml(adminToken, ['someoneelseonly'])
+    await restoreOtherManualPending(admin, otherManualSnapshot)
+    const { data: mismatchRow } = await admin
+      .from('instagram_follow_bonus')
+      .select('*')
+      .eq('user_id', manualUser.id)
+      .single()
+    const mismatchPlayers = await listPlayers(adminToken)
+    const mismatchPlayer = mismatchPlayers.find(p => p.id === manualUser.id)
+    const uiE = await screenshotPlayersRow(
+      adminPage,
+      adminToken,
+      USERS.manual.email,
+      'e-mismatch-warning.png'
+    )
+    report.checks.e_manual_omitted_mismatch = {
+      pass:
+        mismatchRow?.status === 'pending' &&
+        mismatchRow?.manually_unlocked === true &&
+        mismatchRow?.manual_unlock_verified_mismatch === true &&
+        (mismatchUpload.data?.manual_unlock_mismatches ?? 0) >= 1 &&
+        mismatchPlayer?.instagram_manual_unlock_mismatch === true &&
+        uiE.hasMismatch === true,
+      mismatchRow: {
+        status: mismatchRow?.status,
+        manually_unlocked: mismatchRow?.manually_unlocked,
+        mismatch: mismatchRow?.manual_unlock_verified_mismatch,
+      },
+      upload: mismatchUpload.data,
+      ui: uiE,
+    }
+    report.screenshots.push(...uiE.screenshots)
+
+    await admin.from('instagram_follow_bonus').delete().eq('user_id', autoUser.id)
+    await admin.from('instagram_follow_bonus').insert({
+      user_id: autoUser.id,
+      instagram_handle: handleAuto,
+      status: 'pending',
+      updated_at: nowIso,
+    })
+    fakeHandles.push(handleAuto)
+    const matchF = await uploadFollowersHtml(adminToken, [handleAuto])
+    await restoreOtherManualPending(admin, otherManualSnapshot)
+    const { data: autoRow } = await admin
+      .from('instagram_follow_bonus')
+      .select('*')
+      .eq('user_id', autoUser.id)
+      .single()
+    const uiF = await screenshotPlayersRow(
+      adminPage,
+      adminToken,
+      USERS.auto.email,
+      'f-auto-match-approved.png'
+    )
+    report.checks.f_auto_match_regression = {
+      pass: matchF.res.ok && autoRow?.status === 'approved' && (matchF.data?.matched_approved ?? 0) >= 1,
+      upload: matchF.data,
+      autoRow: { status: autoRow?.status, handle: autoRow?.instagram_handle },
+      ui: uiF,
+    }
+    report.screenshots.push(...uiF.screenshots)
+  } finally {
+    await restoreOtherManualPending(admin, otherManualSnapshot)
+    if (fakeHandles.length) {
+      await admin.from('instagram_followers').delete().in('username', fakeHandles)
+    }
+    await browser.close()
   }
 
-  const uiB = await screenshotPlayersRow(
-    adminPage,
-    adminToken,
-    USERS.manual.email,
-    'b-after-manual-unlock-players.png'
-  )
-  report.details.b_ui = uiB
-  report.screenshots.push(...uiB.screenshots)
-
-  // c: approved → 버튼 없음
-  const playerApproved = await getPlayer(adminToken, approvedUser.id)
-  const uiC = await screenshotPlayersRow(
-    adminPage,
-    adminToken,
-    USERS.approved.email,
-    'c-approved-no-button.png'
-  )
-  report.checks.c_approved_no_button = {
-    pass:
-      playerApproved.instagram_can_manual_approve === false &&
-      !uiC.hasInstantApproveButton,
-    playerApproved,
-    ui: uiC,
-  }
-  report.screenshots.push(...uiC.screenshots)
-
-  // d: 수동 승인 + HTML 포함 → 정상 승인
-  const matchD = await uploadFollowersHtml(adminToken, [handleManual, handleAuto, handleApproved])
-  const { data: afterMatchRow } = await admin
-    .from('instagram_follow_bonus')
-    .select('*')
-    .eq('user_id', manualUser.id)
-    .single()
-
-  const uiG = await screenshotPlayersRow(
-    adminPage,
-    adminToken,
-    USERS.manual.email,
-    'g-after-match-clean-o.png'
-  )
-  report.checks.d_manual_in_html_match = {
-    pass:
-      matchD.res.ok &&
-      afterMatchRow?.status === 'approved' &&
-      afterMatchRow?.manually_unlocked === false &&
-      afterMatchRow?.manual_unlock_verified_mismatch === false,
-    upload: matchD.data,
-    afterMatchRow,
-  }
-  report.checks.g_players_clean_o = {
-    pass:
-      !uiG.hasManualBadge &&
-      !uiG.hasMismatch &&
-      !uiG.hasInstantApproveButton &&
-      uiG.oxText === 'O',
-    ui: uiG,
-  }
-  report.screenshots.push(...uiG.screenshots)
-
-  // e: mismatch — 새 pending + 수동 승인 후 handle 빼고 업로드
-  const handleMismatch = `ig_mis_${Date.now().toString(36).slice(-6)}`
-  await admin.from('instagram_follow_bonus').delete().eq('user_id', manualUser.id)
-  await admin.from('instagram_follow_bonus').insert({
-    user_id: manualUser.id,
-    instagram_handle: `@${handleMismatch}`,
-    status: 'pending',
-    updated_at: nowIso,
-  })
-  await adminFetch(adminToken, '/api/admin/players/instagram-manual-approve', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_id: manualUser.id }),
-  })
-  const mismatchUpload = await uploadFollowersHtml(adminToken, ['someone_else_only'])
-  const { data: mismatchRow } = await admin
-    .from('instagram_follow_bonus')
-    .select('*')
-    .eq('user_id', manualUser.id)
-    .single()
-  const playerMismatch = await getPlayer(adminToken, manualUser.id)
-  const uiE = await screenshotPlayersRow(
-    adminPage,
-    adminToken,
-    USERS.manual.email,
-    'e-mismatch-warning.png'
-  )
-  report.checks.e_manual_omitted_mismatch = {
-    pass:
-      mismatchRow?.manual_unlock_verified_mismatch === true &&
-      mismatchRow?.status === 'pending' &&
-      (mismatchUpload.data?.manual_unlock_mismatches ?? 0) >= 1 &&
-      (playerMismatch.instagram_manual_unlock_mismatch === true || uiE.hasMismatch),
-    mismatchRow,
-    upload: mismatchUpload.data,
-    playerMismatch,
-    ui: uiE,
-  }
-  report.screenshots.push(...uiE.screenshots)
-
-  // f: 자동 대조 회귀 — auto user pending, HTML에 handle 포함
-  await admin.from('instagram_follow_bonus').delete().eq('user_id', autoUser.id)
-  await admin.from('instagram_follow_bonus').insert({
-    user_id: autoUser.id,
-    instagram_handle: `@${handleAuto}`,
-    status: 'pending',
-    updated_at: nowIso,
-  })
-  const matchF = await uploadFollowersHtml(adminToken, [handleAuto])
-  const { data: autoRow } = await admin
-    .from('instagram_follow_bonus')
-    .select('*')
-    .eq('user_id', autoUser.id)
-    .single()
-  const uiF = await screenshotPlayersRow(
-    adminPage,
-    adminToken,
-    USERS.auto.email,
-    'f-auto-match-approved.png'
-  )
-  report.checks.f_auto_match_regression = {
-    pass:
-      matchF.res.ok &&
-      autoRow?.status === 'approved' &&
-      (matchF.data?.approved ?? 0) >= 1,
-    upload: matchF.data,
-    autoRow,
-    ui: uiF,
-  }
-  report.screenshots.push(...uiF.screenshots)
-
-  await browser.close()
-
-  const allPass = Object.entries(report.checks).every(([, v]) => v.pass === true)
+  const allPass = Object.values(report.checks).every(v => v.pass === true)
   report.allPass = allPass
   fs.writeFileSync(path.join(outDir, 'report.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report, null, 2))
