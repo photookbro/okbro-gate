@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import {
-  mergeInstagramFollowerUsernames,
-  parseInstagramFollowersFromHtml,
-} from '@/lib/instagram-followers-parse'
-import {
   buildFollowerUploadJobPublicView,
   createInstagramFollowerUploadJob,
   getInstagramFollowerUploadJob,
@@ -98,7 +94,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const parsedLists: string[][] = []
+  const htmlTexts: string[] = []
   const fileNames: string[] = []
 
   for (const file of files) {
@@ -127,22 +123,17 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    parsedLists.push(parseInstagramFollowersFromHtml(html))
+    htmlTexts.push(html)
     fileNames.push(file.name)
-  }
-
-  const parsedUsernames = mergeInstagramFollowerUsernames(parsedLists)
-  if (parsedUsernames.length === 0) {
-    return NextResponse.json({ error: '팔로워 아이디를 찾지 못했어요' }, { status: 400 })
   }
 
   const admin = supabaseAdmin()
 
   let job
   try {
+    // 파싱은 after()에서 — 요청은 접수만 빠르게 끝냄
     job = await createInstagramFollowerUploadJob(admin, {
       fileNames,
-      usernames: parsedUsernames,
     })
   } catch (error) {
     const err = error as { code?: string; message?: string }
@@ -160,7 +151,7 @@ export async function POST(req: NextRequest) {
   }
 
   after(() => {
-    void processInstagramFollowerUploadJob(admin, job.id)
+    void processInstagramFollowerUploadJob(admin, job.id, { htmlTexts })
   })
 
   return NextResponse.json({
