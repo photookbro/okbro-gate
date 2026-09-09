@@ -27,7 +27,6 @@ import {
 } from '@/lib/gps-locations'
 import {
   AUTH_LOGOUT_EVENT,
-  isGpsTrackingEnabled,
   setGpsTrackingEnabled,
   useGpsTrackingEnabled,
 } from '@/lib/gps-tracking-storage'
@@ -607,25 +606,35 @@ export function GpsDetector({
   }, [canUseGps, startTracking])
 
   useEffect(() => {
-    if (!canUseGps || autoStartedRef.current || !isGpsTrackingEnabled(eventId)) return
+    // 서버 pref hydrate가 verification보다 늦으면, 예전에는 deps에 storedEnabled가 없어
+    // watchPosition이 영구히 안 뜨고 UI만 CAPTURING으로 남는 레이스가 있었음 (YTN 9/6).
+    if (!canUseGps || !storedEnabled) return
+    if (tracking || watchIdRef.current !== null || autoStartedRef.current) return
     autoStartedRef.current = true
 
     void (async () => {
       const permission = await queryGeolocationPermission()
-      if (permission === 'granted') {
-        startTracking()
-        return
-      }
 
       if (permission === 'denied') {
         const message = geolocationFailureMessage('denied')
         setErrorMsg(message)
         setPermissionError(message)
+        setPermissionOpen(true)
+        // 거부 상태면 재시도는 모달에서 — 다음 storedEnabled 토글 때만 다시 시도
+        return
       }
 
-      setPermissionOpen(true)
+      if (permission === 'granted') {
+        startTracking()
+        return
+      }
+
+      // iOS 등 Permissions API가 prompt/unsupported를 주는 경우:
+      // 목록에서 이미 getCurrentPosition으로 허용했을 수 있으므로 watch를 바로 시도.
+      // 실제 거부면 watch error 콜백이 메시지를 띄움.
+      startTracking()
     })()
-  }, [canUseGps, eventId, startTracking])
+  }, [canUseGps, storedEnabled, tracking, startTracking])
 
   if (headless) {
     return null
@@ -636,7 +645,10 @@ export function GpsDetector({
   const showLiveTracking =
     liveTrackingAllowed && !!userId && tracking && storedEnabled
   const showPassHistory = !showLiveTracking && passLog.length > 0
-  const isTrackingOn = showLiveTracking || (liveTrackingAllowed && !!userId && storedEnabled)
+  // CAPTURING은 실제 watchPosition이 돈 경우만 — 토글만 ON이고 watch 미시작이면 꺼짐으로 표시
+  const isTrackingOn = showLiveTracking
+  const showCapturingPending =
+    liveTrackingAllowed && !!userId && storedEnabled && !tracking && canUseGps
 
   return (
     <>
@@ -651,7 +663,7 @@ export function GpsDetector({
           <span
             className={`text-xs font-semibold ${isTrackingOn ? 'text-success' : 'text-muted'}`}
           >
-            {isTrackingOn ? '🟢 CAPTURING' : '⚪ 꺼짐'}
+            {isTrackingOn ? '🟢 CAPTURING' : showCapturingPending ? '🟡 시작 중...' : '⚪ 꺼짐'}
           </span>
         </div>
 
