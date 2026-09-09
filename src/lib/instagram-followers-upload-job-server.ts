@@ -139,15 +139,6 @@ export async function getLatestInstagramFollowerUploadJobs(
   return (data as InstagramFollowerUploadJob[] | null) ?? []
 }
 
-async function countFollowers(admin: SupabaseClient): Promise<number> {
-  const { count, error } = await admin
-    .from('instagram_followers')
-    .select('*', { count: 'exact', head: true })
-
-  if (error) throw error
-  return count ?? 0
-}
-
 async function upsertUsernameBatches(
   admin: SupabaseClient,
   usernames: string[],
@@ -191,8 +182,11 @@ function buildCompletedSummary(job: {
   mismatch_push_sent: number
 }): string {
   const parts = [
-    `파일 ${job.file_count.toLocaleString('ko-KR')}개 · 총 ${(job.total_parsed ?? 0).toLocaleString('ko-KR')}건 중 ${(job.new_count ?? 0).toLocaleString('ko-KR')}건 신규 추가됨`,
+    `파일 ${job.file_count.toLocaleString('ko-KR')}개 · 총 ${(job.total_parsed ?? 0).toLocaleString('ko-KR')}건 처리`,
   ]
+  if (job.new_count != null) {
+    parts[0] += ` (신규 ${(job.new_count ?? 0).toLocaleString('ko-KR')}건)`
+  }
   if (job.matched_approved > 0) {
     parts.push(`대기 중 ${job.matched_approved.toLocaleString('ko-KR')}건 승인`)
   }
@@ -278,7 +272,7 @@ export async function processInstagramFollowerUploadJob(
   }
 
   try {
-    const beforeCount = await countFollowers(admin)
+    // instagram_followers 전체 exact count는 대량 테이블에서 수분 걸릴 수 있어 생략
     const startIndex = Math.max(0, Number(claimed.progress_index) || 0)
 
     await upsertUsernameBatches(admin, usernames, startIndex, async nextIndex => {
@@ -291,17 +285,13 @@ export async function processInstagramFollowerUploadJob(
         .eq('id', jobId)
     })
 
-    const afterCount = await countFollowers(admin)
-    const newCount = Math.max(0, afterCount - beforeCount)
     const totalParsed = usernames.length
-    const updatedCount = Math.max(0, totalParsed - newCount)
-
     const matchResult = await matchPendingInstagramFollowClaims(admin, usernames)
     invalidateAdminPlayersListCache()
     const summary = buildCompletedSummary({
       file_count: claimed.file_count,
       total_parsed: totalParsed,
-      new_count: newCount,
+      new_count: null,
       matched_approved: matchResult.approved,
       push_sent: matchResult.push_sent,
       manual_unlock_mismatches: matchResult.manual_unlock_mismatches,
@@ -314,8 +304,8 @@ export async function processInstagramFollowerUploadJob(
         status: 'completed',
         progress_index: totalParsed,
         total_parsed: totalParsed,
-        new_count: newCount,
-        updated_count: updatedCount,
+        new_count: null,
+        updated_count: null,
         matched_approved: matchResult.approved,
         push_sent: matchResult.push_sent,
         push_failed: matchResult.push_failed,
