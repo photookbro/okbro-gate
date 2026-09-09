@@ -1072,7 +1072,7 @@ export default function AdminPage() {
             )}
 
             <p className="mb-4 text-sm text-muted">
-              약관 동의·구매 인증·GPS 기록을 한곳에서 확인할 수 있어요. 행을 클릭하면 상세 프로필을 볼 수 있어요.
+              약관 동의·구매 인증·인스타 팔로우를 한곳에서 확인할 수 있어요. 행을 클릭하면 상세 프로필을 볼 수 있어요.
             </p>
 
             {playersError && <p className="alert-danger">{playersError}</p>}
@@ -1116,7 +1116,6 @@ export default function AdminPage() {
                         ['joined_at', '가입일'],
                         ['terms_agreed', '약관 동의'],
                         ['purchase_verified', '구매 인증'],
-                        ['gps_record', 'GPS 기록'],
                         ['instagram_follow_verified', '인스타 팔로우'],
                         ['instagram_handle', '인스타 아이디'],
                         ['instagram_manual_approve', '즉시 승인'],
@@ -1156,7 +1155,6 @@ export default function AdminPage() {
                         <td className="whitespace-nowrap text-muted">{formatDateOnly(player.joined_at)}</td>
                         <td><OxBadge value={player.terms_agreed} /></td>
                         <td><OxBadge value={player.purchase_verified} /></td>
-                        <td><OxBadge value={player.gps_record} /></td>
                         <td><OxBadge value={player.instagram_follow_verified} /></td>
                         <td className="text-muted">{player.instagram_handle ?? '-'}</td>
                         <td className="whitespace-nowrap" onClick={e => e.stopPropagation()}>
@@ -1220,7 +1218,7 @@ export default function AdminPage() {
                     ))}
                     {players.length === 0 && (
                       <tr>
-                        <td colSpan={15} className="py-8 text-center text-muted">
+                        <td colSpan={14} className="py-8 text-center text-muted">
                           등록된 선수가 없어요
                         </td>
                       </tr>
