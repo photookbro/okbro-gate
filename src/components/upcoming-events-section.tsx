@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { GpsTrackingToggle } from '@/components/gps-tracking-toggle'
 import { useEventsList } from '@/components/events-list-provider'
+import { LazyPlayerLocationPreviewMap } from '@/components/lazy-player-location-preview-map'
 import {
   hasAnyGpsTrackingEnabled,
   subscribeGpsTrackingChange,
@@ -18,11 +18,6 @@ import {
   formatEventDateDisplay,
   type EventsListUpcomingEvent,
 } from '@/lib/events-list-client'
-
-const PlayerLocationPreviewMap = dynamic(
-  () => import('@/components/player-location-preview-map').then(mod => mod.PlayerLocationPreviewMap),
-  { ssr: false }
-)
 
 /** GPS ON인 대회가 있을 때만 통과 시각 갱신 — 60초 간격 */
 const UPCOMING_POLL_INTERVAL_MS = 60_000
@@ -111,9 +106,7 @@ function UpcomingEventItem({
       )}
 
       {event.locations.length > 0 ? (
-        <div className="event-upcoming-map">
-          <PlayerLocationPreviewMap locations={event.locations} />
-        </div>
+        <LazyPlayerLocationPreviewMap locations={event.locations} />
       ) : null}
     </li>
   )
