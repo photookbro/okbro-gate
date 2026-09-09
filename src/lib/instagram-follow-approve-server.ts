@@ -459,7 +459,15 @@ export async function matchPendingInstagramFollowClaims(
     }
   }
 
-  const mismatchRevoke = await flagManualUnlockMismatchesAfterFollowerUpload(admin, handleSet)
+  const mismatchRevoke =
+    handleSet.size >= 100
+      ? await flagManualUnlockMismatchesAfterFollowerUpload(admin, handleSet)
+      : {
+          revoked: 0,
+          push_sent: 0,
+          push_failed: 0,
+          no_subscription: 0,
+        }
 
   return {
     approved,

@@ -151,7 +151,23 @@ export async function POST(req: NextRequest) {
   }
 
   after(() => {
-    void processInstagramFollowerUploadJob(admin, job.id, { htmlTexts })
+    void processInstagramFollowerUploadJob(admin, job.id, { htmlTexts }).catch(async error => {
+      console.error('[admin/instagram-followers] after() process failed', job.id, error)
+      try {
+        await admin
+          .from('instagram_follower_upload_jobs')
+          .update({
+            status: 'failed',
+            error: error instanceof Error ? error.message : '백그라운드 처리 실패',
+            finished_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', job.id)
+          .eq('status', 'processing')
+      } catch (updateError) {
+        console.error('[admin/instagram-followers] fail update', updateError)
+      }
+    })
   })
 
   return NextResponse.json({
