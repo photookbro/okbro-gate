@@ -6,7 +6,6 @@ import { AdminDateInput } from '@/components/admin-date-input'
 import { EventPhotoUpload } from '@/components/admin/event-photo-upload'
 import { InstagramFollowersUpload } from '@/components/admin/instagram-followers-upload'
 import { NotificationsAdminPanel } from '@/components/admin/notifications-admin-panel'
-import { AdminChatPanel } from '@/components/admin/admin-chat-panel'
 import { NaverOrdersAdminPanel } from '@/components/admin/naver-orders-admin-panel'
 import { AdminShopPanel } from '@/components/admin/admin-shop-panel'
 import { AdminStyleupPanel } from '@/components/admin/admin-styleup-panel'
@@ -191,7 +190,6 @@ const TAB_LABELS = {
   guide: '이용안내',
   players: 'PLAYERS',
   event_monitoring: 'MONITORING',
-  chat: 'CHAT',
   naver_orders: 'NAVER ORDERS',
   shop: 'SHOP',
   styleup: 'STYLEUP',
@@ -232,12 +230,10 @@ export default function AdminPage() {
     | 'guide'
     | 'players'
     | 'event_monitoring'
-    | 'chat'
     | 'naver_orders'
     | 'shop'
     | 'styleup'
   >('events')
-  const [chatInitialUserId, setChatInitialUserId] = useState<string | null>(null)
   const [events, setEvents] = useState<Event[]>([])
   const [loadingEvents, setLoadingEvents] = useState(true)
   const [eventError, setEventError] = useState('')
@@ -1380,14 +1376,6 @@ export default function AdminPage() {
           </>
         )}
 
-        {tab === 'chat' && (
-          <AdminChatPanel
-            token={token}
-            initialUserId={chatInitialUserId}
-            onInitialUserConsumed={() => setChatInitialUserId(null)}
-          />
-        )}
-
         {tab === 'naver_orders' && (
           <>
             <h2 className="section-title">NAVER ORDERS</h2>
@@ -1718,18 +1706,6 @@ export default function AdminPage() {
               <>
                 <h3 className="section-title">{playerDetail.name}</h3>
                 <p className="mb-4 text-sm text-muted">{playerDetail.email}</p>
-
-                <button
-                  type="button"
-                  className="btn-primary-inline mb-4"
-                  onClick={() => {
-                    setChatInitialUserId(playerDetail.id)
-                    setTab('chat')
-                    closePlayerDetail()
-                  }}
-                >
-                  채팅하기
-                </button>
 
                 <section className="card-section mb-4">
                   <h4 className="mb-2 text-sm font-semibold">📋 기본 정보</h4>

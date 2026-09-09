@@ -179,7 +179,7 @@ export function HomeLandingPage() {
                 채워집니다. 사진 매칭도, 서비스도 결국 그 현장의 감각에서 시작합니다.
               </p>
               <p>
-                질문이 있으면 채팅으로 바로 오켱에게 물어보세요. 다음 대회 소식도 사람이 직접 인스타그램으로
+                질문이 있으면 인스타그램 DM으로 문의해주세요. 다음 대회 소식도 사람이 직접 인스타그램으로
                 전합니다.
               </p>
               <div className="hl-badges">
@@ -187,7 +187,7 @@ export function HomeLandingPage() {
                   보정 <b>100% 로컬 처리</b>
                 </span>
                 <span className="hl-badge">
-                  1:1 채팅 <b>직접 응대</b>
+                  인스타 DM <b>직접 응대</b>
                 </span>
                 <span className="hl-badge">
                   SHOP <b>가성비 장비</b>
@@ -289,7 +289,9 @@ export function HomeLandingPage() {
                 <a href="#faq" data-guest-allowed>
                   FAQ
                 </a>
-                <Link href="/mypage#chat">1:1 문의</Link>
+                <p className="hl-foot-dm-note">
+                  궁금한 점은 인스타그램 DM으로 문의해주세요 (@photo_ok_bro)
+                </p>
                 <a href={INSTAGRAM_URL} target="_blank" rel="noreferrer" data-guest-allowed>
                   인스타그램
                 </a>

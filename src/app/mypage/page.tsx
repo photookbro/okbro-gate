@@ -20,8 +20,7 @@ import {
 import { emitAuthLogout } from '@/lib/gps-tracking-storage'
 import { OrderNumberGuide } from '@/components/order-number-guide'
 import { MypageAlbumAccessStatus } from '@/components/mypage-album-access-status'
-import { MypageChat } from '@/components/mypage-chat'
-import { emitChatUnreadCount, fetchChatUnreadCount } from '@/lib/chat-unread-client'
+import { INSTAGRAM_HANDLE, INSTAGRAM_PROFILE_URL } from '@/lib/instagram-follow-copy'
 import type { InstagramFollowBonusStatus } from '@/lib/instagram-follow-bonus'
 
 type PhotoAccess = {
@@ -73,7 +72,6 @@ export default function MyPage() {
   >('default')
   const [enablingNotification, setEnablingNotification] = useState(false)
   const [notificationMsg, setNotificationMsg] = useState('')
-  const [chatUnreadCount, setChatUnreadCount] = useState(0)
   const [withdrawing, setWithdrawing] = useState(false)
   const [withdrawError, setWithdrawError] = useState('')
 
@@ -150,20 +148,10 @@ export default function MyPage() {
   }, [])
 
   useEffect(() => {
-    let cancelled = false
-    void fetchChatUnreadCount().then(count => {
-      if (!cancelled && count != null) setChatUnreadCount(count)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
     if (loading) return
     if (typeof window === 'undefined') return
-    if (window.location.hash !== '#chat') return
-    const el = document.getElementById('chat')
+    if (window.location.hash !== '#contact' && window.location.hash !== '#chat') return
+    const el = document.getElementById('contact')
     if (el) {
       requestAnimationFrame(() => {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -462,34 +450,25 @@ export default function MyPage() {
           )}
         </div>
 
-        <div id="chat" className="card mb-4 scroll-mt-24">
-          <h2 className="section-title flex items-center gap-2">
-            1:1 문의
-            {chatUnreadCount > 0 ? (
-              <span
-                className="nav-chat-badge"
-                aria-label={`읽지 않은 메시지 ${chatUnreadCount}개`}
-              >
-                {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
-              </span>
-            ) : null}
-          </h2>
-          <p className="mb-4 text-sm leading-relaxed text-muted">
-            관리자와 직접 대화할 수 있어요. 답장은 이 화면을 다시 열면 확인할 수 있어요.
+        <div id="contact" className="card mb-4 scroll-mt-24">
+          <h2 className="section-title">문의</h2>
+          <p className="mb-3 text-sm leading-relaxed text-muted">
+            궁금한 점은 인스타그램 DM으로 문의해주세요 (@{INSTAGRAM_HANDLE})
           </p>
-          <MypageChat
-            onUnreadChange={count => {
-              setChatUnreadCount(count)
-              emitChatUnreadCount(count)
-            }}
-          />
+          <a
+            href={INSTAGRAM_PROFILE_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-primary-inline no-underline"
+          >
+            @{INSTAGRAM_HANDLE} 열기
+          </a>
         </div>
 
         <section className="mypage-withdraw-section">
           <h2 className="section-title">회원 탈퇴</h2>
           <p className="mb-4 text-sm leading-relaxed text-muted">
-            탈퇴하면 구매 인증, 촬영 이력, 1:1 문의, 알림 설정이 모두 삭제되며 복구할 수
-            없어요.
+            탈퇴하면 구매 인증, 촬영 이력, 알림 설정이 모두 삭제되며 복구할 수 없어요.
           </p>
           {withdrawError ? <p className="alert-danger mb-3">{withdrawError}</p> : null}
           <button
