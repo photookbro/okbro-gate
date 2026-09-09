@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { EventsListProvider } from '@/components/events-list-provider'
 import { HomeNotificationBanner } from '@/components/home-notification-banner'
 import { PastEventsSection } from '@/components/past-events-section'
 import { UpcomingEventsSection } from '@/components/upcoming-events-section'
@@ -20,8 +21,10 @@ export function LandingPage() {
               MY PAGE
             </Link>
           </p>
-          <UpcomingEventsSection />
-          <PastEventsSection />
+          <EventsListProvider>
+            <UpcomingEventsSection />
+            <PastEventsSection />
+          </EventsListProvider>
         </div>
       </div>
     </div>

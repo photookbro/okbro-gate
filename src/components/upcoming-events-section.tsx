@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { GpsTrackingToggle } from '@/components/gps-tracking-toggle'
+import { useEventsList } from '@/components/events-list-provider'
 import {
   hasAnyGpsTrackingEnabled,
   subscribeGpsTrackingChange,
@@ -15,7 +16,6 @@ import {
   EVENTS_UPCOMING_ON_PROMPT,
   EVENTS_UPCOMING_SECTION_TITLE,
   formatEventDateDisplay,
-  parseEventsListResponse,
   type EventsListUpcomingEvent,
 } from '@/lib/events-list-client'
 
@@ -120,9 +120,7 @@ function UpcomingEventItem({
 }
 
 export function UpcomingEventsSection() {
-  const [upcoming, setUpcoming] = useState<EventsListUpcomingEvent[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const { upcoming, loading, error, quietReload } = useEventsList()
   /** null = /api/verify-order/status 응답 전 — 미인증 문구/토글 활성 판단 보류 */
   const [globalGpsTrackingEligible, setGlobalGpsTrackingEligible] = useState<boolean | null>(
     null
@@ -158,65 +156,15 @@ export function UpcomingEventsSection() {
   }, [upcoming])
 
   useEffect(() => {
-    let cancelled = false
-
-    function load(showSpinner: boolean) {
-      if (showSpinner) {
-        setLoading(true)
-        setError('')
-      }
-
-      authFetch('/api/events/list')
-        .then(async res => {
-          const data = await res.json()
-          if (cancelled) return
-          if (!res.ok) {
-            if (showSpinner) {
-              setError(typeof data.error === 'string' ? data.error : '목록을 불러오지 못했어요')
-            }
-            return
-          }
-          const parsed = parseEventsListResponse(data)
-          setUpcoming(parsed.upcoming)
-        })
-        .catch(() => {
-          if (!cancelled && showSpinner) setError('목록을 불러오지 못했어요')
-        })
-        .finally(() => {
-          if (!cancelled && showSpinner) setLoading(false)
-        })
-    }
-
-    load(true)
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
     if (!anyGpsTrackingOn) return
 
-    let cancelled = false
-
-    function quietReload() {
-      authFetch('/api/events/list')
-        .then(async res => {
-          const data = await res.json()
-          if (cancelled || !res.ok) return
-          setUpcoming(parseEventsListResponse(data).upcoming)
-        })
-        .catch(() => {
-          // ignore quiet poll errors
-        })
-    }
-
-    const interval = window.setInterval(quietReload, UPCOMING_POLL_INTERVAL_MS)
+    const interval = window.setInterval(() => {
+      quietReload()
+    }, UPCOMING_POLL_INTERVAL_MS)
     return () => {
-      cancelled = true
       window.clearInterval(interval)
     }
-  }, [anyGpsTrackingOn])
+  }, [anyGpsTrackingOn, quietReload])
 
   return (
     <section className="events-section landing-events-section">

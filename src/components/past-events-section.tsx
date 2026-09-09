@@ -1,15 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { authFetch } from '@/lib/supabase/auth-client'
 import {
   EVENTS_PAST_SECTION_SUB_MAIN,
   EVENTS_PAST_SECTION_SUB_TAIL,
   formatEventDateDisplay,
-  parseEventsListResponse,
   type EventsListPastEvent,
 } from '@/lib/events-list-client'
+import { useEventsList } from '@/components/events-list-provider'
 
 function PastEventItem({ event }: { event: EventsListPastEvent }) {
   return (
@@ -36,27 +34,7 @@ function PastEventItem({ event }: { event: EventsListPastEvent }) {
 }
 
 export function PastEventsSection() {
-  const [past, setPast] = useState<EventsListPastEvent[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    setLoading(true)
-    setError('')
-
-    authFetch('/api/events/list')
-      .then(async res => {
-        const data = await res.json()
-        if (!res.ok) {
-          setError(typeof data.error === 'string' ? data.error : '목록을 불러오지 못했어요')
-          return
-        }
-        const parsed = parseEventsListResponse(data)
-        setPast(parsed.past)
-      })
-      .catch(() => setError('목록을 불러오지 못했어요'))
-      .finally(() => setLoading(false))
-  }, [])
+  const { past, loading, error } = useEventsList()
 
   return (
     <section className="events-section landing-events-section">
