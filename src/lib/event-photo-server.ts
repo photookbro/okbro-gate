@@ -1,9 +1,10 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { optimizeImageToWebp } from '@/lib/image-optimize'
+import { optimizeImageToListWebp, optimizeImageToWebp } from '@/lib/image-optimize'
 import {
   EVENT_PHOTO_MAX_UPLOAD_BYTES,
   EVENT_PHOTO_STORAGE_BUCKET,
+  eventPhotoListStoragePath,
   eventPhotoStoragePath,
   validateEventPhotoFile,
 } from '@/lib/event-photo'
@@ -65,6 +66,28 @@ function originalUploadPlan(file: File, eventId: string, inputBuffer: Buffer): {
   }
 }
 
+async function uploadListThumb(
+  admin: SupabaseClient,
+  eventId: string,
+  sourceBuffer: Buffer
+): Promise<void> {
+  try {
+    const list = await optimizeImageToListWebp(sourceBuffer)
+    const { error } = await admin.storage
+      .from(EVENT_PHOTO_STORAGE_BUCKET)
+      .upload(eventPhotoListStoragePath(eventId), list.buffer, {
+        upsert: true,
+        contentType: list.mimeType,
+        cacheControl: '86400',
+      })
+    if (error) {
+      console.error('[event-photo] list thumb upload failed:', error.message)
+    }
+  } catch (error) {
+    console.error('[event-photo] list thumb optimize failed:', error)
+  }
+}
+
 export async function uploadEventPhoto(
   admin: SupabaseClient,
   eventId: string,
@@ -111,6 +134,8 @@ export async function uploadEventPhoto(
     throw new Error(uploadError.message || '스토리지 업로드에 실패했어요')
   }
 
+  await uploadListThumb(admin, eventId, buffer)
+
   const { data: publicUrlData } = admin.storage
     .from(EVENT_PHOTO_STORAGE_BUCKET)
     .getPublicUrl(storagePath)
@@ -133,6 +158,7 @@ export async function uploadEventPhoto(
 export async function deleteEventPhoto(admin: SupabaseClient, eventId: string): Promise<void> {
   const paths = [
     eventPhotoStoragePath(eventId),
+    eventPhotoListStoragePath(eventId),
     `event-photos/${eventId}.jpg`,
     `event-photos/${eventId}.jpeg`,
     `event-photos/${eventId}.png`,

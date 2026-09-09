@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import {
   EVENTS_PAST_SECTION_SUB_MAIN,
@@ -7,17 +8,31 @@ import {
   formatEventDateDisplay,
   type EventsListPastEvent,
 } from '@/lib/events-list-client'
+import { toEventListPhotoUrl } from '@/lib/event-photo'
 import { useEventsList } from '@/components/events-list-provider'
 
 function PastEventItem({ event }: { event: EventsListPastEvent }) {
+  const [useFullPhoto, setUseFullPhoto] = useState(false)
+  const listSrc =
+    event.photo_url && !useFullPhoto ? toEventListPhotoUrl(event.photo_url) : event.photo_url
+
   return (
     <li className="event-portrait-item">
       <Link href={`/events/${event.id}`} className="event-portrait-photo-link">
         {!event.has_any_album ? (
           <div className="event-portrait-photo event-portrait-photo-pending">업로드 중입니다</div>
-        ) : event.photo_url ? (
+        ) : listSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={event.photo_url} alt="" className="event-portrait-photo" />
+          <img
+            src={listSrc}
+            alt=""
+            className="event-portrait-photo"
+            loading="lazy"
+            decoding="async"
+            onError={() => {
+              if (!useFullPhoto && event.photo_url) setUseFullPhoto(true)
+            }}
+          />
         ) : (
           <div className="event-portrait-photo event-portrait-photo-placeholder" aria-hidden="true">
             📷
