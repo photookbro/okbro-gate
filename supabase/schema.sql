@@ -196,8 +196,15 @@ CREATE TABLE IF NOT EXISTS profiles (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   first_created_at timestamptz NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  last_active_at timestamptz
+  last_active_at timestamptz,
+  purchase_revoked_at timestamptz
 );
+
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS purchase_revoked_at timestamptz;
+
+CREATE INDEX IF NOT EXISTS profiles_purchase_revoked_at_idx
+  ON profiles (purchase_revoked_at DESC)
+  WHERE purchase_revoked_at IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS profiles_last_active_at_idx
   ON profiles (last_active_at DESC)

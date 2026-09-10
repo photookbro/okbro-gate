@@ -20,6 +20,7 @@ import { loadVerificationSettings } from '@/lib/verification-settings'
 import { sendKakaoNotify } from '@/lib/kakao-notify'
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rate-limit'
 import { getActiveInstagramBonusExpiresAt } from '@/lib/instagram-follow-bonus'
+import { clearPurchaseVerificationRevokedNotice } from '@/lib/purchase-verification-revoke'
 
 function formatDbError(error: { message?: string; code?: string; details?: string | null }) {
   return {
@@ -223,7 +224,10 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  after(() => notifyVerifySuccess(admin, user.email, event_id || null, canonicalOrderNumber))
+  after(() => {
+    void clearPurchaseVerificationRevokedNotice(admin, user.id)
+    void notifyVerifySuccess(admin, user.email, event_id || null, canonicalOrderNumber)
+  })
 
   return NextResponse.json({
     success: true,

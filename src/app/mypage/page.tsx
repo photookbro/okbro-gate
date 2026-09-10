@@ -29,6 +29,7 @@ type PhotoAccess = {
   purchase_validity_label: string
   status: 'valid' | 'expired' | 'none'
   expiring_soon: boolean
+  purchase_revoked?: boolean
 }
 
 type GpsPassEntry = {

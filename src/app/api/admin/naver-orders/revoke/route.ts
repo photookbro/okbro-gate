@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { notifyPurchaseVerificationRevoked } from '@/lib/purchase-verification-revoke'
 
 /**
  * 의심 주문의 해당 orders 행을 삭제해 인증을 취소합니다.
@@ -33,6 +34,14 @@ export async function POST(req: NextRequest) {
 
   if (!data) {
     return NextResponse.json({ error: '해당 주문을 찾지 못했어요' }, { status: 404 })
+  }
+
+  if (data.user_id) {
+    after(() => {
+      void notifyPurchaseVerificationRevoked(admin, data.user_id).catch(err => {
+        console.error('[admin/naver-orders/revoke] notify', err)
+      })
+    })
   }
 
   return NextResponse.json({

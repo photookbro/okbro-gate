@@ -6,6 +6,7 @@ import type { InstagramFollowBonusStatus } from '@/lib/instagram-follow-bonus'
 import {
   INSTAGRAM_FOLLOW_MYPAGE_WARNING,
   INSTAGRAM_LATE_MATCH_NOTICE,
+  INSTAGRAM_PROFILE_URL,
   instagramFollowMypageDescriptionLead,
   instagramFollowMypageDescriptionTail,
   instagramFollowSubmitCompleteMessage,
@@ -13,6 +14,10 @@ import {
 } from '@/lib/instagram-follow-copy'
 import { isBrandOwnInstagramHandle } from '@/lib/instagram-handle'
 import { authFetch } from '@/lib/supabase/auth-client'
+import {
+  PURCHASE_REVOKED_MYPAGE_BODY,
+  PURCHASE_REVOKED_MYPAGE_TITLE,
+} from '@/lib/purchase-verification-revoke'
 
 type PhotoAccess = {
   purchase_days_remaining: number
@@ -20,6 +25,7 @@ type PhotoAccess = {
   purchase_validity_label: string
   status: 'valid' | 'expired' | 'none'
   expiring_soon: boolean
+  purchase_revoked?: boolean
 }
 
 type MypageAlbumAccessStatusProps = {
@@ -47,10 +53,26 @@ function FruitAccessRow({ photoAccess }: { photoAccess: PhotoAccess | null }) {
   const isExpiringSoon = photoAccess?.expiring_soon ?? false
   const hasAccess = status === 'valid' && daysRemaining > 0
   const isExpired = status === 'expired'
+  const isRevoked = photoAccess?.purchase_revoked === true
 
   return (
     <div className="mypage-access-row">
       <p className="mypage-access-row-label">과일 인증 열람일</p>
+
+      {isRevoked ? (
+        <div className="alert-danger mt-0 mb-4 whitespace-pre-line text-left text-sm leading-relaxed">
+          <p className="mb-2 font-semibold">{PURCHASE_REVOKED_MYPAGE_TITLE}</p>
+          <p className="mb-2 whitespace-pre-line">{PURCHASE_REVOKED_MYPAGE_BODY}</p>
+          <a
+            href={INSTAGRAM_PROFILE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium underline"
+          >
+            인스타그램 DM 열기
+          </a>
+        </div>
+      ) : null}
 
       {status === 'none' ? (
         <div className="text-center">
@@ -73,7 +95,7 @@ function FruitAccessRow({ photoAccess }: { photoAccess: PhotoAccess | null }) {
             <div className="alert-warning mt-4 mb-0">⚠️ 곧 만료</div>
           ) : null}
 
-          {isExpired ? (
+          {isExpired && !isRevoked ? (
             <div className="alert-danger mt-4 mb-0">
               ❌ 만료됨. 주문번호로 다시 인증해주세요
             </div>

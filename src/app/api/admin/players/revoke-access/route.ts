@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/admin-auth'
 import { invalidateAdminPlayersListCache } from '@/lib/admin-players-list-cache'
 import { getKstDateParts } from '@/lib/order-verification'
+import { notifyPurchaseVerificationRevoked } from '@/lib/purchase-verification-revoke'
 
 /** KST 기준 어제의 끝 — 오늘로 잡혀 ‘D-1’로 남는 문제 방지 */
 function revokedExpiresAtIso(now: Date = new Date()): string {
@@ -50,6 +51,12 @@ export async function POST(req: NextRequest) {
   }
 
   invalidateAdminPlayersListCache()
+
+  after(() => {
+    void notifyPurchaseVerificationRevoked(admin, user_id).catch(err => {
+      console.error('[admin/players/revoke-access] notify', err)
+    })
+  })
 
   return NextResponse.json({
     success: true,

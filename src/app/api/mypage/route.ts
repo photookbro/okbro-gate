@@ -20,6 +20,7 @@ import {
   getLatestInstagramFollowBonusAttempt,
 } from '@/lib/instagram-follow-bonus'
 import { ensureUserProfile } from '@/lib/user-profile-server'
+import { getPurchaseVerificationRevokedAt } from '@/lib/purchase-verification-revoke'
 
 type OrderRow = {
   id: string
@@ -94,6 +95,8 @@ async function getMypage(req: NextRequest) {
     // profiles / instagram_follow_bonus ?????? ??? ??? ?????? ??
     console.error('[mypage] instagram follow bonus unavailable:', error)
   }
+
+  const purchaseRevokedAt = await getPurchaseVerificationRevokedAt(admin, user.id)
 
   const photoAccess = buildPhotoAccessSummary(
     userOrders,
@@ -286,7 +289,9 @@ async function getMypage(req: NextRequest) {
       purchase_validity_label: photoAccess.purchase.validity_label,
       status: photoAccess.status,
       expiring_soon: hasExpiringSoon,
+      purchase_revoked: !!purchaseRevokedAt,
     },
+    purchase_revoked: !!purchaseRevokedAt,
     latest_verification: latest ?? null,
     verifications,
     has_expiring_soon: hasExpiringSoon,
