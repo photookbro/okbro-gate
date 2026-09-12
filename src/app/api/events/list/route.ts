@@ -111,25 +111,30 @@ export async function GET(req: NextRequest) {
         gps_logs: gpsLogsByEvent[event.id] ?? [],
       }
     }),
-    upcoming: upcomingEvents.map(event => ({
-      id: event.id,
-      name: event.name,
-      date: event.date,
-      gps_enabled: event.gps_enabled,
-      is_pay_event: event.is_pay_event === true,
-      photo_url: event.photo_url ?? null,
-      is_loop_course: false,
-      locations: getEventGpsLocations(event).map(location => ({
-        location_number: location.locationNumber,
-        lat: location.lat,
-        lng: location.lng,
-        radius_meters: location.radiusMeters,
-      })),
-      gps_lat: event.gps_1_lat ?? event.gps_lat,
-      gps_lng: event.gps_1_lng ?? event.gps_lng,
-      gps_radius_meters: event.gps_1_radius_meters ?? event.gps_radius_meters,
-      shoot_record: upcomingShootRecordByEvent[event.id] ?? null,
-      gps_pass_groups: upcomingPassGroupsByEvent[event.id] ?? [],
-    })),
+    upcoming: upcomingEvents.map(event => {
+      const hasAlbum = hasEventAlbum(event)
+      return {
+        id: event.id,
+        name: event.name,
+        date: event.date,
+        gps_enabled: event.gps_enabled,
+        is_pay_event: event.is_pay_event === true,
+        has_album: hasAlbum,
+        has_any_album: hasAlbum,
+        photo_url: event.photo_url ?? null,
+        is_loop_course: false,
+        locations: getEventGpsLocations(event).map(location => ({
+          location_number: location.locationNumber,
+          lat: location.lat,
+          lng: location.lng,
+          radius_meters: location.radiusMeters,
+        })),
+        gps_lat: event.gps_1_lat ?? event.gps_lat,
+        gps_lng: event.gps_1_lng ?? event.gps_lng,
+        gps_radius_meters: event.gps_1_radius_meters ?? event.gps_radius_meters,
+        shoot_record: upcomingShootRecordByEvent[event.id] ?? null,
+        gps_pass_groups: upcomingPassGroupsByEvent[event.id] ?? [],
+      }
+    }),
   })
 }

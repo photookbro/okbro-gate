@@ -13,6 +13,7 @@ type AlbumAccessSectionProps = {
   verification: VerificationInfo
   albumBUrl: string
   eventId?: string
+  eventIsPayEvent?: boolean
 }
 
 type SectionView = 'main' | 'share-warning'
@@ -20,6 +21,7 @@ type SectionView = 'main' | 'share-warning'
 export function AlbumAccessSection({
   verification,
   albumBUrl,
+  eventIsPayEvent = false,
 }: AlbumAccessSectionProps) {
   const [view, setView] = useState<SectionView>('main')
 
@@ -28,7 +30,7 @@ export function AlbumAccessSection({
   }
 
   function handleDownloadClick() {
-    if (hasBAlbumDownloadAccess(verification)) {
+    if (hasBAlbumDownloadAccess(verification, eventIsPayEvent)) {
       setView('share-warning')
     }
   }
@@ -36,7 +38,7 @@ export function AlbumAccessSection({
   const isValid = verification.status === 'valid'
   const isExpired = verification.status === 'expired'
   const isGpsAccess = verification.access_source === 'gps'
-  const canOpenAlbum = hasBAlbumDownloadAccess(verification)
+  const canOpenAlbum = hasBAlbumDownloadAccess(verification, eventIsPayEvent)
   const showGpsHint =
     isValid && hasPurchaseAlbumAccess(verification) && !hasGpsAlbumAccess(verification)
 

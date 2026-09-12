@@ -51,6 +51,8 @@ export type EventsListUpcomingEvent = {
   date: string
   gps_enabled: boolean
   is_pay_event: boolean
+  has_album: boolean
+  has_any_album: boolean
   show_gps_toggle: boolean
   is_loop_course: boolean
   photo_url: string | null
@@ -161,6 +163,8 @@ export function parseUpcomingEvent(value: unknown): EventsListUpcomingEvent | nu
     date,
     gps_enabled,
     is_pay_event: row.is_pay_event === true,
+    has_album: row.has_album === true || row.has_any_album === true,
+    has_any_album: row.has_any_album === true || row.has_album === true,
     show_gps_toggle: gps_enabled || hasGpsLocations,
     is_loop_course: row.is_loop_course === true,
     photo_url: typeof row.photo_url === 'string' && row.photo_url.trim() ? row.photo_url : null,

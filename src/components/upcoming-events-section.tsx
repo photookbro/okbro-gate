@@ -37,14 +37,16 @@ function UpcomingEventItem({
 
   const isMultiMode = event.locations.length > 1
   const hasPassData = isMultiMode ? event.gps_pass_groups.length > 0 : !!event.shoot_record
-  const canOpenDetail = !event.show_gps_toggle || trackingEnabled
+  // 앨범이 올라온 당일(예정 섹션)은 GPS OFF여도 상세/앨범 진입 가능해야 함
+  const canOpenDetail = !event.show_gps_toggle || trackingEnabled || event.has_album
+  const albumHint = event.has_album ? '앨범보기 ›' : canOpenDetail ? '상세보기 ›' : null
 
   const mainContent = (
     <>
       <span className="events-event-date">{formatEventDateDisplay(event.date)}</span>
       <span className="events-event-name-row">
         <span className="events-event-name">{event.name}</span>
-        {canOpenDetail ? <span className="events-event-detail-hint">상세보기 ›</span> : null}
+        {albumHint ? <span className="events-event-detail-hint">{albumHint}</span> : null}
       </span>
     </>
   )
@@ -82,6 +84,14 @@ function UpcomingEventItem({
           </div>
         ) : null}
       </div>
+
+      {event.has_album ? (
+        <div className="events-upcoming-album-actions">
+          <Link href={`/events/${event.id}`} className="btn-primary-inline no-underline">
+            앨범보기
+          </Link>
+        </div>
+      ) : null}
 
       {trackingEnabled && hasPassData && (
         <div className="events-past-meta">

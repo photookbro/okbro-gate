@@ -148,6 +148,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           verification={verification}
           albumBUrl={albumUrl}
           eventId={event!.id}
+          eventIsPayEvent={event!.is_pay_event === true}
         />
       )
     }

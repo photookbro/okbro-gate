@@ -985,6 +985,10 @@ body {
   margin-top: 0.5rem;
 }
 
+.events-upcoming-album-actions {
+  @apply mt-3;
+}
+
 .events-past-section-sub {
   @apply flex flex-wrap items-baseline gap-x-3;
 }
