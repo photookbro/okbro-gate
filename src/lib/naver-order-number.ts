@@ -55,7 +55,8 @@ export function isNaverOrderDateWithinRecentDays(
 
 export function validateNaverOrderNumber(
   orderNumber: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  options?: { skipRecentDaysCheck?: boolean }
 ): NaverOrderValidationResult {
   const trimmed = orderNumber.trim()
 
@@ -68,7 +69,10 @@ export function validateNaverOrderNumber(
     return { ok: false, error: INVALID_NAVER_ORDER_MESSAGE }
   }
 
-  if (!isNaverOrderDateWithinRecentDays(orderDate, NAVER_ORDER_RECENT_DAYS, now)) {
+  if (
+    !options?.skipRecentDaysCheck &&
+    !isNaverOrderDateWithinRecentDays(orderDate, NAVER_ORDER_RECENT_DAYS, now)
+  ) {
     return { ok: false, error: NAVER_ORDER_TOO_OLD_MESSAGE }
   }
 

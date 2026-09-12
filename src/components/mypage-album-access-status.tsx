@@ -17,7 +17,7 @@ import { authFetch } from '@/lib/supabase/auth-client'
 import {
   PURCHASE_REVOKED_MYPAGE_BODY,
   PURCHASE_REVOKED_MYPAGE_TITLE,
-} from '@/lib/purchase-verification-revoke'
+} from '@/lib/purchase-verification-revoke-copy'
 
 type PhotoAccess = {
   purchase_days_remaining: number

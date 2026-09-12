@@ -20,7 +20,7 @@ import { loadVerificationSettings } from '@/lib/verification-settings'
 import { sendKakaoNotify } from '@/lib/kakao-notify'
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rate-limit'
 import { getActiveInstagramBonusExpiresAt } from '@/lib/instagram-follow-bonus'
-import { clearPurchaseVerificationRevokedNotice } from '@/lib/purchase-verification-revoke'
+import { clearPurchaseVerificationRevokedNotice, getPurchaseVerificationRevokedAt } from '@/lib/purchase-verification-revoke'
 
 function formatDbError(error: { message?: string; code?: string; details?: string | null }) {
   return {
@@ -78,7 +78,11 @@ export async function POST(req: NextRequest) {
   const settings = await loadVerificationSettings(admin)
   const periodDays = settings.verifiedPeriodDays
 
-  const validation = validateNaverOrderNumber(trimmedOrderNumber)
+  // 관리자 인증 취소 직후 재입력: 오타 수정용 주문번호가 3일보다 오래됐어도 허용
+  const purchaseRevokedAt = await getPurchaseVerificationRevokedAt(admin, user.id)
+  const validation = validateNaverOrderNumber(trimmedOrderNumber, new Date(), {
+    skipRecentDaysCheck: !!purchaseRevokedAt,
+  })
   if (!validation.ok) {
     return NextResponse.json({ error: validation.error }, { status: 400 })
   }
