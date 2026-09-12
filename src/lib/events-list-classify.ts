@@ -47,13 +47,14 @@ export function classifyEventsForList(
   for (const event of events) {
     if (event.date < cutoff) continue
 
-    // 날짜만으로 구분. album_b_url 선등록이 당일 GPS 토글/감지를 끄면 안 됨.
-    if (event.date >= today) {
-      upcoming.push(event)
+    // 앨범 링크가 있으면 "사진찾아가세요"로 이동 (당일 업로드 포함).
+    // 앨범이 없으면 날짜 기준 — 예정은 GPS 토글 유지.
+    if (hasEventAlbum(event) || event.date < today) {
+      past.push(event)
       continue
     }
 
-    past.push(event)
+    upcoming.push(event)
   }
 
   past.sort((a, b) => b.date.localeCompare(a.date))
