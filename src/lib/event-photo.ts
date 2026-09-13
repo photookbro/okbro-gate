@@ -1,6 +1,7 @@
 export const EVENT_PHOTO_STORAGE_BUCKET = 'site-assets'
 export const EVENT_PHOTO_STORAGE_PATH_PREFIX = 'event-photos'
-export const EVENT_PHOTO_MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+/** 서버가 받는 업로드 본문 상한 — Vercel 4.5MB 미만 (클라에서 먼저 줄임) */
+export const EVENT_PHOTO_MAX_UPLOAD_BYTES = 3.5 * 1024 * 1024
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
@@ -57,7 +58,7 @@ export function validateEventPhotoFile(file: Pick<File, 'name' | 'size' | 'type'
     return 'JPEG, PNG, WEBP 이미지만 업로드할 수 있어요'
   }
   if (file.size > EVENT_PHOTO_MAX_UPLOAD_BYTES) {
-    return '이미지 크기는 20MB 이하여야 해요'
+    return '사진 크기를 줄이는 중 오류가 났어요, 다시 시도해주세요'
   }
   return null
 }

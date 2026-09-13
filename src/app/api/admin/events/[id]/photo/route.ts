@@ -31,8 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       })
       return NextResponse.json(
         {
-          error:
-            '업로드 본문을 읽지 못했어요. 파일 크기가 큰 경우(약 10MB 초과)라면 서버를 재시작한 뒤 다시 시도하거나, 이미지를 압축해서 올려주세요.',
+          error: '사진 크기를 줄이는 중 오류가 났어요, 다시 시도해주세요',
         },
         { status: 400 }
       )

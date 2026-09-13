@@ -1,6 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import {
+  compressEventPhotoForUpload,
+  friendlyEventPhotoUploadError,
+} from '@/lib/event-photo-client'
 
 type EventPhotoUploadProps = {
   token: string
@@ -16,6 +20,7 @@ export function EventPhotoUpload({ token, eventId, photoUrl, onChange }: EventPh
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
+  const [statusHint, setStatusHint] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   async function handleUpload() {
@@ -26,11 +31,25 @@ export function EventPhotoUpload({ token, eventId, photoUrl, onChange }: EventPh
 
     setUploading(true)
     setError('')
-
-    const formData = new FormData()
-    formData.append('file', selectedFile)
+    setStatusHint('사진 최적화 중...')
 
     try {
+      let uploadFile: File
+      try {
+        uploadFile = await compressEventPhotoForUpload(selectedFile)
+      } catch (compressError) {
+        setError(
+          compressError instanceof Error
+            ? compressError.message
+            : '사진 크기를 줄이는 중 오류가 났어요, 다시 시도해주세요'
+        )
+        return
+      }
+
+      setStatusHint('업로드 중...')
+      const formData = new FormData()
+      formData.append('file', uploadFile)
+
       // FormData body 는 Content-Type 을 직접 넣지 않음 (boundary 는 브라우저가 붙임)
       const res = await fetch(`/api/admin/events/${eventId}/photo`, {
         method: 'POST',
@@ -43,23 +62,23 @@ export function EventPhotoUpload({ token, eventId, photoUrl, onChange }: EventPh
       try {
         data = raw ? (JSON.parse(raw) as { error?: string; photo_url?: string | null }) : {}
       } catch {
-        setError(
-          `사진 업로드 실패 (${res.status}). 서버 응답을 읽지 못했어요. 페이지를 새로고침 후 다시 시도해주세요.`
-        )
+        setError(friendlyEventPhotoUploadError(res.status))
         return
       }
 
       if (!res.ok) {
-        setError(data.error ?? `사진 업로드 실패 (${res.status})`)
+        setError(friendlyEventPhotoUploadError(res.status, data.error))
         return
       }
 
       onChange(data.photo_url ?? null)
       setSelectedFile(null)
+      setStatusHint('')
     } catch {
       setError('사진 업로드 중 오류가 발생했어요. 네트워크를 확인한 뒤 다시 시도해주세요.')
     } finally {
       setUploading(false)
+      setStatusHint('')
     }
   }
 
@@ -91,7 +110,8 @@ export function EventPhotoUpload({ token, eventId, photoUrl, onChange }: EventPh
     <div className="card-section mb-4">
       <p className="mb-3 text-sm font-semibold text-[var(--text)]">대회 사진</p>
       <p className="mb-3 text-xs text-muted">
-        대회 목록에 보여줄 사진 1장 · JPEG, PNG, WEBP · 최대 20MB (서버에서 자동 압축)
+        대회 목록에 보여줄 사진 1장 · JPEG, PNG, WEBP · 사진을 선택하면 자동으로 최적화되어
+        업로드됩니다
       </p>
 
       {photoUrl ? (
@@ -126,6 +146,7 @@ export function EventPhotoUpload({ token, eventId, photoUrl, onChange }: EventPh
             onChange={e => {
               setSelectedFile(e.target.files?.[0] ?? null)
               setError('')
+              setStatusHint('')
             }}
             className={inputStyle}
           />
@@ -136,7 +157,7 @@ export function EventPhotoUpload({ token, eventId, photoUrl, onChange }: EventPh
           disabled={uploading || !selectedFile}
           className="btn-primary-inline"
         >
-          {uploading ? '업로드 중...' : '사진 업로드'}
+          {uploading ? statusHint || '업로드 중...' : '사진 업로드'}
         </button>
       </div>
 

@@ -98,7 +98,7 @@ export async function uploadEventPhoto(
     throw new Error(validationError)
   }
   if (file.size > EVENT_PHOTO_MAX_UPLOAD_BYTES) {
-    throw new Error('이미지 크기는 20MB 이하여야 해요')
+    throw new Error('사진 크기를 줄이는 중 오류가 났어요, 다시 시도해주세요')
   }
 
   await ensureSiteAssetsBucket(admin)
