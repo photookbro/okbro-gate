@@ -59,6 +59,7 @@ export type InstagramFollowerUploadJob = {
   push_failed: number
   no_subscription: number
   manual_unlock_mismatches: number
+  handle_taken_revokes: number
   mismatch_push_sent: number
   mismatch_push_failed: number
   mismatch_no_subscription: number
@@ -77,7 +78,7 @@ export type InstagramFollowerUploadJob = {
 }
 
 const JOB_SELECT =
-  'id, status, phase, file_names, file_count, progress_index, total_parsed, new_count, updated_count, matched_approved, push_sent, push_failed, no_subscription, manual_unlock_mismatches, mismatch_push_sent, mismatch_push_failed, mismatch_no_subscription, push_status, push_updated_at, push_finished_at, mismatch_sweep, mismatch_sweep_skip_reason, snapshot_baseline_total, summary, error, created_at, started_at, finished_at, updated_at'
+  'id, status, phase, file_names, file_count, progress_index, total_parsed, new_count, updated_count, matched_approved, push_sent, push_failed, no_subscription, manual_unlock_mismatches, handle_taken_revokes, mismatch_push_sent, mismatch_push_failed, mismatch_no_subscription, push_status, push_updated_at, push_finished_at, mismatch_sweep, mismatch_sweep_skip_reason, snapshot_baseline_total, summary, error, created_at, started_at, finished_at, updated_at'
 
 export const PARTIAL_LIST_SWEEP_SKIPPED_MESSAGE = '부분 목록이라 불일치 회수는 하지 않았어요'
 
@@ -127,6 +128,7 @@ export function buildFollowerUploadJobPublicView(job: InstagramFollowerUploadJob
     push_failed: job.push_failed,
     no_subscription: job.no_subscription,
     manual_unlock_mismatches: job.manual_unlock_mismatches,
+    handle_taken_revokes: job.handle_taken_revokes ?? 0,
     mismatch_push_sent: job.mismatch_push_sent,
     mismatch_push_failed: job.mismatch_push_failed,
     mismatch_no_subscription: job.mismatch_no_subscription,
@@ -316,6 +318,7 @@ function buildCompletedSummary(job: {
   total_parsed: number | null
   matched_approved: number
   manual_unlock_mismatches: number
+  handle_taken_revokes?: number | null
   push_status: InstagramFollowerUploadPushStatus | null
   push_sent: number
   push_failed: number
@@ -332,6 +335,9 @@ function buildCompletedSummary(job: {
       ? `${PARTIAL_LIST_SWEEP_SKIPPED_MESSAGE} (${sweepSkipDetail(job)})`
       : `수동 승인 불일치 ${job.manual_unlock_mismatches.toLocaleString('ko-KR')}건`,
   ]
+  if (job.handle_taken_revokes) {
+    parts.push(`다른 계정에서 이미 사용된 아이디 ${job.handle_taken_revokes.toLocaleString('ko-KR')}건 회수`)
+  }
 
   if (job.push_status === 'pending' || job.push_status === 'sending') {
     parts.push('푸시 발송 중')
@@ -563,6 +569,7 @@ export async function processInstagramFollowerUploadJob(
     const completed = {
       matched_approved: matchResult.approved,
       manual_unlock_mismatches: matchResult.manual_unlock_mismatches,
+      handle_taken_revokes: matchResult.handle_taken_revokes,
       ...pushCounts,
       push_status: pushStatus,
     }

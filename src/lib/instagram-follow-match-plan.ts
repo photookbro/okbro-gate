@@ -72,6 +72,8 @@ export type FollowMatchPlan = {
   mismatchIds: string[]
   /** 팔로워 목록엔 있지만 같은 아이디가 이미 승인돼 있어 건너뛴 건 */
   skippedHandleTaken: number
+  /** 그중 자동승인 중이고 아이디 주인이 다른 계정이라 회수할 건 */
+  handleTakenIds: string[]
 }
 
 export function buildFollowerHandleSet(usernames: string[]): Set<string> {
@@ -115,8 +117,8 @@ export function pickLatestOrder<T extends OrderRecord>(orders: T[]): T | null {
 export function planInstagramFollowMatch(input: {
   pendingRows: PendingFollowClaim[]
   handleSet: Set<string>
-  /** 이미 approved 인 instagram_handle 값들 (정확히 같은 문자열) */
-  approvedHandles: Set<string>
+  /** 이미 approved 인 instagram_handle 값(정확히 같은 문자열) → 승인된 user_id */
+  approvedHandles: Map<string, string>
   userBonusRows: UserInstagramBonusRow[]
   latestOrderByUser: Map<string, OrderRecord>
   bonusDays: number
@@ -139,10 +141,11 @@ export function planInstagramFollowMatch(input: {
     bonusByUser.set(row.user_id, list)
   }
 
-  const takenHandles = new Set(input.approvedHandles)
+  const takenHandles = new Map(input.approvedHandles)
   const notifiedUsers = new Set<string>()
   const approvals: FollowApprovalPlanRow[] = []
   const mismatchIds: string[] = []
+  const handleTakenIds: string[] = []
   let skippedHandleTaken = 0
 
   for (const row of pending) {
@@ -160,8 +163,10 @@ export function planInstagramFollowMatch(input: {
       continue
     }
 
-    if (takenHandles.has(handle)) {
+    const takenBy = takenHandles.get(handle)
+    if (takenBy !== undefined) {
       skippedHandleTaken++
+      if (row.manually_unlocked && takenBy !== row.user_id) handleTakenIds.push(row.id)
       continue
     }
 
@@ -188,7 +193,7 @@ export function planInstagramFollowMatch(input: {
       notify,
     })
 
-    takenHandles.add(handle)
+    takenHandles.set(handle, row.user_id)
 
     const existing = userRows.find(r => r.id === row.id)
     if (existing) {
@@ -207,5 +212,5 @@ export function planInstagramFollowMatch(input: {
     }
   }
 
-  return { approvals, mismatchIds, skippedHandleTaken }
+  return { approvals, mismatchIds, skippedHandleTaken, handleTakenIds }
 }

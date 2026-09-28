@@ -25,6 +25,10 @@ export type AdminPlayerListRow = {
   instagram_can_mismatch_reapprove: boolean
   instagram_manually_unlocked: boolean
   instagram_manual_unlock_mismatch: boolean
+  /** 대기 신청 아이디가 다른 계정에 승인돼 있어 업로드 대조에서 회수된 상태 */
+  instagram_handle_taken_revoked: boolean
+  /** 대기 신청 아이디를 이미 승인받은 다른 계정의 이메일 (회수 전 자동승인 상태 포함) */
+  instagram_handle_taken_by: string | null
   instagram_handle: string | null
   instagram_benefit_label: string
   instagram_benefit_period_display: string
@@ -41,6 +45,7 @@ export type AdminPlayersListFilters = {
   instagramFollowOnly?: boolean
   instagramBonusActiveOnly?: boolean
   instagramManualMismatchOnly?: boolean
+  instagramHandleTakenOnly?: boolean
 }
 
 export type AdminPlayersListSortKey =
@@ -106,6 +111,17 @@ function instagramManualApproveSortRank(player: AdminPlayerListRow): number {
   return 3
 }
 
+function isInstagramHandleTaken(player: AdminPlayerListRow): boolean {
+  return player.instagram_handle_taken_revoked || player.instagram_handle_taken_by !== null
+}
+
+/** 불일치 → 다른 계정 사용 아이디 → 해당 없음 */
+function instagramMatchResultSortRank(player: AdminPlayerListRow): number {
+  if (player.instagram_manual_unlock_mismatch) return 0
+  if (isInstagramHandleTaken(player)) return 1
+  return 2
+}
+
 export async function buildAdminPlayersListRows(
   admin: SupabaseClient,
   verifiedPeriodDays: number
@@ -142,12 +158,13 @@ export async function buildAdminPlayersListRows(
       expires_at: string | null
       manually_unlocked: boolean
       manual_unlock_verified_mismatch: boolean
+      manual_unlock_handle_taken: boolean
       created_at: string
     }>((from, to) =>
       admin
         .from('instagram_follow_bonus')
         .select(
-          'user_id, instagram_handle, status, approved_at, expires_at, manually_unlocked, manual_unlock_verified_mismatch, created_at'
+          'user_id, instagram_handle, status, approved_at, expires_at, manually_unlocked, manual_unlock_verified_mismatch, manual_unlock_handle_taken, created_at'
         )
         .in('status', ['approved', 'pending'])
         .range(from, to)
@@ -267,16 +284,19 @@ export async function buildAdminPlayersListRows(
       instagram_handle: string
       manually_unlocked: boolean
       manual_unlock_verified_mismatch: boolean
+      manual_unlock_handle_taken: boolean
       approved_at: string | null
       expires_at: string | null
       created_at: string
     }
   >()
+  const approvedOwnerByHandle = new Map<string, string>()
 
   for (const row of instagramBonuses ?? []) {
     if (!row.user_id) continue
 
     if (row.status === 'approved') {
+      approvedOwnerByHandle.set(row.instagram_handle.trim().toLowerCase(), row.user_id)
       const prev = instagramBonusByUser.get(row.user_id)
       if (
         !prev ||
@@ -299,6 +319,7 @@ export async function buildAdminPlayersListRows(
           instagram_handle: row.instagram_handle,
           manually_unlocked: row.manually_unlocked === true,
           manual_unlock_verified_mismatch: row.manual_unlock_verified_mismatch === true,
+          manual_unlock_handle_taken: row.manual_unlock_handle_taken === true,
           approved_at: row.approved_at,
           expires_at: row.expires_at,
           created_at: row.created_at,
@@ -308,6 +329,7 @@ export async function buildAdminPlayersListRows(
   }
 
   const now = new Date()
+  const emailByUser = new Map(authUsers.map(user => [user.id, user.email ?? user.id]))
 
   return authUsers.map(user => {
     const lastActivity = maxIsoDate(
@@ -328,6 +350,13 @@ export async function buildAdminPlayersListRows(
           : instagramBonus ?? (instagramPending?.manually_unlocked ? instagramPending : null)
     const instagramHandle =
       instagramBonus?.instagram_handle ?? instagramPending?.instagram_handle ?? null
+    const pendingHandleOwner = instagramPending
+      ? approvedOwnerByHandle.get(instagramPending.instagram_handle.trim().toLowerCase())
+      : undefined
+    const instagramHandleTakenBy =
+      pendingHandleOwner && pendingHandleOwner !== user.id
+        ? (emailByUser.get(pendingHandleOwner) ?? pendingHandleOwner)
+        : null
     const access = buildPhotoAccessSummary(
       ordersByUser.get(user.id) ?? [],
       verifiedPeriodDays,
@@ -364,13 +393,17 @@ export async function buildAdminPlayersListRows(
       instagram_can_manual_approve:
         !!instagramPending &&
         !instagramPending.manually_unlocked &&
-        !instagramPending.manual_unlock_verified_mismatch,
+        !instagramPending.manual_unlock_verified_mismatch &&
+        !instagramPending.manual_unlock_handle_taken &&
+        instagramHandleTakenBy === null,
       instagram_can_mismatch_reapprove:
         !!instagramPending &&
         !instagramPending.manually_unlocked &&
         instagramPending.manual_unlock_verified_mismatch === true,
       instagram_manually_unlocked: instagramPending?.manually_unlocked === true,
       instagram_manual_unlock_mismatch: instagramPending?.manual_unlock_verified_mismatch === true,
+      instagram_handle_taken_revoked: instagramPending?.manual_unlock_handle_taken === true,
+      instagram_handle_taken_by: instagramHandleTakenBy,
       instagram_handle: instagramHandle,
       instagram_benefit_label: instagramBenefitLabel,
       instagram_benefit_period_display:
@@ -402,6 +435,9 @@ export function filterAdminPlayersListRows(
   if (filters.instagramManualMismatchOnly) {
     filtered = filtered.filter(player => player.instagram_manual_unlock_mismatch)
   }
+  if (filters.instagramHandleTakenOnly) {
+    filtered = filtered.filter(isInstagramHandleTaken)
+  }
   return filtered
 }
 
@@ -416,8 +452,7 @@ export function sortAdminPlayersListRows(
     if (sort === 'instagram_manual_approve') {
       cmp = instagramManualApproveSortRank(a) - instagramManualApproveSortRank(b)
     } else if (sort === 'instagram_manual_unlock_mismatch') {
-      cmp =
-        (a.instagram_manual_unlock_mismatch ? 0 : 1) - (b.instagram_manual_unlock_mismatch ? 0 : 1)
+      cmp = instagramMatchResultSortRank(a) - instagramMatchResultSortRank(b)
     } else {
       const av = a[sort]
       const bv = b[sort]
@@ -453,6 +488,7 @@ export function buildAdminPlayersListSummary(
     instagram_manual_mismatch: filteredPlayers.filter(
       player => player.instagram_manual_unlock_mismatch
     ).length,
+    instagram_handle_taken: filteredPlayers.filter(isInstagramHandleTaken).length,
   }
 }
 

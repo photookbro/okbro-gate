@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
         admin
           .from('instagram_follow_bonus')
           .select(
-            'instagram_handle, status, approved_at, expires_at, manually_unlocked, manual_unlock_verified_mismatch, created_at'
+            'instagram_handle, status, approved_at, expires_at, manually_unlocked, manual_unlock_verified_mismatch, manual_unlock_handle_taken, created_at'
           )
           .eq('user_id', userId)
           .order('created_at', { ascending: false }),
@@ -217,6 +217,22 @@ export async function GET(req: NextRequest) {
       userId
     )
 
+    let instagramHandleTakenBy: string | null = null
+    if (latestPendingInstagram) {
+      const { data: owner } = await admin
+        .from('instagram_follow_bonus')
+        .select('user_id')
+        .eq('status', 'approved')
+        .eq('instagram_handle', latestPendingInstagram.instagram_handle)
+        .neq('user_id', userId)
+        .limit(1)
+        .maybeSingle()
+      if (owner?.user_id) {
+        const { data: ownerUser } = await admin.auth.admin.getUserById(owner.user_id)
+        instagramHandleTakenBy = ownerUser.user?.email ?? owner.user_id
+      }
+    }
+
     return NextResponse.json({
       player: {
         id: user.id,
@@ -265,7 +281,8 @@ export async function GET(req: NextRequest) {
           can_manual_approve:
             latestPendingInstagram?.status === 'pending' &&
             latestPendingInstagram.manually_unlocked !== true &&
-            latestPendingInstagram.manual_unlock_verified_mismatch !== true,
+            latestPendingInstagram.manual_unlock_verified_mismatch !== true &&
+            instagramHandleTakenBy === null,
           can_mismatch_reapprove:
             latestPendingInstagram?.status === 'pending' &&
             latestPendingInstagram.manually_unlocked !== true &&
@@ -273,6 +290,8 @@ export async function GET(req: NextRequest) {
           manually_unlocked: latestPendingInstagram?.manually_unlocked === true,
           manual_unlock_verified_mismatch:
             latestPendingInstagram?.manual_unlock_verified_mismatch === true,
+          handle_taken_revoked: latestPendingInstagram?.manual_unlock_handle_taken === true,
+          handle_taken_by: instagramHandleTakenBy,
           approved: !!approvedInstagramRows.length,
           benefit_period_display:
             effectiveInstagram?.approved_at && effectiveInstagram?.expires_at
@@ -330,6 +349,7 @@ export async function GET(req: NextRequest) {
   const instagramBonusActiveOnly = url.searchParams.get('instagram_bonus_active_only') === '1'
   const instagramManualMismatchOnly =
     url.searchParams.get('instagram_manual_mismatch_only') === '1'
+  const instagramHandleTakenOnly = url.searchParams.get('instagram_handle_taken_only') === '1'
 
   let fullPlayers = !fresh ? getAdminPlayersListCache() : null
   if (!fullPlayers) {
@@ -342,6 +362,7 @@ export async function GET(req: NextRequest) {
     instagramFollowOnly,
     instagramBonusActiveOnly,
     instagramManualMismatchOnly,
+    instagramHandleTakenOnly,
   })
   const sortedPlayers = sortAdminPlayersListRows(filteredPlayers, sort, dir)
   const { players, pagination } = paginateAdminPlayersListRows(sortedPlayers, page, pageSize)

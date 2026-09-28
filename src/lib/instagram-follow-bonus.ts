@@ -17,6 +17,8 @@ export type InstagramFollowBonusRow = {
   expires_at: string | null
   manually_unlocked: boolean
   manual_unlock_verified_mismatch: boolean
+  /** 마이그레이션 20260928_instagram_handle_taken_revoke 이전 행에는 없음 */
+  manual_unlock_handle_taken?: boolean
   created_at: string
   updated_at: string
 }
@@ -45,6 +47,8 @@ export type InstagramFollowBonusStatus = {
   period_label: string | null
   /** 대기 신청이 팔로워 대조 불일치로 열람 회수된 상태 */
   mismatch_revoked?: boolean
+  /** 대기 신청 아이디가 이미 다른 계정에서 승인돼 열람 회수된 상태 */
+  handle_taken_revoked?: boolean
 }
 
 /** 기준일 포함 N일 — 마지막 유효일 23:59:59.999 KST (레거시·테스트용) */
@@ -254,6 +258,7 @@ export function buildInstagramFollowBonusStatus(
       days_remaining: null,
       period_label: null,
       mismatch_revoked: latestAttempt.manual_unlock_verified_mismatch === true,
+      handle_taken_revoked: latestAttempt.manual_unlock_handle_taken === true,
     }
   }
 
