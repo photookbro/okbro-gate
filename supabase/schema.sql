@@ -179,7 +179,14 @@ CREATE TABLE IF NOT EXISTS instagram_follower_upload_jobs (
   created_at timestamptz NOT NULL DEFAULT now(),
   started_at timestamptz,
   finished_at timestamptz,
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  phase text,
+  push_status text CHECK (push_status IS NULL OR push_status IN ('pending', 'sending', 'done')),
+  push_updated_at timestamptz,
+  push_finished_at timestamptz,
+  mismatch_sweep text CHECK (mismatch_sweep IS NULL OR mismatch_sweep IN ('run', 'skipped')),
+  mismatch_sweep_skip_reason text,
+  snapshot_baseline_total integer
 );
 
 CREATE INDEX IF NOT EXISTS instagram_follower_upload_jobs_created_at_idx
@@ -191,6 +198,34 @@ CREATE INDEX IF NOT EXISTS instagram_follower_upload_jobs_status_idx
 ALTER TABLE instagram_follower_upload_jobs ENABLE ROW LEVEL SECURITY;
 
 GRANT ALL ON instagram_follower_upload_jobs TO service_role;
+
+-- 대조 확정 시 적재 → 별도 단계에서 1회 발송
+-- apply_instagram_follow_approvals / apply_instagram_follow_mismatch_revokes 함수는
+-- migrations/20260928_instagram_follower_upload_match_outbox.sql 참고
+CREATE TABLE IF NOT EXISTS instagram_follow_push_outbox (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id uuid NOT NULL REFERENCES instagram_follower_upload_jobs(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  kind text NOT NULL CHECK (kind IN ('approved', 'mismatch')),
+  bonus_days integer,
+  status text NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'sending', 'sent', 'failed', 'no_subscription')),
+  error text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  claimed_at timestamptz,
+  sent_at timestamptz,
+  UNIQUE (job_id, user_id, kind)
+);
+
+CREATE INDEX IF NOT EXISTS instagram_follow_push_outbox_job_status_idx
+  ON instagram_follow_push_outbox (job_id, status);
+
+CREATE INDEX IF NOT EXISTS instagram_follow_push_outbox_status_created_idx
+  ON instagram_follow_push_outbox (status, created_at);
+
+ALTER TABLE instagram_follow_push_outbox ENABLE ROW LEVEL SECURITY;
+
+GRANT ALL ON instagram_follow_push_outbox TO service_role;
 
 CREATE TABLE IF NOT EXISTS profiles (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,

@@ -1,16 +1,39 @@
 import { NextRequest, NextResponse, after } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   buildFollowerUploadJobPublicView,
   createInstagramFollowerUploadJob,
+  getActiveInstagramFollowerUploadJob,
   getInstagramFollowerUploadJob,
+  getLatestInstagramFollowerSnapshotBaseline,
   getLatestInstagramFollowerUploadJobs,
   processInstagramFollowerUploadJob,
+  reconcileInstagramFollowerUploadJobs,
+  resumeInstagramFollowerUploadPushes,
 } from '@/lib/instagram-followers-upload-job-server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 /** Pro/Fluid 기준 — 백그라운드(after) 처리가 이 한도 안에서 끝나야 함 */
 export const maxDuration = 300
+
+/** 멈춘 작업 failed 처리 + 끊긴 푸시 발송 재개(백그라운드). 실패해도 조회는 계속 */
+async function reconcileJobs(admin: SupabaseClient): Promise<void> {
+  try {
+    const { pushJobIds } = await reconcileInstagramFollowerUploadJobs(admin)
+    if (pushJobIds.length > 0) {
+      after(async () => {
+        try {
+          await resumeInstagramFollowerUploadPushes(admin, pushJobIds)
+        } catch (error) {
+          console.error('[admin/instagram-followers] resume push failed', pushJobIds, error)
+        }
+      })
+    }
+  } catch (error) {
+    console.error('[admin/instagram-followers] reconcile failed', error)
+  }
+}
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024
 const MAX_FILE_COUNT = 20
@@ -23,13 +46,22 @@ function collectHtmlFiles(formData: FormData): File[] {
   return files
 }
 
-function isMissingJobsTable(error: { code?: string; message?: string } | null | undefined): boolean {
-  if (!error) return false
-  return (
+/** 작업 테이블/컬럼이 아직 없을 때 관리자에게 보여줄 마이그레이션 안내 */
+function missingMigrationMessage(
+  error: { code?: string; message?: string } | null | undefined
+): string | null {
+  if (!error) return null
+  if (error.code === '42703' || error.code === 'PGRST204' || /column .* does not exist/i.test(error.message ?? '')) {
+    return '업로드 작업 테이블에 새 컬럼이 없어요. Supabase SQL Editor에서 마이그레이션 20260928_instagram_follower_upload_match_outbox.sql 을 실행해주세요.'
+  }
+  if (
     error.code === 'PGRST205' ||
     error.code === '42P01' ||
     /instagram_follower_upload_jobs/i.test(error.message ?? '')
-  )
+  ) {
+    return '업로드 작업 테이블이 없어요. Supabase SQL Editor에서 마이그레이션 20260907_instagram_follower_upload_jobs.sql 을 실행해주세요.'
+  }
+  return null
 }
 
 export async function GET(req: NextRequest) {
@@ -38,6 +70,8 @@ export async function GET(req: NextRequest) {
 
   const admin = supabaseAdmin()
   const jobId = new URL(req.url).searchParams.get('job_id')?.trim()
+
+  await reconcileJobs(admin)
 
   try {
     if (jobId) {
@@ -51,21 +85,19 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    const jobs = await getLatestInstagramFollowerUploadJobs(admin, 5)
+    const [jobs, snapshotBaseline] = await Promise.all([
+      getLatestInstagramFollowerUploadJobs(admin, 5),
+      getLatestInstagramFollowerSnapshotBaseline(admin),
+    ])
     return NextResponse.json({
       success: true,
       jobs: jobs.map(buildFollowerUploadJobPublicView),
+      snapshot_baseline: snapshotBaseline,
     })
   } catch (error) {
-    const err = error as { code?: string; message?: string }
-    if (isMissingJobsTable(err)) {
-      return NextResponse.json(
-        {
-          error:
-            '업로드 작업 테이블이 없어요. Supabase SQL Editor에서 마이그레이션 20260907_instagram_follower_upload_jobs.sql 을 실행해주세요.',
-        },
-        { status: 503 }
-      )
+    const migrationMessage = missingMigrationMessage(error as { code?: string; message?: string })
+    if (migrationMessage) {
+      return NextResponse.json({ error: migrationMessage }, { status: 503 })
     }
     console.error('[admin/instagram-followers] GET', error)
     return NextResponse.json({ error: '작업 상태 조회 실패' }, { status: 500 })
@@ -129,29 +161,39 @@ export async function POST(req: NextRequest) {
 
   const admin = supabaseAdmin()
 
+  await reconcileJobs(admin)
+
   let job
   try {
+    const active = await getActiveInstagramFollowerUploadJob(admin)
+    if (active) {
+      return NextResponse.json(
+        {
+          error: '이전 업로드가 아직 처리 중이에요. 완료되거나 실패로 표시된 뒤 다시 올려주세요.',
+          job: buildFollowerUploadJobPublicView(active),
+        },
+        { status: 409 }
+      )
+    }
+
     // 파싱은 after()에서 — 요청은 접수만 빠르게 끝냄
     job = await createInstagramFollowerUploadJob(admin, {
       fileNames,
     })
   } catch (error) {
-    const err = error as { code?: string; message?: string }
-    if (isMissingJobsTable(err)) {
-      return NextResponse.json(
-        {
-          error:
-            '업로드 작업 테이블이 없어요. Supabase SQL Editor에서 마이그레이션 20260907_instagram_follower_upload_jobs.sql 을 실행해주세요.',
-        },
-        { status: 503 }
-      )
+    const migrationMessage = missingMigrationMessage(error as { code?: string; message?: string })
+    if (migrationMessage) {
+      return NextResponse.json({ error: migrationMessage }, { status: 503 })
     }
     console.error('[admin/instagram-followers] create job', error)
     return NextResponse.json({ error: '업로드 접수에 실패했어요' }, { status: 500 })
   }
 
-  after(() => {
-    void processInstagramFollowerUploadJob(admin, job.id, { htmlTexts }).catch(async error => {
+  // 콜백이 promise를 반환해야 waitUntil이 작업 종료까지 함수를 살려 둠
+  after(async () => {
+    try {
+      await processInstagramFollowerUploadJob(admin, job.id, { htmlTexts })
+    } catch (error) {
       console.error('[admin/instagram-followers] after() process failed', job.id, error)
       try {
         await admin
@@ -163,11 +205,11 @@ export async function POST(req: NextRequest) {
             updated_at: new Date().toISOString(),
           })
           .eq('id', job.id)
-          .eq('status', 'processing')
+          .in('status', ['queued', 'processing'])
       } catch (updateError) {
         console.error('[admin/instagram-followers] fail update', updateError)
       }
-    })
+    }
   })
 
   return NextResponse.json({

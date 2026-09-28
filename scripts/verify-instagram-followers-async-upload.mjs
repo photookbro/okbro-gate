@@ -88,13 +88,20 @@ if (!acceptRes.ok) {
 const jobId = acceptData.job?.job_id
 let finalJob = acceptData.job
 let polls = 0
-const deadline = Date.now() + 4 * 60 * 1000
+let completedAtMs = null
+const deadline = Date.now() + 8 * 60 * 1000
+const pushInFlight = job => job?.push_status === 'pending' || job?.push_status === 'sending'
 
 while (
   finalJob &&
-  (finalJob.status === 'queued' || finalJob.status === 'processing') &&
+  (finalJob.status === 'queued' ||
+    finalJob.status === 'processing' ||
+    (finalJob.status === 'completed' && pushInFlight(finalJob))) &&
   Date.now() < deadline
 ) {
+  if (finalJob.status === 'completed' && completedAtMs === null) {
+    completedAtMs = Date.now() - started
+  }
   await sleep(2000)
   polls++
   const statusRes = await fetch(
@@ -104,6 +111,54 @@ while (
   const statusData = await statusRes.json()
   finalJob = statusData.job
 }
+if (finalJob?.status === 'completed' && completedAtMs === null) {
+  completedAtMs = Date.now() - started
+}
+
+async function selectAllPages(fetchPage) {
+  const rows = []
+  for (;;) {
+    const { data, error } = await fetchPage(rows.length, rows.length + 999)
+    if (error) throw error
+    if (!data || data.length === 0) return rows
+    rows.push(...data)
+  }
+}
+
+// 불일치 표시된 대기 신청 중 아이디가 팔로워 목록에 있는 건(오탐)이 남아 있으면 안 됨
+const [flaggedRows, followerRows] = await Promise.all([
+  selectAllPages((from, to) =>
+    admin
+      .from('instagram_follow_bonus')
+      .select('id, instagram_handle')
+      .eq('status', 'pending')
+      .eq('manual_unlock_verified_mismatch', true)
+      .order('id', { ascending: true })
+      .range(from, to)
+  ),
+  selectAllPages((from, to) =>
+    admin
+      .from('instagram_followers')
+      .select('username')
+      .order('username', { ascending: true })
+      .range(from, to)
+  ),
+])
+const followerSet = new Set(followerRows.map(row => row.username.trim().toLowerCase()))
+const remainingFalseMismatch = flaggedRows.filter(row =>
+  followerSet.has(row.instagram_handle.trim().toLowerCase())
+)
+const { data: approvedTaken } = remainingFalseMismatch.length
+  ? await admin
+      .from('instagram_follow_bonus')
+      .select('instagram_handle')
+      .eq('status', 'approved')
+      .in('instagram_handle', remainingFalseMismatch.map(row => row.instagram_handle.trim()))
+  : { data: [] }
+const takenSet = new Set((approvedTaken ?? []).map(row => row.instagram_handle))
+const remainingRecoverable = remainingFalseMismatch.filter(
+  row => !takenSet.has(row.instagram_handle.trim())
+)
 
 const report = {
   acceptOk: acceptRes.ok && acceptData.accepted === true,
@@ -115,9 +170,27 @@ const report = {
   totalParsed: finalJob?.total_parsed ?? null,
   newCount: finalJob?.new_count ?? null,
   updatedCount: finalJob?.updated_count ?? null,
+  phase: finalJob?.phase ?? null,
+  mismatchSweep: finalJob?.mismatch_sweep ?? null,
+  mismatchSweepSkipMessage: finalJob?.mismatch_sweep_skip_message ?? null,
+  matchedApproved: finalJob?.matched_approved ?? null,
+  manualUnlockMismatches: finalJob?.manual_unlock_mismatches ?? null,
+  pushStatus: finalJob?.push_status ?? null,
+  pushSent: finalJob?.push_sent ?? null,
+  pushFailed: finalJob?.push_failed ?? null,
+  noSubscription: finalJob?.no_subscription ?? null,
+  mismatchPushSent: finalJob?.mismatch_push_sent ?? null,
+  mismatchPushFailed: finalJob?.mismatch_push_failed ?? null,
+  mismatchNoSubscription: finalJob?.mismatch_no_subscription ?? null,
   summary: finalJob?.summary ?? null,
   error: finalJob?.error ?? null,
+  completedAtMs,
   elapsedMs: Date.now() - started,
+  flaggedMismatchPending: flaggedRows.length,
+  falseMismatchInFollowers: remainingFalseMismatch.length,
+  falseMismatchHandleTaken: remainingFalseMismatch.length - remainingRecoverable.length,
+  falseMismatchRecoverableLeft: remainingRecoverable.length,
+  falseMismatchSample: remainingRecoverable.slice(0, 10).map(row => row.instagram_handle),
   pass: false,
 }
 
@@ -125,7 +198,13 @@ report.pass =
   report.acceptOk &&
   report.acceptUnder15s &&
   finalJob?.status === 'completed' &&
-  (finalJob?.total_parsed ?? 0) >= 10000
+  finalJob?.phase === 'done' &&
+  (finalJob?.total_parsed ?? 0) >= 10000 &&
+  typeof finalJob?.matched_approved === 'number' &&
+  typeof finalJob?.manual_unlock_mismatches === 'number' &&
+  finalJob?.push_status === 'done' &&
+  finalJob?.mismatch_sweep === 'run' &&
+  report.falseMismatchRecoverableLeft === 0
 
 console.log(JSON.stringify(report, null, 2))
 if (!report.pass) process.exit(1)
