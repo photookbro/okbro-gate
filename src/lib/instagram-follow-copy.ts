@@ -40,6 +40,10 @@ export function instagramFollowHandleTakenNotice(): string {
   return '이 인스타 아이디는 이미 다른 계정에서 사용됐어요. 본인 아이디를 다시 확인해주세요'
 }
 
+export function instagramFollowAwaitingCheckNotice(): string {
+  return '다음 확인 때까지 대기 중이에요. 팔로우 후 아이디를 다시 확인해주세요'
+}
+
 export function instagramFollowMismatchPushBody(): string {
   return `인스타그램 팔로우가 확인되지 않았어요. @${INSTAGRAM_HANDLE} 팔로우와 아이디 입력을 다시 확인해주세요`
 }

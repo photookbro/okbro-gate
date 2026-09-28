@@ -238,6 +238,10 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS purchase_revoked_at timestamptz;
 
+-- 불일치·다른 계정 아이디로 자동승인이 회수된 적 있는 계정 (트리거는
+-- migrations/20260928_instagram_resubmit_auto_unlock_block.sql 참고)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS instagram_auto_unlock_blocked_at timestamptz;
+
 CREATE INDEX IF NOT EXISTS profiles_purchase_revoked_at_idx
   ON profiles (purchase_revoked_at DESC)
   WHERE purchase_revoked_at IS NOT NULL;

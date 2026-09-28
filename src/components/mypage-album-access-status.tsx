@@ -7,6 +7,7 @@ import {
   INSTAGRAM_FOLLOW_MYPAGE_WARNING,
   INSTAGRAM_LATE_MATCH_NOTICE,
   INSTAGRAM_PROFILE_URL,
+  instagramFollowAwaitingCheckNotice,
   instagramFollowHandleTakenNotice,
   instagramFollowMismatchNotice,
   instagramFollowMypageDescriptionLead,
@@ -230,7 +231,14 @@ function FollowerAccessRow({
             <PushSubscribeNudge />
           </div>
         ) : (
-          renderFollowDescription()
+          <>
+            {!successMsg ? (
+              <p className="alert-warning mb-3 text-left text-sm leading-relaxed">
+                {instagramFollowAwaitingCheckNotice()}
+              </p>
+            ) : null}
+            {renderFollowDescription()}
+          </>
         )}
         <p className="mb-1 text-sm text-muted">
           제출한 아이디: @{instagram_handle ?? '—'}{' '}
@@ -288,7 +296,11 @@ function FollowerAccessRow({
         )}
         {successMsg ? (
           <>
-            <p className="alert-success mt-3 mb-0">{successMsg}</p>
+            <p
+              className={`${successMsg === instagramFollowAwaitingCheckNotice() ? 'alert-warning' : 'alert-success'} mt-3 mb-0`}
+            >
+              {successMsg}
+            </p>
             <PushSubscribeNudge className="mt-3" />
           </>
         ) : null}

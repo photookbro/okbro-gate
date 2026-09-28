@@ -8,6 +8,7 @@ import { authFetch } from '@/lib/supabase/auth-client'
 import {
   INSTAGRAM_HANDLE,
   INSTAGRAM_LATE_MATCH_NOTICE,
+  instagramFollowAwaitingCheckNotice,
   instagramFollowHandleTakenNotice,
   instagramFollowMismatchNotice,
   instagramFollowSubmitCompleteMessage,
@@ -190,7 +191,7 @@ function InstagramFollowContent() {
                     <PushSubscribeNudge />
                   </div>
                 ) : (
-                  <p className="alert-success mb-4">{instagramFollowSubmitCompleteMessage()}</p>
+                  <p className="alert-warning mb-4">{instagramFollowAwaitingCheckNotice()}</p>
                 )}
                 <p className="mb-1 text-sm text-muted">
                   제출한 아이디: @{status.instagram_handle ?? '—'}{' '}
@@ -265,7 +266,7 @@ function InstagramFollowContent() {
               </form>
             ) : null}
 
-            {!showClaimForm && successMsg ? (
+            {!showClaimForm && successMsg && !isPending ? (
               <p className="alert-success mt-4 mb-0">{successMsg}</p>
             ) : null}
           </div>
