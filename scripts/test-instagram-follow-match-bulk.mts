@@ -219,6 +219,28 @@ function applyMismatchRpc(db: Db, jobId: string, ids: string[]) {
   return updated.map(r => ({ revoked_id: r.id, revoked_user_id: r.user_id }))
 }
 
+function applyHandleTakenRpc(db: Db, ids: string[]) {
+  const idSet = new Set(ids)
+  const normalize = (v: unknown) => String(v).trim().toLowerCase()
+  const updated = db.instagram_follow_bonus.filter(
+    r =>
+      idSet.has(String(r.id)) &&
+      r.status === 'pending' &&
+      r.manually_unlocked === true &&
+      db.instagram_follow_bonus.some(
+        taken =>
+          taken.status === 'approved' &&
+          normalize(taken.instagram_handle) === normalize(r.instagram_handle) &&
+          taken.user_id !== r.user_id
+      )
+  )
+  for (const row of updated) {
+    row.manually_unlocked = false
+    row.manual_unlock_handle_taken = true
+  }
+  return updated.map(r => ({ revoked_id: r.id, revoked_user_id: r.user_id }))
+}
+
 const FLAGGED_AT = '2026-09-28T02:10:30.000Z'
 
 function fakeClient(db: Db): SupabaseClient {
@@ -232,6 +254,9 @@ function fakeClient(db: Db): SupabaseClient {
       }
       if (name === 'apply_instagram_follow_mismatch_revokes') {
         return { data: applyMismatchRpc(db, String(args.p_job_id), args.p_ids as string[]), error: null }
+      }
+      if (name === 'apply_instagram_follow_handle_taken_revokes') {
+        return { data: applyHandleTakenRpc(db, args.p_ids as string[]), error: null }
       }
       throw new Error(`unknown rpc ${name}`)
     },
@@ -341,8 +366,16 @@ const afterFirst = counts(db)
 assert.equal(first.approved, 919)
 assert.equal(first.manual_unlock_mismatches, 473)
 assert.equal(first.skipped_handle_taken, 5)
+assert.equal(first.handle_taken_revokes, 5, '다른 계정에 승인된 아이디로 자동승인 중인 5건 회수')
+assert.equal(
+  db.instagram_follow_bonus.filter(
+    r => r.manual_unlock_handle_taken === true && r.manually_unlocked === false && r.manual_unlock_verified_mismatch === false
+  ).length,
+  5,
+  '불일치와 구분된 표시'
+)
 assert.equal(afterFirst.outboxApproved, 69, '잠김 상태에서 승인된 유저만 승인 푸시 적재')
-assert.equal(afterFirst.outboxMismatch, 473)
+assert.equal(afterFirst.outboxMismatch, 473, '아이디 중복 회수는 푸시 적재 없음')
 assert.equal(db.instagram_handle_bonus_history.length, 919)
 
 // 재실행(같은 파일 재업로드) → 이미 처리된 건은 다시 승인/회수/적재되지 않음
@@ -356,6 +389,7 @@ const rerunCalls = callCount
 const afterSecond = counts(db)
 assert.equal(second.approved, 0)
 assert.equal(second.manual_unlock_mismatches, 0)
+assert.equal(second.handle_taken_revokes, 0)
 assert.equal(afterSecond.outboxApproved, afterFirst.outboxApproved)
 assert.equal(afterSecond.outboxMismatch, afterFirst.outboxMismatch)
 
@@ -434,6 +468,7 @@ const fullAfterRecovery = await matchPendingInstagramFollowClaims(incidentAdmin,
 assert.equal(fullAfterRecovery.approved, 69)
 assert.equal(fullAfterRecovery.manual_unlock_mismatches, 0)
 assert.equal(fullAfterRecovery.skipped_handle_taken, 5)
+assert.equal(fullAfterRecovery.handle_taken_revokes, 0, '이미 불일치로 회수된 건은 다시 회수하지 않음')
 
 // ---- 예전 건별 방식 (DB 호출 수만 비교, 푸시는 구독 조회 1회 + HTTP 로 계산) ----
 const legacy = buildDataset()
@@ -485,6 +520,7 @@ console.log(
         approved: first.approved,
         mismatches: first.manual_unlock_mismatches,
         skipped_handle_taken: first.skipped_handle_taken,
+        handle_taken_revokes: first.handle_taken_revokes,
         outbox_approved: afterFirst.outboxApproved,
         outbox_mismatch: afterFirst.outboxMismatch,
         db_calls: newCalls,

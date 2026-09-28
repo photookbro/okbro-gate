@@ -186,7 +186,8 @@ CREATE TABLE IF NOT EXISTS instagram_follower_upload_jobs (
   push_finished_at timestamptz,
   mismatch_sweep text CHECK (mismatch_sweep IS NULL OR mismatch_sweep IN ('run', 'skipped')),
   mismatch_sweep_skip_reason text,
-  snapshot_baseline_total integer
+  snapshot_baseline_total integer,
+  handle_taken_revokes integer NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS instagram_follower_upload_jobs_created_at_idx
@@ -237,6 +238,10 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS purchase_revoked_at timestamptz;
 
+-- 불일치·다른 계정 아이디로 자동승인이 회수된 적 있는 계정 (트리거는
+-- migrations/20260928_instagram_resubmit_auto_unlock_block.sql 참고)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS instagram_auto_unlock_blocked_at timestamptz;
+
 CREATE INDEX IF NOT EXISTS profiles_purchase_revoked_at_idx
   ON profiles (purchase_revoked_at DESC)
   WHERE purchase_revoked_at IS NOT NULL;
@@ -255,6 +260,7 @@ CREATE TABLE IF NOT EXISTS instagram_follow_bonus (
   expires_at timestamptz,
   manually_unlocked boolean NOT NULL DEFAULT false,
   manual_unlock_verified_mismatch boolean NOT NULL DEFAULT false,
+  manual_unlock_handle_taken boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -262,6 +268,9 @@ CREATE TABLE IF NOT EXISTS instagram_follow_bonus (
 CREATE UNIQUE INDEX IF NOT EXISTS instagram_follow_bonus_handle_approved_idx
   ON instagram_follow_bonus (instagram_handle)
   WHERE status = 'approved';
+
+-- manual_unlock_handle_taken 해제 트리거 · apply_instagram_follow_handle_taken_revokes 함수는
+-- migrations/20260928_instagram_handle_taken_revoke.sql 참고
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE instagram_follow_bonus ENABLE ROW LEVEL SECURITY;

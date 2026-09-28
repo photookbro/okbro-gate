@@ -98,6 +98,8 @@ type PlayerRow = {
   instagram_can_mismatch_reapprove: boolean
   instagram_manually_unlocked: boolean
   instagram_manual_unlock_mismatch: boolean
+  instagram_handle_taken_revoked: boolean
+  instagram_handle_taken_by: string | null
   instagram_handle: string | null
   instagram_benefit_label: string
   instagram_benefit_period_display: string
@@ -150,6 +152,8 @@ type PlayerDetail = {
     can_mismatch_reapprove: boolean
     manually_unlocked: boolean
     manual_unlock_verified_mismatch: boolean
+    handle_taken_revoked: boolean
+    handle_taken_by: string | null
     approved: boolean
     benefit_period_display: string | null
     benefit_active: boolean
@@ -281,7 +285,7 @@ export default function AdminPage() {
   const [loadingPlayers, setLoadingPlayers] = useState(false)
   const [playersError, setPlayersError] = useState('')
   const [playerInstagramFilter, setPlayerInstagramFilter] = useState<
-    'all' | 'follow' | 'active' | 'mismatch'
+    'all' | 'follow' | 'active' | 'mismatch' | 'handle_taken'
   >('all')
   const [playerDetail, setPlayerDetail] = useState<PlayerDetail | null>(null)
   const [loadingPlayerDetail, setLoadingPlayerDetail] = useState(false)
@@ -421,6 +425,7 @@ export default function AdminPage() {
       if (playerInstagramFilter === 'follow') params.set('instagram_follow_only', '1')
       if (playerInstagramFilter === 'active') params.set('instagram_bonus_active_only', '1')
       if (playerInstagramFilter === 'mismatch') params.set('instagram_manual_mismatch_only', '1')
+      if (playerInstagramFilter === 'handle_taken') params.set('instagram_handle_taken_only', '1')
       if (opts?.fresh) params.set('fresh', '1')
       const res = await adminFetch(`/api/admin/players?${params.toString()}`)
       const data = await res.json()
@@ -1083,6 +1088,7 @@ export default function AdminPage() {
                 { id: 'follow', label: '인스타 팔로우 확인' },
                 { id: 'active', label: '혜택 유효' },
                 { id: 'mismatch', label: '불일치만 보기' },
+                { id: 'handle_taken', label: '다른 계정 사용 아이디' },
               ].map(option => (
                 <button
                   key={option.id}
@@ -1092,7 +1098,7 @@ export default function AdminPage() {
                   }
                   onClick={() => {
                     setPlayerInstagramFilter(
-                      option.id as 'all' | 'follow' | 'active' | 'mismatch'
+                      option.id as 'all' | 'follow' | 'active' | 'mismatch' | 'handle_taken'
                     )
                     setPlayerPage(1)
                   }}
@@ -1197,6 +1203,23 @@ export default function AdminPage() {
                         <td className="whitespace-nowrap">
                           {player.instagram_manual_unlock_mismatch ? (
                             <span className="text-xs font-semibold text-red-600">⚠ 불일치</span>
+                          ) : player.instagram_handle_taken_revoked || player.instagram_handle_taken_by ? (
+                            <span
+                              className="text-xs font-semibold text-violet-700"
+                              title={
+                                player.instagram_handle_taken_by
+                                  ? `승인된 계정: ${player.instagram_handle_taken_by}`
+                                  : undefined
+                              }
+                            >
+                              ⚠ 다른 계정 사용
+                              {player.instagram_handle_taken_revoked ? ' (회수됨)' : ''}
+                              {player.instagram_handle_taken_by ? (
+                                <span className="block font-normal text-muted">
+                                  {player.instagram_handle_taken_by}
+                                </span>
+                              ) : null}
+                            </span>
                           ) : (
                             <span className="text-muted">-</span>
                           )}
@@ -1844,6 +1867,18 @@ export default function AdminPage() {
                   {playerDetail.instagram_follow.manual_unlock_verified_mismatch && (
                     <p className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
                       수동 승인 — 대조 결과 팔로워 목록에 없음
+                    </p>
+                  )}
+                  {(playerDetail.instagram_follow.handle_taken_revoked ||
+                    playerDetail.instagram_follow.handle_taken_by) && (
+                    <p className="mt-3 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-800">
+                      다른 계정에서 이미 사용된 아이디
+                      {playerDetail.instagram_follow.handle_taken_revoked ? ' — 자동승인 회수됨' : ''}
+                      {playerDetail.instagram_follow.handle_taken_by ? (
+                        <span className="block font-normal">
+                          승인된 계정: {playerDetail.instagram_follow.handle_taken_by}
+                        </span>
+                      ) : null}
                     </p>
                   )}
                   {playerDetail.instagram_follow.manually_unlocked &&

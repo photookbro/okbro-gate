@@ -28,6 +28,8 @@ export type InstagramMatchResult = {
   approved: number
   manual_unlock_mismatches: number
   skipped_handle_taken: number
+  /** 자동승인 중이었지만 아이디가 이미 다른 계정에 승인돼 회수한 건 */
+  handle_taken_revokes: number
 }
 
 const IN_FILTER_CHUNK = 150
@@ -400,8 +402,18 @@ export function missingMatchRpcError(error: PostgrestError): Error {
   return new Error(`대조 반영 실패: ${error.message}`)
 }
 
+function missingHandleTakenRpcError(error: PostgrestError): Error {
+  if (error.code === 'PGRST202' || error.code === '42883') {
+    return new Error(
+      '아이디 중복 회수 함수가 없어요. Supabase SQL Editor에서 마이그레이션 20260928_instagram_handle_taken_revoke.sql 을 실행해주세요.'
+    )
+  }
+  return new Error(`아이디 중복 회수 실패: ${error.message}`)
+}
+
 export type FollowMatchContext = {
-  approvedHandles: Set<string>
+  /** 승인된 instagram_handle → 그 계정 user_id */
+  approvedHandles: Map<string, string>
   userBonusRows: UserInstagramBonusRow[]
   latestOrderByUser: Map<string, OrderRecord>
 }
@@ -414,15 +426,15 @@ export async function loadFollowMatchContext(
   const matchedHandles = [...new Set(matchedRows.map(row => row.instagram_handle.trim()))]
   const matchedUserIds = [...new Set(matchedRows.map(row => row.user_id))]
 
-  const approvedHandles = new Set<string>()
+  const approvedHandles = new Map<string, string>()
   for (const handles of chunk(matchedHandles, IN_FILTER_CHUNK)) {
     const { data, error } = await admin
       .from('instagram_follow_bonus')
-      .select('instagram_handle')
+      .select('instagram_handle, user_id')
       .eq('status', 'approved')
       .in('instagram_handle', handles)
     if (error) throw error
-    for (const row of data ?? []) approvedHandles.add(row.instagram_handle)
+    for (const row of data ?? []) approvedHandles.set(row.instagram_handle, row.user_id)
   }
 
   const userBonusRows: UserInstagramBonusRow[] = []
@@ -483,6 +495,7 @@ export async function matchPendingInstagramFollowClaims(
     approved: 0,
     manual_unlock_mismatches: 0,
     skipped_handle_taken: 0,
+    handle_taken_revokes: 0,
   }
 
   const handleSet = buildFollowerHandleSet(usernames)
@@ -535,6 +548,15 @@ export async function matchPendingInstagramFollowClaims(
     })
     if (error) throw missingMatchRpcError(error)
     result.manual_unlock_mismatches += Array.isArray(data) ? data.length : 0
+    await options.onProgress?.()
+  }
+
+  for (const ids of chunk(plan.handleTakenIds, MISMATCH_RPC_CHUNK)) {
+    const { data, error } = await admin.rpc('apply_instagram_follow_handle_taken_revokes', {
+      p_ids: ids,
+    })
+    if (error) throw missingHandleTakenRpcError(error)
+    result.handle_taken_revokes += Array.isArray(data) ? data.length : 0
     await options.onProgress?.()
   }
 

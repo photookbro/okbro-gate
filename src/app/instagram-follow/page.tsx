@@ -8,6 +8,8 @@ import { authFetch } from '@/lib/supabase/auth-client'
 import {
   INSTAGRAM_HANDLE,
   INSTAGRAM_LATE_MATCH_NOTICE,
+  instagramFollowAwaitingCheckNotice,
+  instagramFollowHandleTakenNotice,
   instagramFollowMismatchNotice,
   instagramFollowSubmitCompleteMessage,
   instagramOwnAccountClaimBlockedMessage,
@@ -113,7 +115,8 @@ function InstagramFollowContent() {
 
   const bonusDays = status?.bonus_days_setting ?? 5
   const isPending = status?.state === 'pending'
-  const mismatchRevoked = isPending && status?.mismatch_revoked === true
+  const handleTakenRevoked = isPending && status?.handle_taken_revoked === true
+  const mismatchRevoked = isPending && !handleTakenRevoked && status?.mismatch_revoked === true
   const showClaimCard = !!status && status.state !== 'active'
   const showClaimForm = showClaimCard && (!isPending || editingPending)
 
@@ -178,17 +181,25 @@ function InstagramFollowContent() {
 
             {status?.state === 'pending' && !editingPending ? (
               <>
-                {mismatchRevoked ? (
+                {handleTakenRevoked || mismatchRevoked ? (
                   <div className="mb-4 space-y-3">
-                    <p className="alert-danger mb-0">{instagramFollowMismatchNotice()}</p>
+                    <p className="alert-danger mb-0">
+                      {handleTakenRevoked
+                        ? instagramFollowHandleTakenNotice()
+                        : instagramFollowMismatchNotice()}
+                    </p>
                     <PushSubscribeNudge />
                   </div>
                 ) : (
-                  <p className="alert-success mb-4">{instagramFollowSubmitCompleteMessage()}</p>
+                  <p className="alert-warning mb-4">{instagramFollowAwaitingCheckNotice()}</p>
                 )}
                 <p className="mb-1 text-sm text-muted">
                   제출한 아이디: @{status.instagram_handle ?? '—'}{' '}
-                  {mismatchRevoked ? '(확인 안 됨)' : '(대기중)'}
+                  {handleTakenRevoked
+                    ? '(다른 계정에서 사용 중)'
+                    : mismatchRevoked
+                      ? '(확인 안 됨)'
+                      : '(대기중)'}
                 </p>
                 <button
                   type="button"
@@ -255,7 +266,7 @@ function InstagramFollowContent() {
               </form>
             ) : null}
 
-            {!showClaimForm && successMsg ? (
+            {!showClaimForm && successMsg && !isPending ? (
               <p className="alert-success mt-4 mb-0">{successMsg}</p>
             ) : null}
           </div>

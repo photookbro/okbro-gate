@@ -13,6 +13,7 @@ type JobView = {
   total_parsed: number | null
   matched_approved: number
   manual_unlock_mismatches: number
+  handle_taken_revokes: number
   push_status: 'pending' | 'sending' | 'done' | null
   push_sent: number
   push_failed: number
@@ -275,6 +276,9 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
                 {job.mismatch_sweep === 'skipped'
                   ? job.mismatch_sweep_skip_message
                   : `불일치 회수 ${n(job.manual_unlock_mismatches)}건`}
+                {job.handle_taken_revokes > 0
+                  ? ` · 다른 계정에서 이미 사용된 아이디 ${n(job.handle_taken_revokes)}건 회수`
+                  : ''}
                 <br />
                 승인 푸시 {n(job.push_sent)}명 (실패 {n(job.push_failed)} · 구독 없음{' '}
                 {n(job.no_subscription)}) · 불일치 푸시 {n(job.mismatch_push_sent)}명 (실패{' '}
@@ -297,6 +301,10 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
                       recent.mismatch_sweep === 'skipped'
                         ? '불일치 회수 건너뜀(부분 목록)'
                         : `불일치 ${n(recent.manual_unlock_mismatches)}`
+                    }${
+                      recent.handle_taken_revokes > 0
+                        ? ` · 아이디 중복 ${n(recent.handle_taken_revokes)}`
+                        : ''
                     }`
                   : ''}
                 {recent.status === 'failed' && recent.error ? ` · ${recent.error}` : ''}

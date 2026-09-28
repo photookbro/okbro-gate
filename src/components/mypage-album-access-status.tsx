@@ -7,6 +7,8 @@ import {
   INSTAGRAM_FOLLOW_MYPAGE_WARNING,
   INSTAGRAM_LATE_MATCH_NOTICE,
   INSTAGRAM_PROFILE_URL,
+  instagramFollowAwaitingCheckNotice,
+  instagramFollowHandleTakenNotice,
   instagramFollowMismatchNotice,
   instagramFollowMypageDescriptionLead,
   instagramFollowMypageDescriptionTail,
@@ -212,22 +214,39 @@ function FollowerAccessRow({
   }
 
   if (state === 'pending') {
-    const mismatchRevoked = instagramFollowBonus.mismatch_revoked === true && !successMsg
+    const handleTakenRevoked =
+      instagramFollowBonus.handle_taken_revoked === true && !successMsg
+    const mismatchRevoked =
+      !handleTakenRevoked && instagramFollowBonus.mismatch_revoked === true && !successMsg
     return (
       <div className="mypage-access-row">
         <p className="mypage-access-row-label">팔로워 인증 열람일</p>
-        {mismatchRevoked ? (
+        {handleTakenRevoked || mismatchRevoked ? (
           <div className="mb-3 space-y-3">
             <p className="alert-danger mb-0 text-left text-sm leading-relaxed">
-              {instagramFollowMismatchNotice()}
+              {handleTakenRevoked
+                ? instagramFollowHandleTakenNotice()
+                : instagramFollowMismatchNotice()}
             </p>
             <PushSubscribeNudge />
           </div>
         ) : (
-          renderFollowDescription()
+          <>
+            {!successMsg ? (
+              <p className="alert-warning mb-3 text-left text-sm leading-relaxed">
+                {instagramFollowAwaitingCheckNotice()}
+              </p>
+            ) : null}
+            {renderFollowDescription()}
+          </>
         )}
         <p className="mb-1 text-sm text-muted">
-          제출한 아이디: @{instagram_handle ?? '—'} {mismatchRevoked ? '(확인 안 됨)' : '(대기중)'}
+          제출한 아이디: @{instagram_handle ?? '—'}{' '}
+          {handleTakenRevoked
+            ? '(다른 계정에서 사용 중)'
+            : mismatchRevoked
+              ? '(확인 안 됨)'
+              : '(대기중)'}
         </p>
         {!editing ? (
           <button
@@ -277,7 +296,11 @@ function FollowerAccessRow({
         )}
         {successMsg ? (
           <>
-            <p className="alert-success mt-3 mb-0">{successMsg}</p>
+            <p
+              className={`${successMsg === instagramFollowAwaitingCheckNotice() ? 'alert-warning' : 'alert-success'} mt-3 mb-0`}
+            >
+              {successMsg}
+            </p>
             <PushSubscribeNudge className="mt-3" />
           </>
         ) : null}

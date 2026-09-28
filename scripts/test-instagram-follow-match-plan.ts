@@ -36,7 +36,8 @@ function pending(
 function plan(input: {
   pendingRows: PendingFollowClaim[]
   handleSet: Set<string>
-  approvedHandles?: string[]
+  /** 승인된 아이디 → 승인된 user_id */
+  approvedHandles?: Record<string, string>
   userBonusRows?: UserInstagramBonusRow[]
   orders?: Record<string, { order_number: string; used_at: string; expires_at: string | null }>
   sweepMismatches?: boolean
@@ -44,7 +45,7 @@ function plan(input: {
   return planInstagramFollowMatch({
     pendingRows: input.pendingRows,
     handleSet: input.handleSet,
-    approvedHandles: new Set(input.approvedHandles ?? []),
+    approvedHandles: new Map(Object.entries(input.approvedHandles ?? {})),
     userBonusRows: input.userBonusRows ?? [],
     latestOrderByUser: new Map(Object.entries(input.orders ?? {})),
     bonusDays,
@@ -89,16 +90,26 @@ function plan(input: {
   assert.deepEqual(plan({ pendingRows: rows, handleSet: buildFollowerHandleSet(['x']) }).mismatchIds, [])
 }
 
-// 4) 같은 아이디가 이미 승인돼 있으면 건너뜀 (불일치도 아님)
+// 4) 같은 아이디가 이미 다른 계정에 승인돼 있으면 승인하지 않고, 자동승인 건은 회수 대상 (불일치 아님)
 {
   const result = plan({
-    pendingRows: [pending('a', 'u1', 'alice', true)],
-    handleSet: followers(['alice']),
-    approvedHandles: ['alice'],
+    pendingRows: [pending('a', 'u1', 'alice', true), pending('b', 'u2', 'bob', false)],
+    handleSet: followers(['alice', 'bob']),
+    approvedHandles: { alice: 'owner', bob: 'owner2' },
   })
   assert.equal(result.approvals.length, 0)
-  assert.equal(result.skippedHandleTaken, 1)
+  assert.equal(result.skippedHandleTaken, 2)
   assert.deepEqual(result.mismatchIds, [])
+  assert.deepEqual(result.handleTakenIds, ['a'])
+
+  // 승인된 주인이 같은 계정이면 회수하지 않음
+  const own = plan({
+    pendingRows: [pending('a', 'u1', 'alice', true)],
+    handleSet: followers(['alice']),
+    approvedHandles: { alice: 'u1' },
+  })
+  assert.deepEqual(own.handleTakenIds, [])
+  assert.equal(own.skippedHandleTaken, 1)
 }
 
 // 5) 같은 아이디를 두 유저가 신청 → 먼저 신청한 1건만 승인 (unique 위반 방지)
@@ -112,6 +123,18 @@ function plan(input: {
   })
   assert.deepEqual(result.approvals.map(a => a.id), ['early'])
   assert.equal(result.skippedHandleTaken, 1)
+  assert.deepEqual(result.handleTakenIds, [])
+
+  // 둘 다 자동승인 중이면 늦게 신청한 쪽은 같은 업로드에서 회수
+  const bothUnlocked = plan({
+    pendingRows: [
+      pending('late', 'u2', 'alice', true, '2026-09-27T05:00:00.000Z'),
+      pending('early', 'u1', 'alice', true, '2026-09-27T01:00:00.000Z'),
+    ],
+    handleSet: followers(['alice']),
+  })
+  assert.deepEqual(bothUnlocked.approvals.map(a => a.id), ['early'])
+  assert.deepEqual(bothUnlocked.handleTakenIds, ['late'])
 }
 
 // 6) 한 유저가 아이디 2개 → 둘 다 승인, 푸시는 1회, 두 번째는 첫 번째 만료일에서 연장
@@ -162,6 +185,15 @@ function plan(input: {
   })
   assert.deepEqual(result.approvals.map(a => a.id), ['a'])
   assert.deepEqual(result.mismatchIds, [])
+
+  // 아이디 중복 회수는 목록에 실제로 있는 아이디 기준이라 부분 목록에서도 수행
+  const taken = plan({
+    pendingRows: [pending('t', 'u3', 'taken_id', true)],
+    handleSet: followers(['taken_id']),
+    approvedHandles: { taken_id: 'owner' },
+    sweepMismatches: false,
+  })
+  assert.deepEqual(taken.handleTakenIds, ['t'])
 }
 
 // 10) 전체 스냅샷 판정: 파일 1개 또는 직전 전체 대비 80% 미만이면 회수 건너뜀
