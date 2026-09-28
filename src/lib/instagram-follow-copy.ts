@@ -32,6 +32,10 @@ export function instagramFollowApprovedPushBody(bonusDays: number): string {
   return `인스타그램 팔로우가 확인됐어요! ${bonusDays}일 무료 이용이 시작됐어요`
 }
 
+export function instagramFollowMismatchNotice(): string {
+  return `인스타그램 팔로우가 확인되지 않아 열람이 중단됐어요. @${INSTAGRAM_HANDLE} 팔로우와 아이디를 다시 확인해주세요`
+}
+
 export function instagramFollowMismatchPushBody(): string {
   return `인스타그램 팔로우가 확인되지 않았어요. @${INSTAGRAM_HANDLE} 팔로우와 아이디 입력을 다시 확인해주세요`
 }

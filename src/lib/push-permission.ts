@@ -11,6 +11,35 @@ const PUSH_SUBSCRIBE_BANNER_SESSION_COUNTED_KEY =
 
 export const PUSH_DENIED_TIP_SESSION_DISMISS_KEY = 'okbro_push_denied_tip_session_dismiss'
 
+/** 앱 진입 배너: 세션(탭)당 1회만 */
+const PUSH_NUDGE_SESSION_SHOWN_KEY = 'okbro_push_nudge_session_shown'
+
+export const PUSH_NUDGE_COPY = '인증 결과와 대회 소식을 알림으로 바로 받아보세요'
+export const PUSH_IOS_INSTALL_COPY = '홈 화면에 추가하면 알림을 받을 수 있어요'
+export const PUSH_IOS_INSTALL_STEPS = [
+  'Safari 아래쪽 공유 버튼을 눌러주세요',
+  '「홈 화면에 추가」를 선택해주세요',
+  '홈 화면의 OKbroGATE 아이콘으로 열면 알림을 켤 수 있어요',
+]
+
+export function isPushNudgeShownThisSession(): boolean {
+  if (typeof window === 'undefined') return true
+  try {
+    return sessionStorage.getItem(PUSH_NUDGE_SESSION_SHOWN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function markPushNudgeShownThisSession(): void {
+  if (typeof window === 'undefined') return
+  try {
+    sessionStorage.setItem(PUSH_NUDGE_SESSION_SHOWN_KEY, '1')
+  } catch {
+    // ignore
+  }
+}
+
 /** @deprecated session dismiss — 영구 dismiss로 대체됨 */
 export const PUSH_SUBSCRIBE_BANNER_SESSION_DISMISS_KEY =
   'okbro_push_subscribe_banner_session_dismiss'

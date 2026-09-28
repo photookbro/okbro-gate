@@ -11,12 +11,14 @@ import {
   formatOkcamPassSentence,
   GPS_SHOOT_RECORD_DISCLAIMER,
 } from '@/lib/events-list-client'
-import { ensurePushSubscription, hasActivePushSubscription } from '@/lib/push-client'
+import { ensurePushSubscription } from '@/lib/push-client'
 import {
+  PUSH_IOS_INSTALL_COPY,
+  PUSH_IOS_INSTALL_STEPS,
   detectMobilePlatform,
-  dismissPushSubscribeBanner,
   getNotificationSettingsGuide,
 } from '@/lib/push-permission'
+import { usePushClientStatus } from '@/lib/use-push-client-status'
 import { emitAuthLogout } from '@/lib/gps-tracking-storage'
 import { OrderNumberGuide } from '@/components/order-number-guide'
 import { MypageAlbumAccessStatus } from '@/components/mypage-album-access-status'
@@ -66,11 +68,8 @@ export default function MyPage() {
   const [extendError, setExtendError] = useState('')
   const [extendSuccess, setExtendSuccess] = useState('')
 
-  const [pushSupported, setPushSupported] = useState(true)
-  const [pushSubscribed, setPushSubscribed] = useState(false)
-  const [pushPermission, setPushPermission] = useState<
-    NotificationPermission | 'unsupported'
-  >('default')
+  const pushStatus = usePushClientStatus()
+  const pushSubscribed = pushStatus === 'subscribed'
   const [enablingNotification, setEnablingNotification] = useState(false)
   const [notificationMsg, setNotificationMsg] = useState('')
   const [withdrawing, setWithdrawing] = useState(false)
@@ -122,33 +121,6 @@ export default function MyPage() {
   }, [])
 
   useEffect(() => {
-    let cancelled = false
-
-    async function refreshPushState() {
-      if (typeof window === 'undefined' || !('Notification' in window)) {
-        if (!cancelled) {
-          setPushSupported(false)
-          setPushPermission('unsupported')
-          setPushSubscribed(false)
-        }
-        return
-      }
-      const permission = Notification.permission
-      const subscribed =
-        permission === 'granted' ? await hasActivePushSubscription() : false
-      if (cancelled) return
-      setPushSupported(true)
-      setPushPermission(permission)
-      setPushSubscribed(subscribed)
-    }
-
-    void refreshPushState()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
     if (loading) return
     if (typeof window === 'undefined') return
     if (window.location.hash !== '#contact' && window.location.hash !== '#chat') return
@@ -161,7 +133,7 @@ export default function MyPage() {
   }, [loading])
 
   async function handlePushToggle() {
-    if (enablingNotification) return
+    if (enablingNotification || pushStatus === null) return
 
     if (pushSubscribed) {
       setNotificationMsg(
@@ -170,7 +142,7 @@ export default function MyPage() {
       return
     }
 
-    if (pushPermission === 'denied') {
+    if (pushStatus === 'denied') {
       const guide = getNotificationSettingsGuide(
         detectMobilePlatform(navigator.userAgent)
       )
@@ -182,17 +154,9 @@ export default function MyPage() {
     setNotificationMsg('')
     try {
       const ok = await ensurePushSubscription()
-      if (typeof Notification !== 'undefined') {
-        setPushPermission(Notification.permission)
-      }
-      if (ok) {
-        setPushSubscribed(true)
-        setNotificationMsg('알림을 받기 시작했어요')
-        dismissPushSubscribeBanner()
-      } else {
-        setPushSubscribed(false)
-        setNotificationMsg('알림을 켜지 못했어요. 브라우저 설정을 확인해주세요')
-      }
+      setNotificationMsg(
+        ok ? '알림을 받기 시작했어요' : '알림을 켜지 못했어요. 브라우저 설정을 확인해주세요'
+      )
     } finally {
       setEnablingNotification(false)
     }
@@ -374,8 +338,17 @@ export default function MyPage() {
 
         <div className="card mb-4">
           <h2 className="section-title">알림 받기</h2>
-          {!pushSupported || pushPermission === 'unsupported' ? (
+          {pushStatus === 'unsupported' ? (
             <p className="text-sm text-muted">이 브라우저는 알림을 지원하지 않아요</p>
+          ) : pushStatus === 'ios_needs_install' ? (
+            <>
+              <p className="mb-2 text-sm font-semibold">{PUSH_IOS_INSTALL_COPY}</p>
+              <ol className="mb-0 list-decimal pl-5 text-sm text-muted">
+                {PUSH_IOS_INSTALL_STEPS.map(step => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </>
           ) : (
             <>
               <div className="mypage-push-toggle-row">
@@ -389,14 +362,14 @@ export default function MyPage() {
                   role="switch"
                   aria-checked={pushSubscribed}
                   aria-label="알림 받기"
-                  disabled={enablingNotification}
+                  disabled={enablingNotification || pushStatus === null}
                   onClick={() => void handlePushToggle()}
                   className={`toggle-switch ${pushSubscribed ? 'toggle-switch-on' : ''}`}
                 >
                   <span className="toggle-switch-thumb" />
                 </button>
               </div>
-              {pushPermission === 'denied' && !pushSubscribed ? (
+              {pushStatus === 'denied' ? (
                 <p className="mt-3 mb-0 text-sm text-muted">
                   알림이 차단돼 있어요. 브라우저 설정에서 허용으로 바꾼 뒤 다시 켜주세요
                 </p>

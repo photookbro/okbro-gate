@@ -7,11 +7,13 @@ import {
   INSTAGRAM_FOLLOW_MYPAGE_WARNING,
   INSTAGRAM_LATE_MATCH_NOTICE,
   INSTAGRAM_PROFILE_URL,
+  instagramFollowMismatchNotice,
   instagramFollowMypageDescriptionLead,
   instagramFollowMypageDescriptionTail,
   instagramFollowSubmitCompleteMessage,
   instagramOwnAccountClaimBlockedMessage,
 } from '@/lib/instagram-follow-copy'
+import { PushSubscribeNudge } from '@/components/push-subscribe-nudge'
 import { isBrandOwnInstagramHandle } from '@/lib/instagram-handle'
 import { authFetch } from '@/lib/supabase/auth-client'
 import {
@@ -71,6 +73,7 @@ function FruitAccessRow({ photoAccess }: { photoAccess: PhotoAccess | null }) {
           >
             인스타그램 DM 열기
           </a>
+          <PushSubscribeNudge className="mt-3" />
         </div>
       ) : null}
 
@@ -147,6 +150,7 @@ function FollowerAccessRow({
             {period_label ? ` · ${period_label}` : ''}
           </p>
         </div>
+        {successMsg ? <PushSubscribeNudge className="mt-3" /> : null}
       </div>
     )
   }
@@ -208,12 +212,22 @@ function FollowerAccessRow({
   }
 
   if (state === 'pending') {
+    const mismatchRevoked = instagramFollowBonus.mismatch_revoked === true && !successMsg
     return (
       <div className="mypage-access-row">
         <p className="mypage-access-row-label">팔로워 인증 열람일</p>
-        {renderFollowDescription()}
+        {mismatchRevoked ? (
+          <div className="mb-3 space-y-3">
+            <p className="alert-danger mb-0 text-left text-sm leading-relaxed">
+              {instagramFollowMismatchNotice()}
+            </p>
+            <PushSubscribeNudge />
+          </div>
+        ) : (
+          renderFollowDescription()
+        )}
         <p className="mb-1 text-sm text-muted">
-          제출한 아이디: @{instagram_handle ?? '—'} (대기중)
+          제출한 아이디: @{instagram_handle ?? '—'} {mismatchRevoked ? '(확인 안 됨)' : '(대기중)'}
         </p>
         {!editing ? (
           <button
@@ -261,7 +275,12 @@ function FollowerAccessRow({
             </div>
           </form>
         )}
-        {successMsg ? <p className="alert-success mt-3 mb-0">{successMsg}</p> : null}
+        {successMsg ? (
+          <>
+            <p className="alert-success mt-3 mb-0">{successMsg}</p>
+            <PushSubscribeNudge className="mt-3" />
+          </>
+        ) : null}
       </div>
     )
   }

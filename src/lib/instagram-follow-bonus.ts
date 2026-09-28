@@ -43,6 +43,8 @@ export type InstagramFollowBonusStatus = {
   expires_at: string | null
   days_remaining: number | null
   period_label: string | null
+  /** 대기 신청이 팔로워 대조 불일치로 열람 회수된 상태 */
+  mismatch_revoked?: boolean
 }
 
 /** 기준일 포함 N일 — 마지막 유효일 23:59:59.999 KST (레거시·테스트용) */
@@ -251,6 +253,7 @@ export function buildInstagramFollowBonusStatus(
       expires_at: null,
       days_remaining: null,
       period_label: null,
+      mismatch_revoked: latestAttempt.manual_unlock_verified_mismatch === true,
     }
   }
 

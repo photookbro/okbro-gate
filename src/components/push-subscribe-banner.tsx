@@ -1,72 +1,60 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ensurePushSubscription, hasActivePushSubscription } from '@/lib/push-client'
+import { isFirstAppLaunchPending } from '@/lib/app-first-launch'
 import {
-  detectMobilePlatform,
-  dismissPushDeniedTipForSession,
-  dismissPushSubscribeBanner,
-  getNotificationSettingsGuide,
-  isPushDeniedTipSessionDismissed,
-  recordPushSubscribeBannerImpression,
-  shouldShowPushSubscribeBanner,
+  ensurePushSubscription,
+  PUSH_STATUS_CHANGED_EVENT,
+  resolvePushClientStatus,
+} from '@/lib/push-client'
+import {
+  PUSH_IOS_INSTALL_COPY,
+  PUSH_IOS_INSTALL_STEPS,
+  PUSH_NUDGE_COPY,
+  isPushNudgeShownThisSession,
+  markPushNudgeShownThisSession,
 } from '@/lib/push-permission'
 
-type BannerMode = 'hidden' | 'prompt' | 'denied'
+type BannerMode = 'hidden' | 'prompt' | 'ios'
 
+/**
+ * 앱 진입 시 세션당 1회: 권한 미응답(default) → 알림 받기, iOS 홈 화면 미추가 → 설치 안내.
+ * 판별은 브라우저에서만 하고, 서버 요청은 「알림 받기」 클릭 시 구독 저장 1회뿐.
+ */
 export function PushSubscribeBanner() {
   const [mode, setMode] = useState<BannerMode>('hidden')
   const [requesting, setRequesting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
+    // 첫 실행 온보딩에서 알림 권한을 따로 묻기 때문에 그 세션은 건너뜀
+    if (isPushNudgeShownThisSession() || isFirstAppLaunchPending()) return
+
     let cancelled = false
+    void resolvePushClientStatus().then(status => {
+      if (cancelled) return
+      const next: BannerMode =
+        status === 'default' ? 'prompt' : status === 'ios_needs_install' ? 'ios' : 'hidden'
+      if (next === 'hidden') return
+      markPushNudgeShownThisSession()
+      setMode(next)
+    })
 
-    async function resolve() {
-      if (!('Notification' in window)) {
-        if (!cancelled) setMode('hidden')
-        return
-      }
-
-      const permission = Notification.permission
-
-      if (permission === 'granted') {
-        const subscribed = await hasActivePushSubscription()
-        if (cancelled) return
-        if (subscribed || !shouldShowPushSubscribeBanner()) {
-          setMode('hidden')
-          return
-        }
-        recordPushSubscribeBannerImpression()
-        setMode('prompt')
-        return
-      }
-
-      if (permission === 'denied') {
-        if (isPushDeniedTipSessionDismissed()) {
-          if (!cancelled) setMode('hidden')
-          return
-        }
-        if (!cancelled) setMode('denied')
-        return
-      }
-
-      // default — 아직 허용/거부 안 함
-      if (!shouldShowPushSubscribeBanner()) {
-        if (!cancelled) setMode('hidden')
-        return
-      }
-      if (!cancelled) {
-        recordPushSubscribeBannerImpression()
-        setMode('prompt')
-      }
-    }
-
-    void resolve()
     return () => {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (mode !== 'prompt') return
+    const hideIfAnswered = () => {
+      void resolvePushClientStatus().then(status => {
+        if (status !== 'default') setMode('hidden')
+      })
+    }
+    window.addEventListener(PUSH_STATUS_CHANGED_EVENT, hideIfAnswered)
+    return () => window.removeEventListener(PUSH_STATUS_CHANGED_EVENT, hideIfAnswered)
+  }, [mode])
 
   async function handleAllow() {
     setErrorMsg('')
@@ -74,46 +62,32 @@ export function PushSubscribeBanner() {
     try {
       const ok = await ensurePushSubscription()
       if (ok) {
-        dismissPushSubscribeBanner()
         setMode('hidden')
         return
       }
-      if (Notification.permission === 'denied') {
-        setMode('denied')
-        return
-      }
-      setErrorMsg('알림을 켜지 못했어요. 다시 시도하거나 브라우저 설정을 확인해주세요')
+      setErrorMsg(
+        Notification.permission === 'denied'
+          ? '알림이 차단됐어요. 마이페이지의 알림 받기에서 설정 방법을 확인해주세요'
+          : '알림을 켜지 못했어요. 다시 시도하거나 브라우저 설정을 확인해주세요'
+      )
     } finally {
       setRequesting(false)
     }
   }
 
-  function handleLater() {
-    dismissPushSubscribeBanner()
-    setMode('hidden')
-  }
-
-  function handleDismissDenied() {
-    dismissPushDeniedTipForSession()
-    setMode('hidden')
-  }
-
   if (mode === 'hidden') return null
 
-  if (mode === 'denied') {
-    const guide = getNotificationSettingsGuide(
-      detectMobilePlatform(typeof navigator !== 'undefined' ? navigator.userAgent : '')
-    )
+  if (mode === 'ios') {
     return (
-      <div className="push-denied-tip" role="status" aria-label="알림 설정 안내">
+      <div className="push-denied-tip" role="status" aria-label="알림 받기 안내">
         <div className="push-denied-tip-inner">
-          <p className="push-denied-tip-title">{guide.title}</p>
+          <p className="push-denied-tip-title">{PUSH_IOS_INSTALL_COPY}</p>
           <ul className="push-denied-tip-steps">
-            {guide.steps.map(step => (
+            {PUSH_IOS_INSTALL_STEPS.map(step => (
               <li key={step}>{step}</li>
             ))}
           </ul>
-          <button type="button" className="push-denied-tip-dismiss" onClick={handleDismissDenied}>
+          <button type="button" className="push-denied-tip-dismiss" onClick={() => setMode('hidden')}>
             닫기
           </button>
         </div>
@@ -122,19 +96,17 @@ export function PushSubscribeBanner() {
   }
 
   return (
-    <div className="push-subscribe-banner" role="region" aria-label="대회 알림 구독 안내">
+    <div className="push-subscribe-banner" role="region" aria-label="알림 받기 안내">
       <div className="push-subscribe-banner-inner">
-        <p className="push-subscribe-banner-text">
-          대회 소식 놓치지 마세요! 대회 임박 알림을 받아보세요
-        </p>
+        <p className="push-subscribe-banner-text">{PUSH_NUDGE_COPY}</p>
         <div className="push-subscribe-banner-actions">
           <button
             type="button"
             className="btn-secondary-inline"
-            onClick={handleLater}
+            onClick={() => setMode('hidden')}
             disabled={requesting}
           >
-            나중에
+            닫기
           </button>
           <button
             type="button"
@@ -142,7 +114,7 @@ export function PushSubscribeBanner() {
             onClick={() => void handleAllow()}
             disabled={requesting}
           >
-            {requesting ? '요청 중...' : '알림 허용'}
+            {requesting ? '요청 중...' : '알림 받기'}
           </button>
         </div>
         {errorMsg ? <p className="push-subscribe-banner-error">{errorMsg}</p> : null}

@@ -8,9 +8,11 @@ import { authFetch } from '@/lib/supabase/auth-client'
 import {
   INSTAGRAM_HANDLE,
   INSTAGRAM_LATE_MATCH_NOTICE,
+  instagramFollowMismatchNotice,
   instagramFollowSubmitCompleteMessage,
   instagramOwnAccountClaimBlockedMessage,
 } from '@/lib/instagram-follow-copy'
+import { PushSubscribeNudge } from '@/components/push-subscribe-nudge'
 import { isBrandOwnInstagramHandle } from '@/lib/instagram-handle'
 import type { InstagramFollowBonusStatus } from '@/lib/instagram-follow-bonus'
 
@@ -111,6 +113,7 @@ function InstagramFollowContent() {
 
   const bonusDays = status?.bonus_days_setting ?? 5
   const isPending = status?.state === 'pending'
+  const mismatchRevoked = isPending && status?.mismatch_revoked === true
   const showClaimCard = !!status && status.state !== 'active'
   const showClaimForm = showClaimCard && (!isPending || editingPending)
 
@@ -175,9 +178,17 @@ function InstagramFollowContent() {
 
             {status?.state === 'pending' && !editingPending ? (
               <>
-                <p className="alert-success mb-4">{instagramFollowSubmitCompleteMessage()}</p>
+                {mismatchRevoked ? (
+                  <div className="mb-4 space-y-3">
+                    <p className="alert-danger mb-0">{instagramFollowMismatchNotice()}</p>
+                    <PushSubscribeNudge />
+                  </div>
+                ) : (
+                  <p className="alert-success mb-4">{instagramFollowSubmitCompleteMessage()}</p>
+                )}
                 <p className="mb-1 text-sm text-muted">
-                  제출한 아이디: @{status.instagram_handle ?? '—'} (대기중)
+                  제출한 아이디: @{status.instagram_handle ?? '—'}{' '}
+                  {mismatchRevoked ? '(확인 안 됨)' : '(대기중)'}
                 </p>
                 <button
                   type="button"
@@ -249,6 +260,8 @@ function InstagramFollowContent() {
             ) : null}
           </div>
         ) : null}
+
+        {successMsg ? <PushSubscribeNudge className="mb-4" /> : null}
       </div>
     </div>
   )
