@@ -3,6 +3,9 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 
 let vapidConfigured = false
 
+/** 응답 없는 푸시 서비스 하나가 배치 전체를 붙잡지 않도록 */
+const PUSH_REQUEST_TIMEOUT_MS = 10_000
+
 export function isWebPushConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY)
 }
@@ -108,7 +111,8 @@ export async function sendPushToUser(
             endpoint: sub.endpoint,
             keys: { p256dh: sub.p256dh, auth: sub.auth },
           },
-          payloadStr
+          payloadStr,
+          { timeout: PUSH_REQUEST_TIMEOUT_MS }
         )
         sent++
       } catch (err) {

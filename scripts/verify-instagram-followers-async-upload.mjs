@@ -88,13 +88,20 @@ if (!acceptRes.ok) {
 const jobId = acceptData.job?.job_id
 let finalJob = acceptData.job
 let polls = 0
-const deadline = Date.now() + 4 * 60 * 1000
+let completedAtMs = null
+const deadline = Date.now() + 8 * 60 * 1000
+const pushInFlight = job => job?.push_status === 'pending' || job?.push_status === 'sending'
 
 while (
   finalJob &&
-  (finalJob.status === 'queued' || finalJob.status === 'processing') &&
+  (finalJob.status === 'queued' ||
+    finalJob.status === 'processing' ||
+    (finalJob.status === 'completed' && pushInFlight(finalJob))) &&
   Date.now() < deadline
 ) {
+  if (finalJob.status === 'completed' && completedAtMs === null) {
+    completedAtMs = Date.now() - started
+  }
   await sleep(2000)
   polls++
   const statusRes = await fetch(
@@ -104,6 +111,19 @@ while (
   const statusData = await statusRes.json()
   finalJob = statusData.job
 }
+if (finalJob?.status === 'completed' && completedAtMs === null) {
+  completedAtMs = Date.now() - started
+}
+
+const STUCK_JOB_IDS = [
+  '67d0247f-69cc-4d5a-8c87-d56ee336932b',
+  '4fc93644-9275-4c68-979f-7d22d20060f3',
+  '67571dd0-cafc-4e76-8101-87f9d77887d5',
+]
+const { data: stuckJobs } = await admin
+  .from('instagram_follower_upload_jobs')
+  .select('id, status, error')
+  .in('id', STUCK_JOB_IDS)
 
 const report = {
   acceptOk: acceptRes.ok && acceptData.accepted === true,
@@ -115,9 +135,21 @@ const report = {
   totalParsed: finalJob?.total_parsed ?? null,
   newCount: finalJob?.new_count ?? null,
   updatedCount: finalJob?.updated_count ?? null,
+  phase: finalJob?.phase ?? null,
+  matchedApproved: finalJob?.matched_approved ?? null,
+  manualUnlockMismatches: finalJob?.manual_unlock_mismatches ?? null,
+  pushStatus: finalJob?.push_status ?? null,
+  pushSent: finalJob?.push_sent ?? null,
+  pushFailed: finalJob?.push_failed ?? null,
+  noSubscription: finalJob?.no_subscription ?? null,
+  mismatchPushSent: finalJob?.mismatch_push_sent ?? null,
+  mismatchPushFailed: finalJob?.mismatch_push_failed ?? null,
+  mismatchNoSubscription: finalJob?.mismatch_no_subscription ?? null,
   summary: finalJob?.summary ?? null,
   error: finalJob?.error ?? null,
+  completedAtMs,
   elapsedMs: Date.now() - started,
+  stuckJobs: stuckJobs ?? [],
   pass: false,
 }
 
@@ -125,7 +157,12 @@ report.pass =
   report.acceptOk &&
   report.acceptUnder15s &&
   finalJob?.status === 'completed' &&
-  (finalJob?.total_parsed ?? 0) >= 10000
+  finalJob?.phase === 'done' &&
+  (finalJob?.total_parsed ?? 0) >= 10000 &&
+  typeof finalJob?.matched_approved === 'number' &&
+  typeof finalJob?.manual_unlock_mismatches === 'number' &&
+  finalJob?.push_status === 'done' &&
+  report.stuckJobs.every(job => job.status === 'failed')
 
 console.log(JSON.stringify(report, null, 2))
 if (!report.pass) process.exit(1)

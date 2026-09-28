@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import {
   calculateInstagramBonusClaimExpiresAt,
   getActiveInstagramBonusExpiresAt,
@@ -8,32 +8,31 @@ import {
   instagramFollowApprovedPushBody,
   instagramFollowMismatchPushBody,
 } from '@/lib/instagram-follow-copy'
+import {
+  buildFollowerHandleSet,
+  pickLatestOrder,
+  planInstagramFollowMatch,
+  type PendingFollowClaim,
+  type UserInstagramBonusRow,
+} from '@/lib/instagram-follow-match-plan'
 import { recordInstagramHandleBonusHistory } from '@/lib/instagram-handle-bonus-history'
-import { latestActiveExpiresAt, resolveExpiresAt } from '@/lib/order-verification'
+import {
+  latestActiveExpiresAt,
+  resolveExpiresAt,
+  type OrderRecord,
+} from '@/lib/order-verification'
 import { sendPushToUser } from '@/lib/web-push-server'
 import { loadVerificationSettings } from '@/lib/verification-settings'
 
 export type InstagramMatchResult = {
   approved: number
-  push_sent: number
-  push_failed: number
-  no_subscription: number
   manual_unlock_mismatches: number
-  mismatch_push_sent: number
-  mismatch_push_failed: number
-  mismatch_no_subscription: number
+  skipped_handle_taken: number
 }
 
-const EMPTY_MATCH_RESULT: InstagramMatchResult = {
-  approved: 0,
-  push_sent: 0,
-  push_failed: 0,
-  no_subscription: 0,
-  manual_unlock_mismatches: 0,
-  mismatch_push_sent: 0,
-  mismatch_push_failed: 0,
-  mismatch_no_subscription: 0,
-}
+const IN_FILTER_CHUNK = 150
+const APPROVAL_RPC_CHUNK = 200
+const MISMATCH_RPC_CHUNK = 500
 
 type InstagramUnlockFields = {
   approved_at: string
@@ -332,41 +331,6 @@ export async function revokeInstagramManualUnlockAsMismatch(
   return revokeManualUnlockAndNotifyMismatch(admin, row, now.toISOString())
 }
 
-async function flagManualUnlockMismatchesAfterFollowerUpload(
-  admin: SupabaseClient,
-  handleSet: Set<string>,
-  now: Date = new Date()
-): Promise<MismatchRevokeResult> {
-  const { data: manualPendingRows, error } = await admin
-    .from('instagram_follow_bonus')
-    .select('id, user_id, instagram_handle')
-    .eq('status', 'pending')
-    .eq('manually_unlocked', true)
-
-  if (error) throw error
-
-  const nowIso = now.toISOString()
-  const result: MismatchRevokeResult = {
-    revoked: 0,
-    push_sent: 0,
-    push_failed: 0,
-    no_subscription: 0,
-  }
-
-  for (const row of manualPendingRows ?? []) {
-    const handle = row.instagram_handle.trim().toLowerCase()
-    if (!handle || handleSet.has(handle)) continue
-
-    const push = await revokeManualUnlockAndNotifyMismatch(admin, row, nowIso)
-    result.revoked++
-    result.push_sent += push.push_sent
-    result.push_failed += push.push_failed
-    result.no_subscription += push.no_subscription
-  }
-
-  return result
-}
-
 /** 이미 불일치로 표시됐지만 수동 해제가 남아 있는 건을 회수하고 푸시 */
 export async function revokeExistingMismatchedManualUnlocks(
   admin: SupabaseClient,
@@ -403,80 +367,155 @@ export async function revokeExistingMismatchedManualUnlocks(
   return result
 }
 
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size))
+  return chunks
+}
+
+/** PostgREST max_rows(기본 1000)에 잘리지 않도록 빈 페이지가 나올 때까지 range 조회 */
+async function selectAllPages<T>(
+  fetchPage: (
+    from: number,
+    to: number
+  ) => PromiseLike<{ data: T[] | null; error: PostgrestError | null }>,
+  pageSize = 1000
+): Promise<T[]> {
+  const rows: T[] = []
+  for (;;) {
+    const { data, error } = await fetchPage(rows.length, rows.length + pageSize - 1)
+    if (error) throw error
+    const page = data ?? []
+    if (page.length === 0) return rows
+    rows.push(...page)
+  }
+}
+
+function missingMatchRpcError(error: PostgrestError): Error {
+  if (error.code === 'PGRST202' || error.code === '42883') {
+    return new Error(
+      '대조 함수가 없어요. Supabase SQL Editor에서 마이그레이션 20260928_instagram_follower_upload_match_outbox.sql 을 실행해주세요.'
+    )
+  }
+  return new Error(`대조 반영 실패: ${error.message}`)
+}
+
+/**
+ * 팔로워 목록과 pending 신청 대조 — 조회는 청크 단위, 반영은 RPC 일괄 update.
+ * 푸시는 여기서 보내지 않고 instagram_follow_push_outbox 에 적재만 함.
+ */
 export async function matchPendingInstagramFollowClaims(
   admin: SupabaseClient,
-  usernames: string[]
+  usernames: string[],
+  options: { jobId: string; onProgress?: () => Promise<void>; now?: Date }
 ): Promise<InstagramMatchResult> {
-  const handleSet = new Set(usernames.map(u => u.trim().toLowerCase()).filter(Boolean))
-  if (handleSet.size === 0) {
-    return { ...EMPTY_MATCH_RESULT }
+  const result: InstagramMatchResult = {
+    approved: 0,
+    manual_unlock_mismatches: 0,
+    skipped_handle_taken: 0,
   }
 
+  const handleSet = buildFollowerHandleSet(usernames)
+  if (handleSet.size === 0) return result
+
+  const now = options.now ?? new Date()
   const settings = await loadVerificationSettings(admin)
-  const bonusDays = settings.instagramFollowBonusDays
-  const verifiedPeriodDays = settings.verifiedPeriodDays
 
-  const { data: pendingRows, error } = await admin
-    .from('instagram_follow_bonus')
-    .select('id, user_id, instagram_handle, manually_unlocked')
-    .eq('status', 'pending')
-
-  if (error) throw error
-
-  const toApprove = (pendingRows ?? []).filter(row =>
-    handleSet.has(row.instagram_handle.trim().toLowerCase())
+  const pendingRows = await selectAllPages<PendingFollowClaim>((from, to) =>
+    admin
+      .from('instagram_follow_bonus')
+      .select('id, user_id, instagram_handle, manually_unlocked, created_at')
+      .eq('status', 'pending')
+      .order('id', { ascending: true })
+      .range(from, to)
   )
 
-  let approved = 0
-  let pushSent = 0
-  let pushFailed = 0
-  let noSubscription = 0
-  const notifiedUsers = new Set<string>()
+  const matchedRows = pendingRows.filter(row =>
+    handleSet.has(row.instagram_handle.trim().toLowerCase())
+  )
+  const matchedHandles = [...new Set(matchedRows.map(row => row.instagram_handle.trim()))]
+  const matchedUserIds = [...new Set(matchedRows.map(row => row.user_id))]
 
-  for (const row of toApprove) {
-    const result = await approveInstagramFollowPendingRow(
-      admin,
-      row,
-      bonusDays,
-      verifiedPeriodDays
-    )
-    if (!result) continue
+  const approvedHandles = new Set<string>()
+  for (const handles of chunk(matchedHandles, IN_FILTER_CHUNK)) {
+    const { data, error } = await admin
+      .from('instagram_follow_bonus')
+      .select('instagram_handle')
+      .eq('status', 'approved')
+      .in('instagram_handle', handles)
+    if (error) throw error
+    for (const row of data ?? []) approvedHandles.add(row.instagram_handle)
+  }
 
-    approved++
-
-    if (row.manually_unlocked) continue
-
-    if (notifiedUsers.has(row.user_id)) continue
-    notifiedUsers.add(row.user_id)
-
-    const push = await sendInstagramFollowApprovedPush(row.user_id, bonusDays)
-    if (push.sent > 0) {
-      pushSent += push.sent
-    } else if (push.failed > 0) {
-      pushFailed += push.failed
-    } else if (push.no_subscription) {
-      noSubscription++
+  const userBonusRows: UserInstagramBonusRow[] = []
+  const ordersByUser = new Map<string, OrderRecord[]>()
+  for (const userIds of chunk(matchedUserIds, IN_FILTER_CHUNK)) {
+    const [bonusRows, orders] = await Promise.all([
+      selectAllPages<UserInstagramBonusRow>((from, to) =>
+        admin
+          .from('instagram_follow_bonus')
+          .select('id, user_id, status, expires_at, manually_unlocked')
+          .in('user_id', userIds)
+          .or('status.eq.approved,and(status.eq.pending,manually_unlocked.eq.true)')
+          .order('id', { ascending: true })
+          .range(from, to)
+      ),
+      selectAllPages<OrderRecord & { user_id: string }>((from, to) =>
+        admin
+          .from('orders')
+          .select('user_id, order_number, used_at, created_at, expires_at')
+          .in('user_id', userIds)
+          .order('id', { ascending: true })
+          .range(from, to)
+      ),
+    ])
+    userBonusRows.push(...bonusRows)
+    for (const order of orders) {
+      const list = ordersByUser.get(order.user_id) ?? []
+      list.push(order)
+      ordersByUser.set(order.user_id, list)
     }
   }
 
-  const mismatchRevoke =
-    handleSet.size >= 100
-      ? await flagManualUnlockMismatchesAfterFollowerUpload(admin, handleSet)
-      : {
-          revoked: 0,
-          push_sent: 0,
-          push_failed: 0,
-          no_subscription: 0,
-        }
-
-  return {
-    approved,
-    push_sent: pushSent,
-    push_failed: pushFailed,
-    no_subscription: noSubscription,
-    manual_unlock_mismatches: mismatchRevoke.revoked,
-    mismatch_push_sent: mismatchRevoke.push_sent,
-    mismatch_push_failed: mismatchRevoke.push_failed,
-    mismatch_no_subscription: mismatchRevoke.no_subscription,
+  const latestOrderByUser = new Map<string, OrderRecord>()
+  for (const [userId, orders] of ordersByUser) {
+    const latest = pickLatestOrder(orders)
+    if (latest) latestOrderByUser.set(userId, latest)
   }
+
+  const plan = planInstagramFollowMatch({
+    pendingRows,
+    handleSet,
+    approvedHandles,
+    userBonusRows,
+    latestOrderByUser,
+    bonusDays: settings.instagramFollowBonusDays,
+    verifiedPeriodDays: settings.verifiedPeriodDays,
+    now,
+  })
+  result.skipped_handle_taken = plan.skippedHandleTaken
+
+  await options.onProgress?.()
+
+  for (const rows of chunk(plan.approvals, APPROVAL_RPC_CHUNK)) {
+    const { data, error } = await admin.rpc('apply_instagram_follow_approvals', {
+      p_job_id: options.jobId,
+      p_rows: rows,
+    })
+    if (error) throw missingMatchRpcError(error)
+    result.approved += Array.isArray(data) ? data.length : 0
+    await options.onProgress?.()
+  }
+
+  for (const ids of chunk(plan.mismatchIds, MISMATCH_RPC_CHUNK)) {
+    const { data, error } = await admin.rpc('apply_instagram_follow_mismatch_revokes', {
+      p_job_id: options.jobId,
+      p_ids: ids,
+    })
+    if (error) throw missingMatchRpcError(error)
+    result.manual_unlock_mismatches += Array.isArray(data) ? data.length : 0
+    await options.onProgress?.()
+  }
+
+  return result
 }
