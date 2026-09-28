@@ -183,7 +183,10 @@ CREATE TABLE IF NOT EXISTS instagram_follower_upload_jobs (
   phase text,
   push_status text CHECK (push_status IS NULL OR push_status IN ('pending', 'sending', 'done')),
   push_updated_at timestamptz,
-  push_finished_at timestamptz
+  push_finished_at timestamptz,
+  mismatch_sweep text CHECK (mismatch_sweep IS NULL OR mismatch_sweep IN ('run', 'skipped')),
+  mismatch_sweep_skip_reason text,
+  snapshot_baseline_total integer
 );
 
 CREATE INDEX IF NOT EXISTS instagram_follower_upload_jobs_created_at_idx

@@ -11,6 +11,34 @@ import {
 
 /** 이보다 작은 목록은 전체 팔로워가 아닐 수 있어 불일치 회수를 하지 않음 */
 export const MISMATCH_SWEEP_MIN_HANDLES = 100
+/** 직전 전체 스냅샷 대비 이 비율보다 작으면 부분 목록으로 보고 불일치 회수를 건너뜀 */
+export const SNAPSHOT_MIN_RATIO = 0.8
+
+export type MismatchSweepSkipReason = 'single_file' | 'smaller_than_previous'
+
+export type MismatchSweepDecision =
+  | { sweep: true }
+  | { sweep: false; reason: MismatchSweepSkipReason }
+
+/**
+ * 불일치 회수는 전체 팔로워 스냅샷으로 볼 수 있는 업로드에서만.
+ * baselineTotal: 직전 전체 스냅샷(파일 2개 이상 · 회수 실행) 작업의 total_parsed, 없으면 null
+ */
+export function decideMismatchSweep(input: {
+  fileCount: number
+  totalParsed: number
+  baselineTotal: number | null
+}): MismatchSweepDecision {
+  if (input.fileCount < 2) return { sweep: false, reason: 'single_file' }
+  if (
+    input.baselineTotal !== null &&
+    input.baselineTotal > 0 &&
+    input.totalParsed < input.baselineTotal * SNAPSHOT_MIN_RATIO
+  ) {
+    return { sweep: false, reason: 'smaller_than_previous' }
+  }
+  return { sweep: true }
+}
 
 export type PendingFollowClaim = {
   id: string
@@ -94,8 +122,10 @@ export function planInstagramFollowMatch(input: {
   bonusDays: number
   verifiedPeriodDays: number
   now: Date
+  /** false면 승인 매칭만 하고 불일치 회수 대상은 만들지 않음 (부분 목록) */
+  sweepMismatches: boolean
 }): FollowMatchPlan {
-  const { handleSet, bonusDays, verifiedPeriodDays, now } = input
+  const { handleSet, bonusDays, verifiedPeriodDays, now, sweepMismatches } = input
   const nowIso = now.toISOString()
 
   const pending = [...input.pendingRows].sort(
@@ -120,7 +150,11 @@ export function planInstagramFollowMatch(input: {
     const inFollowers = handle.length > 0 && handleSet.has(handle.toLowerCase())
 
     if (!inFollowers) {
-      if (row.manually_unlocked && handleSet.size >= MISMATCH_SWEEP_MIN_HANDLES) {
+      if (
+        sweepMismatches &&
+        row.manually_unlocked &&
+        handleSet.size >= MISMATCH_SWEEP_MIN_HANDLES
+      ) {
         mismatchIds.push(row.id)
       }
       continue

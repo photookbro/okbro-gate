@@ -115,15 +115,50 @@ if (finalJob?.status === 'completed' && completedAtMs === null) {
   completedAtMs = Date.now() - started
 }
 
-const STUCK_JOB_IDS = [
-  '67d0247f-69cc-4d5a-8c87-d56ee336932b',
-  '4fc93644-9275-4c68-979f-7d22d20060f3',
-  '67571dd0-cafc-4e76-8101-87f9d77887d5',
-]
-const { data: stuckJobs } = await admin
-  .from('instagram_follower_upload_jobs')
-  .select('id, status, error')
-  .in('id', STUCK_JOB_IDS)
+async function selectAllPages(fetchPage) {
+  const rows = []
+  for (;;) {
+    const { data, error } = await fetchPage(rows.length, rows.length + 999)
+    if (error) throw error
+    if (!data || data.length === 0) return rows
+    rows.push(...data)
+  }
+}
+
+// 불일치 표시된 대기 신청 중 아이디가 팔로워 목록에 있는 건(오탐)이 남아 있으면 안 됨
+const [flaggedRows, followerRows] = await Promise.all([
+  selectAllPages((from, to) =>
+    admin
+      .from('instagram_follow_bonus')
+      .select('id, instagram_handle')
+      .eq('status', 'pending')
+      .eq('manual_unlock_verified_mismatch', true)
+      .order('id', { ascending: true })
+      .range(from, to)
+  ),
+  selectAllPages((from, to) =>
+    admin
+      .from('instagram_followers')
+      .select('username')
+      .order('username', { ascending: true })
+      .range(from, to)
+  ),
+])
+const followerSet = new Set(followerRows.map(row => row.username.trim().toLowerCase()))
+const remainingFalseMismatch = flaggedRows.filter(row =>
+  followerSet.has(row.instagram_handle.trim().toLowerCase())
+)
+const { data: approvedTaken } = remainingFalseMismatch.length
+  ? await admin
+      .from('instagram_follow_bonus')
+      .select('instagram_handle')
+      .eq('status', 'approved')
+      .in('instagram_handle', remainingFalseMismatch.map(row => row.instagram_handle.trim()))
+  : { data: [] }
+const takenSet = new Set((approvedTaken ?? []).map(row => row.instagram_handle))
+const remainingRecoverable = remainingFalseMismatch.filter(
+  row => !takenSet.has(row.instagram_handle.trim())
+)
 
 const report = {
   acceptOk: acceptRes.ok && acceptData.accepted === true,
@@ -136,6 +171,8 @@ const report = {
   newCount: finalJob?.new_count ?? null,
   updatedCount: finalJob?.updated_count ?? null,
   phase: finalJob?.phase ?? null,
+  mismatchSweep: finalJob?.mismatch_sweep ?? null,
+  mismatchSweepSkipMessage: finalJob?.mismatch_sweep_skip_message ?? null,
   matchedApproved: finalJob?.matched_approved ?? null,
   manualUnlockMismatches: finalJob?.manual_unlock_mismatches ?? null,
   pushStatus: finalJob?.push_status ?? null,
@@ -149,7 +186,11 @@ const report = {
   error: finalJob?.error ?? null,
   completedAtMs,
   elapsedMs: Date.now() - started,
-  stuckJobs: stuckJobs ?? [],
+  flaggedMismatchPending: flaggedRows.length,
+  falseMismatchInFollowers: remainingFalseMismatch.length,
+  falseMismatchHandleTaken: remainingFalseMismatch.length - remainingRecoverable.length,
+  falseMismatchRecoverableLeft: remainingRecoverable.length,
+  falseMismatchSample: remainingRecoverable.slice(0, 10).map(row => row.instagram_handle),
   pass: false,
 }
 
@@ -162,7 +203,8 @@ report.pass =
   typeof finalJob?.matched_approved === 'number' &&
   typeof finalJob?.manual_unlock_mismatches === 'number' &&
   finalJob?.push_status === 'done' &&
-  report.stuckJobs.every(job => job.status === 'failed')
+  finalJob?.mismatch_sweep === 'run' &&
+  report.falseMismatchRecoverableLeft === 0
 
 console.log(JSON.stringify(report, null, 2))
 if (!report.pass) process.exit(1)

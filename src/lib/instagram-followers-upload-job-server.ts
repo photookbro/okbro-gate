@@ -8,6 +8,10 @@ import {
 } from '@/lib/instagram-followers-parse'
 import { matchPendingInstagramFollowClaims } from '@/lib/instagram-follow-approve-server'
 import {
+  decideMismatchSweep,
+  type MismatchSweepSkipReason,
+} from '@/lib/instagram-follow-match-plan'
+import {
   countInstagramFollowPushOutbox,
   drainInstagramFollowPushOutbox,
   failStaleInstagramFollowPushSends,
@@ -36,6 +40,8 @@ export type InstagramFollowerUploadJobStatus =
 
 export type InstagramFollowerUploadJobPhase = 'parse' | 'upsert' | 'match' | 'done'
 export type InstagramFollowerUploadPushStatus = 'pending' | 'sending' | 'done'
+/** run: 전체 스냅샷으로 보고 불일치 회수 실행 · skipped: 부분 목록이라 승인 매칭만 */
+export type InstagramFollowerMismatchSweep = 'run' | 'skipped'
 
 export type InstagramFollowerUploadJob = {
   id: string
@@ -59,6 +65,9 @@ export type InstagramFollowerUploadJob = {
   push_status: InstagramFollowerUploadPushStatus | null
   push_updated_at: string | null
   push_finished_at: string | null
+  mismatch_sweep: InstagramFollowerMismatchSweep | null
+  mismatch_sweep_skip_reason: MismatchSweepSkipReason | null
+  snapshot_baseline_total: number | null
   summary: string | null
   error: string | null
   created_at: string
@@ -68,7 +77,21 @@ export type InstagramFollowerUploadJob = {
 }
 
 const JOB_SELECT =
-  'id, status, phase, file_names, file_count, progress_index, total_parsed, new_count, updated_count, matched_approved, push_sent, push_failed, no_subscription, manual_unlock_mismatches, mismatch_push_sent, mismatch_push_failed, mismatch_no_subscription, push_status, push_updated_at, push_finished_at, summary, error, created_at, started_at, finished_at, updated_at'
+  'id, status, phase, file_names, file_count, progress_index, total_parsed, new_count, updated_count, matched_approved, push_sent, push_failed, no_subscription, manual_unlock_mismatches, mismatch_push_sent, mismatch_push_failed, mismatch_no_subscription, push_status, push_updated_at, push_finished_at, mismatch_sweep, mismatch_sweep_skip_reason, snapshot_baseline_total, summary, error, created_at, started_at, finished_at, updated_at'
+
+export const PARTIAL_LIST_SWEEP_SKIPPED_MESSAGE = '부분 목록이라 불일치 회수는 하지 않았어요'
+
+function sweepSkipDetail(job: {
+  mismatch_sweep_skip_reason: MismatchSweepSkipReason | null
+  snapshot_baseline_total: number | null
+  total_parsed: number | null
+}): string {
+  if (job.mismatch_sweep_skip_reason === 'single_file') return '파일 1개'
+  if (job.mismatch_sweep_skip_reason === 'smaller_than_previous') {
+    return `이전 전체 목록 ${(job.snapshot_baseline_total ?? 0).toLocaleString('ko-KR')}건 대비 ${(job.total_parsed ?? 0).toLocaleString('ko-KR')}건`
+  }
+  return ''
+}
 
 const STALE_JOB_ERROR =
   '처리가 6분 넘게 갱신되지 않아 중단된 것으로 표시했어요. 같은 파일을 다시 올리면 이미 반영된 건은 건너뛰고 이어서 처리돼요.'
@@ -109,6 +132,13 @@ export function buildFollowerUploadJobPublicView(job: InstagramFollowerUploadJob
     mismatch_no_subscription: job.mismatch_no_subscription,
     push_status: job.push_status,
     push_finished_at: job.push_finished_at,
+    mismatch_sweep: job.mismatch_sweep,
+    mismatch_sweep_skip_reason: job.mismatch_sweep_skip_reason,
+    mismatch_sweep_skip_message:
+      job.mismatch_sweep === 'skipped'
+        ? `${PARTIAL_LIST_SWEEP_SKIPPED_MESSAGE} (${sweepSkipDetail(job)})`
+        : null,
+    snapshot_baseline_total: job.snapshot_baseline_total,
     summary: job.summary,
     error: job.error,
     created_at: job.created_at,
@@ -169,6 +199,41 @@ export async function getLatestInstagramFollowerUploadJobs(
 
   if (error) throw error
   return (data as InstagramFollowerUploadJob[] | null) ?? []
+}
+
+export type InstagramFollowerSnapshotBaseline = {
+  job_id: string
+  file_count: number
+  total_parsed: number
+  created_at: string
+}
+
+/** 직전 전체 스냅샷: 완료 · 파일 2개 이상 · 불일치 회수를 건너뛰지 않은 가장 최근 작업 */
+export async function getLatestInstagramFollowerSnapshotBaseline(
+  admin: SupabaseClient,
+  excludeJobId?: string
+): Promise<InstagramFollowerSnapshotBaseline | null> {
+  let query = admin
+    .from('instagram_follower_upload_jobs')
+    .select('id, file_count, total_parsed, created_at')
+    .eq('status', 'completed')
+    .gte('file_count', 2)
+    .not('total_parsed', 'is', null)
+    .or('mismatch_sweep.is.null,mismatch_sweep.eq.run')
+  if (excludeJobId) query = query.neq('id', excludeJobId)
+
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  return {
+    job_id: data.id,
+    file_count: data.file_count,
+    total_parsed: data.total_parsed,
+    created_at: data.created_at,
+  }
 }
 
 /** 아직 살아 있는(갱신 중인) 업로드 작업 — 동시에 여러 건 돌지 않게 */
@@ -256,11 +321,16 @@ function buildCompletedSummary(job: {
   push_failed: number
   mismatch_push_sent: number
   mismatch_push_failed: number
+  mismatch_sweep: InstagramFollowerMismatchSweep | null
+  mismatch_sweep_skip_reason: MismatchSweepSkipReason | null
+  snapshot_baseline_total: number | null
 }): string {
   const parts = [
     `파일 ${job.file_count.toLocaleString('ko-KR')}개 · 총 ${(job.total_parsed ?? 0).toLocaleString('ko-KR')}건 처리`,
     `대기 중 ${job.matched_approved.toLocaleString('ko-KR')}건 승인`,
-    `수동 승인 불일치 ${job.manual_unlock_mismatches.toLocaleString('ko-KR')}건`,
+    job.mismatch_sweep === 'skipped'
+      ? `${PARTIAL_LIST_SWEEP_SKIPPED_MESSAGE} (${sweepSkipDetail(job)})`
+      : `수동 승인 불일치 ${job.manual_unlock_mismatches.toLocaleString('ko-KR')}건`,
   ]
 
   if (job.push_status === 'pending' || job.push_status === 'sending') {
@@ -461,10 +531,26 @@ export async function processInstagramFollowerUploadJob(
     })
 
     const totalParsed = usernames.length
-    await touchJob(admin, jobId, { phase: 'match', progress_index: totalParsed })
+    const baseline = await getLatestInstagramFollowerSnapshotBaseline(admin, jobId)
+    const sweepDecision = decideMismatchSweep({
+      fileCount: claimed.file_count,
+      totalParsed,
+      baselineTotal: baseline?.total_parsed ?? null,
+    })
+    const sweepFields = {
+      mismatch_sweep: (sweepDecision.sweep ? 'run' : 'skipped') as InstagramFollowerMismatchSweep,
+      mismatch_sweep_skip_reason: sweepDecision.sweep ? null : sweepDecision.reason,
+      snapshot_baseline_total: baseline?.total_parsed ?? null,
+    }
+    await touchJob(admin, jobId, {
+      phase: 'match',
+      progress_index: totalParsed,
+      ...sweepFields,
+    })
 
     const matchResult = await matchPendingInstagramFollowClaims(admin, usernames, {
       jobId,
+      sweepMismatches: sweepDecision.sweep,
       onProgress: () => touchJob(admin, jobId),
     })
     invalidateAdminPlayersListCache()
@@ -495,6 +581,7 @@ export async function processInstagramFollowerUploadJob(
         file_count: claimed.file_count,
         total_parsed: totalParsed,
         ...completed,
+        ...sweepFields,
       }),
       usernames: [],
       finished_at: nowIso,

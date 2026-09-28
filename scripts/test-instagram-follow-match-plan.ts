@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import {
   MISMATCH_SWEEP_MIN_HANDLES,
   buildFollowerHandleSet,
+  decideMismatchSweep,
   pickLatestOrder,
   planInstagramFollowMatch,
   type PendingFollowClaim,
@@ -38,6 +39,7 @@ function plan(input: {
   approvedHandles?: string[]
   userBonusRows?: UserInstagramBonusRow[]
   orders?: Record<string, { order_number: string; used_at: string; expires_at: string | null }>
+  sweepMismatches?: boolean
 }) {
   return planInstagramFollowMatch({
     pendingRows: input.pendingRows,
@@ -48,6 +50,7 @@ function plan(input: {
     bonusDays,
     verifiedPeriodDays,
     now,
+    sweepMismatches: input.sweepMismatches ?? true,
   })
 }
 
@@ -148,6 +151,39 @@ function plan(input: {
     { order_number: 'c', used_at: '2026-01-01', expires_at: '2026-09-01T00:00:00Z' },
   ])
   assert.equal(latest?.order_number, 'b')
+}
+
+// 9) 부분 목록(sweepMismatches=false) → 승인 매칭은 하되 불일치 회수는 없음
+{
+  const result = plan({
+    pendingRows: [pending('a', 'u1', 'alice', false), pending('m', 'u2', 'mallory', true)],
+    handleSet: followers(['alice']),
+    sweepMismatches: false,
+  })
+  assert.deepEqual(result.approvals.map(a => a.id), ['a'])
+  assert.deepEqual(result.mismatchIds, [])
+}
+
+// 10) 전체 스냅샷 판정: 파일 1개 또는 직전 전체 대비 80% 미만이면 회수 건너뜀
+{
+  assert.deepEqual(decideMismatchSweep({ fileCount: 1, totalParsed: 11_609, baselineTotal: 11_609 }), {
+    sweep: false,
+    reason: 'single_file',
+  })
+  assert.deepEqual(decideMismatchSweep({ fileCount: 2, totalParsed: 1_609, baselineTotal: 11_609 }), {
+    sweep: false,
+    reason: 'smaller_than_previous',
+  })
+  assert.deepEqual(decideMismatchSweep({ fileCount: 2, totalParsed: 9_288, baselineTotal: 11_609 }), {
+    sweep: true,
+  })
+  assert.deepEqual(decideMismatchSweep({ fileCount: 2, totalParsed: 9_286, baselineTotal: 11_609 }), {
+    sweep: false,
+    reason: 'smaller_than_previous',
+  })
+  assert.deepEqual(decideMismatchSweep({ fileCount: 2, totalParsed: 500, baselineTotal: null }), {
+    sweep: true,
+  })
 }
 
 console.log('instagram follow match plan: ok')

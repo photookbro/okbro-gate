@@ -13,6 +13,18 @@ ALTER TABLE instagram_follower_upload_jobs
   ADD CONSTRAINT instagram_follower_upload_jobs_push_status_check
   CHECK (push_status IS NULL OR push_status IN ('pending', 'sending', 'done'));
 
+-- 불일치 회수는 전체 스냅샷 업로드에서만: run(실행) / skipped(부분 목록이라 건너뜀)
+ALTER TABLE instagram_follower_upload_jobs
+  ADD COLUMN IF NOT EXISTS mismatch_sweep text,
+  ADD COLUMN IF NOT EXISTS mismatch_sweep_skip_reason text,
+  ADD COLUMN IF NOT EXISTS snapshot_baseline_total integer;
+
+ALTER TABLE instagram_follower_upload_jobs
+  DROP CONSTRAINT IF EXISTS instagram_follower_upload_jobs_mismatch_sweep_check;
+ALTER TABLE instagram_follower_upload_jobs
+  ADD CONSTRAINT instagram_follower_upload_jobs_mismatch_sweep_check
+  CHECK (mismatch_sweep IS NULL OR mismatch_sweep IN ('run', 'skipped'));
+
 -- 대조 확정과 같은 트랜잭션에서 적재 → 발송은 별도 단계에서 1회만
 CREATE TABLE IF NOT EXISTS instagram_follow_push_outbox (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { InstagramFalseMismatchRecovery } from '@/components/admin/instagram-false-mismatch-recovery'
 
 type JobView = {
   job_id: string
@@ -19,10 +20,19 @@ type JobView = {
   mismatch_push_sent: number
   mismatch_push_failed: number
   mismatch_no_subscription: number
+  mismatch_sweep: 'run' | 'skipped' | null
+  mismatch_sweep_skip_message: string | null
   summary: string | null
   error: string | null
   created_at: string
   message: string
+}
+
+type SnapshotBaseline = {
+  job_id: string
+  file_count: number
+  total_parsed: number
+  created_at: string
 }
 
 type InstagramFollowersUploadProps = {
@@ -81,6 +91,7 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
   const [error, setError] = useState('')
   const [job, setJob] = useState<JobView | null>(null)
   const [recentJobs, setRecentJobs] = useState<JobView[]>([])
+  const [snapshotBaseline, setSnapshotBaseline] = useState<SnapshotBaseline | null>(null)
 
   const loadRecentJobs = useCallback(async () => {
     try {
@@ -94,6 +105,7 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
       }
       const jobs = Array.isArray(data.jobs) ? (data.jobs as JobView[]) : []
       setRecentJobs(jobs)
+      setSnapshotBaseline((data.snapshot_baseline as SnapshotBaseline | null) ?? null)
       setJob(current => current ?? jobs.find(needsPolling) ?? null)
     } catch {
       setError('최근 작업 조회 중 오류가 발생했어요')
@@ -148,6 +160,14 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
     if (selectedFiles.length === 0) {
       setError('업로드할 HTML 파일을 선택해주세요')
       return
+    }
+
+    if (snapshotBaseline && selectedFiles.length !== snapshotBaseline.file_count) {
+      const proceed = window.confirm(
+        `지난 전체 업로드는 파일 ${snapshotBaseline.file_count}개(${n(snapshotBaseline.total_parsed)}건)였는데 이번에는 ${selectedFiles.length}개예요.\n` +
+          '부분 목록이면 승인 매칭만 하고 불일치 회수는 건너뛰어요.\n계속 올릴까요?'
+      )
+      if (!proceed) return
     }
 
     setUploading(true)
@@ -251,8 +271,10 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
             {job.status === 'completed' ? (
               <>
                 <br />
-                추출 {n(job.total_parsed)}건 · 승인 {n(job.matched_approved)}건 · 불일치 회수{' '}
-                {n(job.manual_unlock_mismatches)}건
+                추출 {n(job.total_parsed)}건 · 승인 {n(job.matched_approved)}건 ·{' '}
+                {job.mismatch_sweep === 'skipped'
+                  ? job.mismatch_sweep_skip_message
+                  : `불일치 회수 ${n(job.manual_unlock_mismatches)}건`}
                 <br />
                 승인 푸시 {n(job.push_sent)}명 (실패 {n(job.push_failed)} · 구독 없음{' '}
                 {n(job.no_subscription)}) · 불일치 푸시 {n(job.mismatch_push_sent)}명 (실패{' '}
@@ -271,7 +293,11 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
               <li key={recent.job_id} className={recent.status === 'failed' ? 'text-danger' : 'text-muted'}>
                 {formatJobTime(recent.created_at)} · {statusLabel(recent)} · {recent.file_name || '-'}
                 {recent.status === 'completed'
-                  ? ` · 승인 ${n(recent.matched_approved)} · 불일치 ${n(recent.manual_unlock_mismatches)}`
+                  ? ` · 승인 ${n(recent.matched_approved)} · ${
+                      recent.mismatch_sweep === 'skipped'
+                        ? '불일치 회수 건너뜀(부분 목록)'
+                        : `불일치 ${n(recent.manual_unlock_mismatches)}`
+                    }`
                   : ''}
                 {recent.status === 'failed' && recent.error ? ` · ${recent.error}` : ''}
               </li>
@@ -279,6 +305,8 @@ export function InstagramFollowersUpload({ token }: InstagramFollowersUploadProp
           </ul>
         </div>
       ) : null}
+
+      <InstagramFalseMismatchRecovery token={token} />
     </div>
   )
 }

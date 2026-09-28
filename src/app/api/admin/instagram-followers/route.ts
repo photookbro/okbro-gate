@@ -6,6 +6,7 @@ import {
   createInstagramFollowerUploadJob,
   getActiveInstagramFollowerUploadJob,
   getInstagramFollowerUploadJob,
+  getLatestInstagramFollowerSnapshotBaseline,
   getLatestInstagramFollowerUploadJobs,
   processInstagramFollowerUploadJob,
   reconcileInstagramFollowerUploadJobs,
@@ -84,10 +85,14 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    const jobs = await getLatestInstagramFollowerUploadJobs(admin, 5)
+    const [jobs, snapshotBaseline] = await Promise.all([
+      getLatestInstagramFollowerUploadJobs(admin, 5),
+      getLatestInstagramFollowerSnapshotBaseline(admin),
+    ])
     return NextResponse.json({
       success: true,
       jobs: jobs.map(buildFollowerUploadJobPublicView),
+      snapshot_baseline: snapshotBaseline,
     })
   } catch (error) {
     const migrationMessage = missingMigrationMessage(error as { code?: string; message?: string })

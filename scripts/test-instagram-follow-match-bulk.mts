@@ -11,6 +11,11 @@ import {
   approveInstagramFollowPendingRow,
   matchPendingInstagramFollowClaims,
 } from '../src/lib/instagram-follow-approve-server.ts'
+import {
+  previewInstagramFalseMismatchRecovery,
+  recoverInstagramFalseMismatches,
+} from '../src/lib/instagram-follow-false-mismatch-server.ts'
+import { decideMismatchSweep } from '../src/lib/instagram-follow-match-plan.ts'
 
 const MAX_ROWS = 1000 // Supabase PostgREST 기본 max_rows
 const ASSUMED_RTT_MS = 40 // Vercel↔Supabase 같은 리전 PostgREST 1회 왕복 가정
@@ -205,6 +210,7 @@ function applyMismatchRpc(db: Db, jobId: string, ids: string[]) {
   for (const row of updated) {
     row.manually_unlocked = false
     row.manual_unlock_verified_mismatch = true
+    row.updated_at = FLAGGED_AT
     const dup = db.instagram_follow_push_outbox.some(
       o => o.job_id === jobId && o.user_id === row.user_id && o.kind === 'mismatch'
     )
@@ -213,8 +219,11 @@ function applyMismatchRpc(db: Db, jobId: string, ids: string[]) {
   return updated.map(r => ({ revoked_id: r.id, revoked_user_id: r.user_id }))
 }
 
+const FLAGGED_AT = '2026-09-28T02:10:30.000Z'
+
 function fakeClient(db: Db): SupabaseClient {
   return {
+    auth: { admin: { listUsers: async () => ({ data: { users: [] }, error: null }) } },
     from: (table: string) => new FakeQuery(db, table),
     rpc: async (name: string, args: Record<string, unknown>) => {
       callCount++
@@ -242,9 +251,12 @@ function buildDataset() {
     orders: [],
     instagram_handle_bonus_history: [],
     instagram_follow_push_outbox: [],
+    instagram_followers: [],
+    push_subscriptions: [],
   }
   const followers: string[] = []
   for (let i = 0; i < 11_609; i++) followers.push(`follower_${pad(i)}`)
+  db.instagram_followers = followers.map(username => ({ username }))
 
   const activeExpires = '2026-10-01T14:59:59.999Z'
   let seq = 0
@@ -259,6 +271,7 @@ function buildDataset() {
       manual_unlock_verified_mismatch: false,
       expires_at: manual ? activeExpires : null,
       created_at: new Date(Date.UTC(2026, 8, 20, 0, 0, seq)).toISOString(),
+      updated_at: new Date(Date.UTC(2026, 8, 20, 0, 0, seq)).toISOString(),
     })
   }
 
@@ -316,7 +329,11 @@ assert.equal((capped as Row[]).length, MAX_ROWS, '예전 방식(range 없는 sel
 
 callCount = 0
 const started = performance.now()
-const first = await matchPendingInstagramFollowClaims(admin, followers, { jobId: 'job-1', now })
+const first = await matchPendingInstagramFollowClaims(admin, followers, {
+  jobId: 'job-1',
+  sweepMismatches: true,
+  now,
+})
 const newCpuMs = performance.now() - started
 const newCalls = callCount
 const afterFirst = counts(db)
@@ -330,13 +347,93 @@ assert.equal(db.instagram_handle_bonus_history.length, 919)
 
 // 재실행(같은 파일 재업로드) → 이미 처리된 건은 다시 승인/회수/적재되지 않음
 callCount = 0
-const second = await matchPendingInstagramFollowClaims(admin, followers, { jobId: 'job-2', now })
+const second = await matchPendingInstagramFollowClaims(admin, followers, {
+  jobId: 'job-2',
+  sweepMismatches: true,
+  now,
+})
 const rerunCalls = callCount
 const afterSecond = counts(db)
 assert.equal(second.approved, 0)
 assert.equal(second.manual_unlock_mismatches, 0)
 assert.equal(afterSecond.outboxApproved, afterFirst.outboxApproved)
 assert.equal(afterSecond.outboxMismatch, afterFirst.outboxMismatch)
+
+// ---- 부분 업로드(followers_2만) 재발 방지 ----
+const partialFollowers = followers.slice(10_000) // 1,609건
+const partialDecision = decideMismatchSweep({
+  fileCount: 1,
+  totalParsed: partialFollowers.length,
+  baselineTotal: followers.length,
+})
+assert.equal(partialDecision.sweep, false)
+{
+  const guarded = buildDataset()
+  const guardedResult = await matchPendingInstagramFollowClaims(
+    fakeClient(guarded.db),
+    partialFollowers,
+    { jobId: 'job-partial', sweepMismatches: partialDecision.sweep, now }
+  )
+  assert.equal(guardedResult.manual_unlock_mismatches, 0, '부분 목록은 회수하지 않음')
+  assert.equal(guarded.db.instagram_follow_push_outbox.length, 0)
+}
+
+// ---- 오탐 복구: 예전처럼 부분 목록으로 회수가 돌아간 상태 재현 → 미리보기 → 복구 → 전체 재업로드 ----
+const incident = buildDataset()
+const incidentAdmin = fakeClient(incident.db)
+const incidentRun = await matchPendingInstagramFollowClaims(incidentAdmin, partialFollowers, {
+  jobId: 'job-incident',
+  sweepMismatches: true,
+  now,
+})
+// 수동 해제 850(팔로워) + 473(비팔로워) + 5(아이디 선점) 모두 회수됨
+assert.equal(incidentRun.manual_unlock_mismatches, 1328)
+// 회수 전부터 구독이 있던 사용자 100명 + 회수 뒤 구독한 사용자 20명
+for (let i = 1; i <= 120; i++) {
+  incident.db.push_subscriptions.push({
+    id: `s-${pad(i)}`,
+    user_id: `u-${pad(i)}`,
+    created_at: i <= 100 ? '2026-09-25T00:00:00.000Z' : '2026-09-28T02:30:00.000Z',
+  })
+}
+
+const preview = await previewInstagramFalseMismatchRecovery(incidentAdmin, now)
+assert.equal(preview.flagged_total, 1328)
+assert.equal(preview.in_followers, 855, '팔로워 목록에 있는 오탐 850 + 아이디 선점 5')
+assert.equal(preview.recoverable, 850)
+assert.equal(preview.handle_taken, 5)
+assert.equal(preview.push_likely_users, 100)
+
+const outboxBeforeRecovery = incident.db.instagram_follow_push_outbox.length
+const recovery = await recoverInstagramFalseMismatches(
+  incidentAdmin,
+  preview.candidates.filter(row => !row.handle_taken).map(row => row.id),
+  now
+)
+assert.deepEqual(recovery, { requested: 850, recovered: 850, skipped: 0 })
+assert.equal(incident.db.instagram_follow_push_outbox.length, outboxBeforeRecovery, '복구는 푸시 적재 없음')
+assert.equal(
+  incident.db.instagram_follow_bonus.filter(
+    r => r.status === 'approved' && r.manual_unlock_verified_mismatch === false && String(r.id).startsWith('b-')
+  ).length,
+  850
+)
+const recoveryAgain = await recoverInstagramFalseMismatches(
+  incidentAdmin,
+  preview.candidates.map(row => row.id),
+  now
+)
+assert.equal(recoveryAgain.recovered, 0, '복구 재실행은 변화 없음')
+
+// 전체 목록 재업로드 → 잠긴 69건 승인, 이미 회수된 473건은 다시 회수·푸시되지 않음
+const fullAfterRecovery = await matchPendingInstagramFollowClaims(incidentAdmin, followers, {
+  jobId: 'job-full-after-recovery',
+  sweepMismatches: true,
+  now,
+})
+assert.equal(fullAfterRecovery.approved, 69)
+assert.equal(fullAfterRecovery.manual_unlock_mismatches, 0)
+assert.equal(fullAfterRecovery.skipped_handle_taken, 5)
 
 // ---- 예전 건별 방식 (DB 호출 수만 비교, 푸시는 구독 조회 1회 + HTTP 로 계산) ----
 const legacy = buildDataset()
@@ -394,6 +491,18 @@ console.log(
         est_seconds_at_40ms_rtt: (newCalls * ASSUMED_RTT_MS) / 1000,
         cpu_ms: Math.round(newCpuMs),
         rerun: { approved: second.approved, mismatches: second.manual_unlock_mismatches, db_calls: rerunCalls },
+      },
+      false_mismatch_recovery: {
+        incident_revoked: incidentRun.manual_unlock_mismatches,
+        preview: {
+          flagged_total: preview.flagged_total,
+          in_followers: preview.in_followers,
+          recoverable: preview.recoverable,
+          handle_taken: preview.handle_taken,
+          push_likely_users: preview.push_likely_users,
+        },
+        recovered: recovery.recovered,
+        full_reupload_after: fullAfterRecovery,
       },
       legacy: {
         pending_seen_due_to_1000_cap: legacyPending.length,

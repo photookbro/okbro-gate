@@ -367,14 +367,14 @@ export async function revokeExistingMismatchedManualUnlocks(
   return result
 }
 
-function chunk<T>(items: T[], size: number): T[][] {
+export function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = []
   for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size))
   return chunks
 }
 
 /** PostgREST max_rows(기본 1000)에 잘리지 않도록 빈 페이지가 나올 때까지 range 조회 */
-async function selectAllPages<T>(
+export async function selectAllPages<T>(
   fetchPage: (
     from: number,
     to: number
@@ -391,7 +391,7 @@ async function selectAllPages<T>(
   }
 }
 
-function missingMatchRpcError(error: PostgrestError): Error {
+export function missingMatchRpcError(error: PostgrestError): Error {
   if (error.code === 'PGRST202' || error.code === '42883') {
     return new Error(
       '대조 함수가 없어요. Supabase SQL Editor에서 마이그레이션 20260928_instagram_follower_upload_match_outbox.sql 을 실행해주세요.'
@@ -400,39 +400,17 @@ function missingMatchRpcError(error: PostgrestError): Error {
   return new Error(`대조 반영 실패: ${error.message}`)
 }
 
-/**
- * 팔로워 목록과 pending 신청 대조 — 조회는 청크 단위, 반영은 RPC 일괄 update.
- * 푸시는 여기서 보내지 않고 instagram_follow_push_outbox 에 적재만 함.
- */
-export async function matchPendingInstagramFollowClaims(
+export type FollowMatchContext = {
+  approvedHandles: Set<string>
+  userBonusRows: UserInstagramBonusRow[]
+  latestOrderByUser: Map<string, OrderRecord>
+}
+
+/** 승인 대상 행들의 만료일 계산에 필요한 기존 승인 아이디·유저 혜택·주문을 청크 조회 */
+export async function loadFollowMatchContext(
   admin: SupabaseClient,
-  usernames: string[],
-  options: { jobId: string; onProgress?: () => Promise<void>; now?: Date }
-): Promise<InstagramMatchResult> {
-  const result: InstagramMatchResult = {
-    approved: 0,
-    manual_unlock_mismatches: 0,
-    skipped_handle_taken: 0,
-  }
-
-  const handleSet = buildFollowerHandleSet(usernames)
-  if (handleSet.size === 0) return result
-
-  const now = options.now ?? new Date()
-  const settings = await loadVerificationSettings(admin)
-
-  const pendingRows = await selectAllPages<PendingFollowClaim>((from, to) =>
-    admin
-      .from('instagram_follow_bonus')
-      .select('id, user_id, instagram_handle, manually_unlocked, created_at')
-      .eq('status', 'pending')
-      .order('id', { ascending: true })
-      .range(from, to)
-  )
-
-  const matchedRows = pendingRows.filter(row =>
-    handleSet.has(row.instagram_handle.trim().toLowerCase())
-  )
+  matchedRows: Pick<PendingFollowClaim, 'user_id' | 'instagram_handle'>[]
+): Promise<FollowMatchContext> {
   const matchedHandles = [...new Set(matchedRows.map(row => row.instagram_handle.trim()))]
   const matchedUserIds = [...new Set(matchedRows.map(row => row.user_id))]
 
@@ -483,15 +461,58 @@ export async function matchPendingInstagramFollowClaims(
     if (latest) latestOrderByUser.set(userId, latest)
   }
 
+  return { approvedHandles, userBonusRows, latestOrderByUser }
+}
+
+/**
+ * 팔로워 목록과 pending 신청 대조 — 조회는 청크 단위, 반영은 RPC 일괄 update.
+ * 푸시는 여기서 보내지 않고 instagram_follow_push_outbox 에 적재만 함.
+ * sweepMismatches=false(부분 목록)면 승인 매칭만 하고 불일치 회수는 하지 않음.
+ */
+export async function matchPendingInstagramFollowClaims(
+  admin: SupabaseClient,
+  usernames: string[],
+  options: {
+    jobId: string
+    sweepMismatches: boolean
+    onProgress?: () => Promise<void>
+    now?: Date
+  }
+): Promise<InstagramMatchResult> {
+  const result: InstagramMatchResult = {
+    approved: 0,
+    manual_unlock_mismatches: 0,
+    skipped_handle_taken: 0,
+  }
+
+  const handleSet = buildFollowerHandleSet(usernames)
+  if (handleSet.size === 0) return result
+
+  const now = options.now ?? new Date()
+  const settings = await loadVerificationSettings(admin)
+
+  const pendingRows = await selectAllPages<PendingFollowClaim>((from, to) =>
+    admin
+      .from('instagram_follow_bonus')
+      .select('id, user_id, instagram_handle, manually_unlocked, created_at')
+      .eq('status', 'pending')
+      .order('id', { ascending: true })
+      .range(from, to)
+  )
+
+  const matchedRows = pendingRows.filter(row =>
+    handleSet.has(row.instagram_handle.trim().toLowerCase())
+  )
+  const context = await loadFollowMatchContext(admin, matchedRows)
+
   const plan = planInstagramFollowMatch({
     pendingRows,
     handleSet,
-    approvedHandles,
-    userBonusRows,
-    latestOrderByUser,
+    ...context,
     bonusDays: settings.instagramFollowBonusDays,
     verifiedPeriodDays: settings.verifiedPeriodDays,
     now,
+    sweepMismatches: options.sweepMismatches,
   })
   result.skipped_handle_taken = plan.skippedHandleTaken
 
