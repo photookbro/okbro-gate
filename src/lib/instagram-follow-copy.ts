@@ -44,6 +44,10 @@ export function instagramFollowAwaitingCheckNotice(): string {
   return '다음 확인 때까지 대기 중이에요. 팔로우 후 아이디를 다시 확인해주세요'
 }
 
+export function instagramFollowBonusUsedUpNotice(): string {
+  return '인스타그램 무료 혜택은 1회만 가능해요. 이미 사용하셔서 이번엔 구매 인증이 필요해요'
+}
+
 export function instagramFollowMismatchPushBody(): string {
   return `인스타그램 팔로우가 확인되지 않았어요. @${INSTAGRAM_HANDLE} 팔로우와 아이디 입력을 다시 확인해주세요`
 }
