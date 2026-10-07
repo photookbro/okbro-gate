@@ -4,6 +4,12 @@ import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getAuthenticatedUser } from '@/lib/auth-server'
 import { TERMS_VERSION } from '@/lib/terms-agreement'
+import {
+  hasTermsAgreementClaim,
+  recordTermsAgreementClaim,
+} from '@/lib/terms-agreement-server'
+
+const AGREED_CACHE_HEADERS = { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=30' }
 
 function getClientIp(req: NextRequest): string | null {
   const forwarded = req.headers.get('x-forwarded-for')
@@ -27,6 +33,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 })
   }
 
+  if (hasTermsAgreementClaim(user)) {
+    return NextResponse.json({ agreed: true, agreed_at: null }, { headers: AGREED_CACHE_HEADERS })
+  }
+
   const admin = supabaseAdmin()
   const { data, error } = await admin
     .from('terms_agreements')
@@ -45,6 +55,7 @@ export async function GET(req: NextRequest) {
   }
 
   const agreed = !!data
+  if (agreed) await recordTermsAgreementClaim(user)
   return NextResponse.json(
     {
       agreed,
@@ -52,9 +63,7 @@ export async function GET(req: NextRequest) {
     },
     {
       // 동의 완료 건만 짧게 캐시 — 미동의는 게이트가 즉시 반영되도록 캐시하지 않음
-      headers: agreed
-        ? { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=30' }
-        : { 'Cache-Control': 'private, no-store' },
+      headers: agreed ? AGREED_CACHE_HEADERS : { 'Cache-Control': 'private, no-store' },
     }
   )
 }
@@ -120,6 +129,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (existing) {
+    await recordTermsAgreementClaim(user)
     return NextResponse.json({
       success: true,
       already_agreed: true,
@@ -134,6 +144,7 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (!error) {
+    await recordTermsAgreementClaim(user)
     return NextResponse.json({
       success: true,
       agreed_at: data.agreed_at,
@@ -161,6 +172,7 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (!adminError) {
+    await recordTermsAgreementClaim(user)
     return NextResponse.json({
       success: true,
       agreed_at: adminData.agreed_at,
