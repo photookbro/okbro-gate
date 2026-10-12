@@ -92,13 +92,6 @@ export function SiteNav() {
       >
         styleUP
       </Link>
-      <Link
-        href="/shop"
-        className={navLinkClass(pathname === '/shop' || pathname.startsWith('/shop/'))}
-        data-guest-allowed
-      >
-        SHOP
-      </Link>
       {userId ? (
         <>
           <Link href="/mypage" className={navLinkClass(pathname === '/mypage')}>
