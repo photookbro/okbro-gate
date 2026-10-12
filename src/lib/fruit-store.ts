@@ -29,15 +29,11 @@ export function isGuestAllowedHref(href: string): boolean {
     return true
   }
 
-  // 홈 / 대회 목록 / 샵 메뉴 이동 허용
-  if (trimmed === '/' || trimmed === '/home' || trimmed === '/events' || trimmed === '/shop') {
+  // 홈 / 대회 목록 메뉴 이동 허용
+  if (trimmed === '/' || trimmed === '/home' || trimmed === '/events') {
     return true
   }
-  if (
-    trimmed.startsWith('/home?') ||
-    trimmed.startsWith('/events?') ||
-    trimmed.startsWith('/shop?')
-  ) {
+  if (trimmed.startsWith('/home?') || trimmed.startsWith('/events?')) {
     return true
   }
 

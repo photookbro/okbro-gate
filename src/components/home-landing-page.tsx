@@ -189,9 +189,6 @@ export function HomeLandingPage() {
                 <span className="hl-badge">
                   인스타 DM <b>직접 응대</b>
                 </span>
-                <span className="hl-badge">
-                  SHOP <b>가성비 장비</b>
-                </span>
               </div>
             </div>
             <div className="hl-diff-visual">
@@ -280,9 +277,6 @@ export function HomeLandingPage() {
                 <a href="#solution" data-guest-allowed>
                   이용 방법
                 </a>
-                <Link href="/shop" data-guest-allowed>
-                  SHOP
-                </Link>
               </div>
               <div className="hl-foot-col">
                 <h4 className="hl-label">SUPPORT</h4>
