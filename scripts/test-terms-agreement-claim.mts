@@ -92,6 +92,20 @@ assert.ok(!(nowAgreed instanceof NextResponse), '동의 직후 바로 통과')
 await requireTermsAgreement(getUser(NEW))
 assert.equal(counts.termsSelect, 2, '미동의 1회 + 동의 확인 1회, 이후 0회')
 
+// 토큰 app_metadata 는 재발급 전까지 예전 값 — 같은 인스턴스에서는 DB 조회·기록을 반복하지 않음
+const STALE = '33333333-3333-4333-8333-333333333333'
+users.set(STALE, { id: STALE, app_metadata: { provider: 'google' } })
+agreements.add(STALE)
+const staleToken = structuredClone(users.get(STALE)!) as never
+counts.termsSelect = 0
+counts.adminUpdate = 0
+for (let i = 0; i < 5; i++) {
+  const result = await requireTermsAgreement(staleToken)
+  assert.ok(!(result instanceof NextResponse), '토큰이 오래돼도 통과')
+}
+assert.equal(counts.termsSelect, 1, '오래된 토큰도 최초 1회만 조회')
+assert.equal(counts.adminUpdate, 1, '오래된 토큰도 기록 1회')
+
 // app_metadata 기록이 실패해도 동의 판정은 그대로
 const { recordTermsAgreementClaim } = await import('../src/lib/terms-agreement-server.ts')
 await recordTermsAgreementClaim({ id: 'not-a-uuid', app_metadata: {} } as never)

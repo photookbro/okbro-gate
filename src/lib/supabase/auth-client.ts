@@ -1,15 +1,13 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 
+/**
+ * 화면 표시용 로그인 사용자 — 저장된 세션을 읽어 /auth/v1/user 호출 없음.
+ * 권한 판단은 API 라우트가 토큰 서명을 다시 검증하므로 여기서 서버 재검증하지 않음.
+ */
 export async function resolveClientUser(
   supabase: SupabaseClient = createClient()
 ): Promise<User | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (user) return user
-
   const {
     data: { session },
   } = await supabase.auth.getSession()
@@ -21,11 +19,7 @@ export async function resolveClientUser(
     return refreshed.session.user
   }
 
-  const {
-    data: { user: retryUser },
-  } = await supabase.auth.getUser()
-
-  return retryUser ?? null
+  return null
 }
 
 export async function buildAuthFetchInit(init: RequestInit = {}): Promise<RequestInit> {

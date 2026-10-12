@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   const now = new Date().toISOString()
 
   try {
-    await ensureUserProfile(admin, user.id, user.created_at ?? now)
+    await ensureUserProfile(admin, user.id, user.created_at)
 
     const { error } = await admin
       .from('profiles')

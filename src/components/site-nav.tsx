@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { resolveClientUser } from '@/lib/supabase/auth-client'
+import { useGuestAuth } from '@/components/guest-auth-gate'
 import { emitAuthLogout } from '@/lib/gps-tracking-storage'
 
 function navLinkClass(active: boolean) {
@@ -14,37 +14,9 @@ function navLinkClass(active: boolean) {
 export function SiteNav() {
   const router = useRouter()
   const pathname = usePathname()
-  const supabase = createClient()
-  const [userId, setUserId] = useState<string | null>(null)
-  const [checked, setChecked] = useState(false)
+  const { userId, authReady: checked } = useGuestAuth()
   const [loggingOut, setLoggingOut] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadAuth() {
-      const user = await resolveClientUser(supabase)
-
-      if (cancelled) return
-      setUserId(user?.id ?? null)
-      setChecked(true)
-    }
-
-    void loadAuth()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserId(session?.user?.id ?? null)
-      setChecked(true)
-    })
-
-    return () => {
-      cancelled = true
-      subscription.unsubscribe()
-    }
-  }, [supabase.auth])
 
   useEffect(() => {
     setMenuOpen(false)
@@ -67,8 +39,7 @@ export function SiteNav() {
     setMenuOpen(false)
     // 세션 종료 전에 GPS watch/로컬 CAPTURING을 먼저 끊음
     emitAuthLogout()
-    await supabase.auth.signOut()
-    setUserId(null)
+    await createClient().auth.signOut()
     router.push('/login')
   }
 

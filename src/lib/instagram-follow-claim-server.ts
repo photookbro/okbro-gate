@@ -75,7 +75,7 @@ export async function submitInstagramFollowClaim(
   const verifiedPeriodDays = settings.verifiedPeriodDays
   const nowIso = now.toISOString()
 
-  await ensureUserProfile(admin, user.id, user.created_at ?? nowIso)
+  await ensureUserProfile(admin, user.id, user.created_at)
 
   const { data: handleTaken } = await admin
     .from('instagram_follow_bonus')
