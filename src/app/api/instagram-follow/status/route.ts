@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const admin = supabaseAdmin()
     const settings = await loadVerificationSettings(admin)
 
-    await ensureUserProfile(admin, user.id, user.created_at ?? new Date().toISOString())
+    await ensureUserProfile(admin, user.id, user.created_at)
 
     const [effectiveBonus, latestAttempt] = await Promise.all([
       getEffectiveInstagramFollowBonus(admin, user.id),

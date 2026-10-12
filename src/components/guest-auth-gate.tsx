@@ -22,11 +22,13 @@ type AuthStatus = 'loading' | 'guest' | 'user'
 type GuestAuthContextValue = {
   isLoggedIn: boolean
   authReady: boolean
+  userId: string | null
 }
 
 const GuestAuthContext = createContext<GuestAuthContextValue>({
   isLoggedIn: false,
   authReady: false,
+  userId: null,
 })
 
 export function useGuestAuth(): GuestAuthContextValue {
@@ -67,6 +69,7 @@ function isAllowedInteractive(el: Element): boolean {
 export function GuestAuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [authStatus, setAuthStatus] = useState<AuthStatus>('loading')
+  const [userId, setUserId] = useState<string | null>(null)
   const [loginOpen, setLoginOpen] = useState(false)
 
   useEffect(() => {
@@ -76,6 +79,7 @@ export function GuestAuthGate({ children }: { children: ReactNode }) {
     async function loadAuth() {
       const user = await resolveClientUser(supabase)
       if (cancelled) return
+      setUserId(user?.id ?? null)
       setAuthStatus(user ? 'user' : 'guest')
     }
 
@@ -84,6 +88,7 @@ export function GuestAuthGate({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user?.id ?? null)
       setAuthStatus(session?.user ? 'user' : 'guest')
     })
 
@@ -117,7 +122,7 @@ export function GuestAuthGate({ children }: { children: ReactNode }) {
 
   return (
     <GuestAuthContext.Provider
-      value={{ isLoggedIn, authReady: authStatus !== 'loading' }}
+      value={{ isLoggedIn, authReady: authStatus !== 'loading', userId }}
     >
       <div onClickCapture={blockGuestAction} onKeyDownCapture={handleKeyDownCapture}>
         {children}

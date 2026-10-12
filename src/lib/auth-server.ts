@@ -1,10 +1,23 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import type { User } from '@supabase/supabase-js'
+import type { JwtPayload, User } from '@supabase/supabase-js'
 
 type RequestWithHeaders = {
   headers: Headers
 }
+
+/**
+ * 서명 검증된 access token 클레임으로 만든 사용자.
+ * 토큰에 없는 값(created_at 등)은 비어 있고, app_metadata 는 토큰 발급 시점 기준.
+ */
+export type AuthenticatedUser = Pick<
+  User,
+  'id' | 'email' | 'phone' | 'app_metadata' | 'user_metadata' | 'is_anonymous'
+> & {
+  created_at?: string
+}
+
+type AuthSupabase = Awaited<ReturnType<typeof createAuthSupabase>>
 
 async function createAuthSupabase() {
   const cookieStore = await cookies()
@@ -39,27 +52,35 @@ function readBearerToken(req?: RequestWithHeaders): string | null {
   return match?.[1]?.trim() || null
 }
 
-async function getUserFromBearerToken(
-  supabase: Awaited<ReturnType<typeof createAuthSupabase>>,
-  token: string
-): Promise<User | null> {
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(token)
-
-  if (error || !user) return null
-  return user
+function userFromClaims(claims: JwtPayload): AuthenticatedUser | null {
+  if (!claims.sub || claims.role !== 'authenticated') return null
+  return {
+    id: claims.sub,
+    email: claims.email,
+    phone: claims.phone,
+    app_metadata: claims.app_metadata ?? {},
+    user_metadata: claims.user_metadata ?? {},
+    is_anonymous: claims.is_anonymous,
+  }
 }
 
-export async function getAuthenticatedUser(req?: RequestWithHeaders): Promise<User | null> {
+/**
+ * getClaims 는 비대칭 서명 키(ES256)면 JWKS 캐시로 로컬 검증 — /auth/v1/user 호출 없음.
+ * 대칭 키 프로젝트라면 내부적으로 getUser 로 폴백.
+ */
+async function verifyClaims(supabase: AuthSupabase, jwt?: string): Promise<AuthenticatedUser | null> {
+  const { data, error } = await supabase.auth.getClaims(jwt)
+  if (error || !data?.claims) return null
+  return userFromClaims(data.claims)
+}
+
+export async function getAuthenticatedUser(
+  req?: RequestWithHeaders
+): Promise<AuthenticatedUser | null> {
   const supabase = await createAuthSupabase()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (user) return user
+  const cookieUser = await verifyClaims(supabase)
+  if (cookieUser) return cookieUser
 
   const {
     data: { session },
@@ -69,17 +90,14 @@ export async function getAuthenticatedUser(req?: RequestWithHeaders): Promise<Us
   if (session?.refresh_token) {
     const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession()
     if (!refreshError && refreshed.session) {
-      const {
-        data: { user: refreshedUser },
-      } = await supabase.auth.getUser()
+      const refreshedUser = await verifyClaims(supabase, refreshed.session.access_token)
       if (refreshedUser) return refreshedUser
-      return refreshed.session.user
     }
   }
 
   const bearerToken = readBearerToken(req)
   if (bearerToken) {
-    return getUserFromBearerToken(supabase, bearerToken)
+    return verifyClaims(supabase, bearerToken)
   }
 
   return null

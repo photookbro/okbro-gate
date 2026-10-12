@@ -80,7 +80,7 @@ async function getMypage(req: NextRequest) {
   )
 
   try {
-    await ensureUserProfile(admin, user.id, user.created_at ?? new Date().toISOString())
+    await ensureUserProfile(admin, user.id, user.created_at)
     const [effectiveInstagramBonus, latestInstagramAttempt] = await Promise.all([
       getEffectiveInstagramFollowBonus(admin, user.id),
       getLatestInstagramFollowBonusAttempt(admin, user.id),

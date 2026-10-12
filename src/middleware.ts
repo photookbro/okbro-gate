@@ -56,14 +56,14 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // getClaims: 만료 임박 시 세션 갱신(쿠키 반영) + ES256 서명 로컬 검증 — /auth/v1/user 호출 없음
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const isLoggedIn = !!claimsData?.claims?.sub
 
   // API 는 각 라우트에서 401 처리 — 페이지 HTML 리다이렉트 하지 않음
   const isApi = pathname.startsWith('/api/')
 
-  if (!user && !isApi && !isGuestPublicPath(pathname)) {
+  if (!isLoggedIn && !isApi && !isGuestPublicPath(pathname)) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
     loginUrl.search = ''

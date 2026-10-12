@@ -5,10 +5,21 @@ export type UserProfileRow = {
   first_created_at: string
 }
 
+/** 토큰 클레임에는 가입 시각이 없어서, 프로필을 새로 만들 때만 계정에서 조회 */
+async function lookupAuthCreatedAt(admin: SupabaseClient, userId: string): Promise<string | null> {
+  try {
+    const { data, error } = await admin.auth.admin.getUserById(userId)
+    if (error) return null
+    return data.user?.created_at ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function ensureUserProfile(
   admin: SupabaseClient,
   userId: string,
-  authCreatedAt: string
+  authCreatedAt?: string | null
 ): Promise<UserProfileRow> {
   const { data: existing, error: selectError } = await admin
     .from('profiles')
@@ -24,7 +35,8 @@ export async function ensureUserProfile(
     return existing as UserProfileRow
   }
 
-  const firstCreatedAt = authCreatedAt || new Date().toISOString()
+  const firstCreatedAt =
+    authCreatedAt || (await lookupAuthCreatedAt(admin, userId)) || new Date().toISOString()
 
   const { error: insertError } = await admin.from('profiles').insert({
     user_id: userId,
